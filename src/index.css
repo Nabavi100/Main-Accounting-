@@ -1,0 +1,517 @@
+@import "tailwindcss";
+
+@layer base {
+  * {
+    font-family: 'Vazirmatn', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Tahoma', sans-serif !important;
+  }
+
+  html, body {
+    direction: rtl;
+    text-align: right;
+    font-size: var(--app-base-font-size, 14px);
+    font-feature-settings: "ss01", "ss02", "cv01";
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Font Scaling Classes */
+  html.font-scale-sm {
+    font-size: 14px;
+  }
+  html.font-scale-md {
+    font-size: 16px;
+  }
+  html.font-scale-lg {
+    font-size: 17.5px;
+  }
+  html.font-scale-xl {
+    font-size: 19px;
+  }
+
+  input, select, textarea, button {
+    font-family: inherit !important;
+  }
+}
+
+/* Application Theme Variants */
+body.theme-light {
+  --bg-app: #f8fafc;
+  --card-app: #ffffff;
+  --border-app: #e2e8f0;
+  --text-main: #0f172a;
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+/* ========================================================================= */
+/* DARK SLATE THEME (تم شب زغال‌سنگی)                                         */
+/* ========================================================================= */
+body.theme-dark,
+body.dark:not(.gold):not(.theme-executive) {
+  --bg-app: #090d16;
+  --card-app: #0f172a;
+  --border-app: #1e293b;
+  --text-main: #f8fafc;
+  background-color: #090d16 !important;
+  color: #f1f5f9 !important;
+}
+
+body.theme-dark header,
+body.dark:not(.gold):not(.theme-executive) header {
+  background-color: #0d1322 !important;
+  border-color: #1e293b !important;
+}
+
+body.theme-dark aside,
+body.dark:not(.gold):not(.theme-executive) aside {
+  background-color: #0f172a !important;
+  border-color: #1e293b !important;
+}
+
+body.theme-dark main,
+body.dark:not(.gold):not(.theme-executive) main {
+  background-color: #090d16 !important;
+}
+
+body.theme-dark .bg-slate-50,
+body.theme-dark .bg-slate-100,
+body.dark:not(.gold):not(.theme-executive) .bg-slate-50,
+body.dark:not(.gold):not(.theme-executive) .bg-slate-100 {
+  background-color: #0d1322 !important;
+}
+
+body.theme-dark .bg-white,
+body.dark:not(.gold):not(.theme-executive) .bg-white {
+  background-color: #131b2e !important;
+  color: #f8fafc;
+  border-color: #1e293b !important;
+}
+
+body.theme-dark .border-slate-100,
+body.theme-dark .border-slate-200,
+body.theme-dark .border-slate-300,
+body.dark:not(.gold):not(.theme-executive) .border-slate-100,
+body.dark:not(.gold):not(.theme-executive) .border-slate-200,
+body.dark:not(.gold):not(.theme-executive) .border-slate-300 {
+  border-color: #1e293b !important;
+}
+
+body.theme-dark .text-slate-900,
+body.dark:not(.gold):not(.theme-executive) .text-slate-900 {
+  color: #f8fafc !important;
+}
+
+body.theme-dark .text-slate-800,
+body.dark:not(.gold):not(.theme-executive) .text-slate-800 {
+  color: #e2e8f0 !important;
+}
+
+body.theme-dark .text-slate-700,
+body.dark:not(.gold):not(.theme-executive) .text-slate-700 {
+  color: #cbd5e1 !important;
+}
+
+body.theme-dark .text-slate-600,
+body.dark:not(.gold):not(.theme-executive) .text-slate-600 {
+  color: #94a3b8 !important;
+}
+
+body.theme-dark input,
+body.theme-dark select,
+body.theme-dark textarea,
+body.dark:not(.gold):not(.theme-executive) input,
+body.dark:not(.gold):not(.theme-executive) select,
+body.dark:not(.gold):not(.theme-executive) textarea {
+  background-color: #0b1120 !important;
+  color: #f8fafc !important;
+  border-color: #26334d !important;
+}
+
+body.theme-dark table th,
+body.dark:not(.gold):not(.theme-executive) table th {
+  background-color: #141e33 !important;
+  color: #94a3b8 !important;
+}
+
+/* ========================================================================= */
+/* ROYAL GOLD LUXURY THEME (تم طلایی سلطنتی)                                   */
+/* ========================================================================= */
+body.theme-gold,
+body.gold {
+  --bg-app: #0c0a09;
+  --card-app: #181512;
+  --border-app: #78350f;
+  --text-main: #fef3c7;
+  background-color: #0c0a09 !important;
+  color: #fef3c7 !important;
+}
+
+body.theme-gold header,
+body.gold header {
+  background-color: #14110e !important;
+  border-color: rgba(217, 119, 6, 0.3) !important;
+}
+
+body.theme-gold aside,
+body.gold aside {
+  background-color: #120f0d !important;
+  border-color: rgba(217, 119, 6, 0.3) !important;
+}
+
+body.theme-gold main,
+body.gold main {
+  background-color: #0c0a09 !important;
+}
+
+body.theme-gold .bg-white,
+body.gold .bg-white {
+  background-color: #171411 !important;
+  color: #fef3c7 !important;
+  border-color: rgba(217, 119, 6, 0.3) !important;
+}
+
+body.theme-gold .bg-slate-50,
+body.theme-gold .bg-slate-100,
+body.gold .bg-slate-50,
+body.gold .bg-slate-100 {
+  background-color: #120f0d !important;
+}
+
+body.theme-gold .border-slate-100,
+body.theme-gold .border-slate-200,
+body.theme-gold .border-slate-300,
+body.gold .border-slate-100,
+body.gold .border-slate-200,
+body.gold .border-slate-300 {
+  border-color: rgba(217, 119, 6, 0.28) !important;
+}
+
+body.theme-gold .text-slate-900,
+body.gold .text-slate-900 {
+  color: #fef08a !important;
+}
+
+body.theme-gold .text-slate-800,
+body.gold .text-slate-800 {
+  color: #fef3c7 !important;
+}
+
+body.theme-gold .text-slate-700,
+body.gold .text-slate-700 {
+  color: #fde68a !important;
+}
+
+body.theme-gold .text-slate-600,
+body.theme-gold .text-slate-500,
+body.gold .text-slate-600,
+body.gold .text-slate-500 {
+  color: #f59e0b !important;
+}
+
+body.theme-gold input,
+body.theme-gold select,
+body.theme-gold textarea,
+body.gold input,
+body.gold select,
+body.gold textarea {
+  background-color: #14110e !important;
+  color: #fef3c7 !important;
+  border-color: rgba(217, 119, 6, 0.45) !important;
+}
+
+body.theme-gold table th,
+body.gold table th {
+  background-color: #201a14 !important;
+  color: #f59e0b !important;
+  border-color: rgba(217, 119, 6, 0.3) !important;
+}
+
+/* ========================================================================= */
+/* EXECUTIVE NAVY THEME (تم اداری سرمه‌ای)                                    */
+/* ========================================================================= */
+body.theme-executive {
+  --bg-app: #0b132b;
+  --card-app: #1c2541;
+  --border-app: #3a506b;
+  --text-main: #edf2f4;
+  background-color: #0b132b !important;
+  color: #edf2f4 !important;
+}
+
+body.theme-executive header {
+  background-color: #131d3b !important;
+  border-color: #2e3e60 !important;
+}
+
+body.theme-executive aside {
+  background-color: #101935 !important;
+  border-color: #2e3e60 !important;
+}
+
+body.theme-executive main {
+  background-color: #0b132b !important;
+}
+
+body.theme-executive .bg-white {
+  background-color: #162244 !important;
+  color: #edf2f4 !important;
+  border-color: #2e3e60 !important;
+}
+
+body.theme-executive .bg-slate-50,
+body.theme-executive .bg-slate-100 {
+  background-color: #101935 !important;
+}
+
+body.theme-executive .border-slate-100,
+body.theme-executive .border-slate-200,
+body.theme-executive .border-slate-300 {
+  border-color: #2e3e60 !important;
+}
+
+body.theme-executive .text-slate-900 {
+  color: #ffffff !important;
+}
+
+body.theme-executive .text-slate-800 {
+  color: #e0e7ff !important;
+}
+
+body.theme-executive .text-slate-700 {
+  color: #c7d2fe !important;
+}
+
+body.theme-executive .text-slate-600,
+body.theme-executive .text-slate-500 {
+  color: #818cf8 !important;
+}
+
+body.theme-executive input,
+body.theme-executive select,
+body.theme-executive textarea {
+  background-color: #0e1730 !important;
+  color: #ffffff !important;
+  border-color: #3b4d75 !important;
+}
+
+/* ========================================================================= */
+/* CLASSIC IVORY THEME (تم دفاتر کلاسیک)                                      */
+/* ========================================================================= */
+body.theme-classic {
+  --bg-app: #f5f4ef;
+  --card-app: #ffffff;
+  --border-app: #dcd6cd;
+  --text-main: #292524;
+  background-color: #f5f4ef !important;
+  color: #292524 !important;
+}
+
+body.theme-classic header {
+  background-color: #faf8f5 !important;
+  border-color: #e4dfd7 !important;
+}
+
+body.theme-classic aside {
+  background-color: #ffffff !important;
+  border-color: #e4dfd7 !important;
+}
+
+body.theme-classic main {
+  background-color: #f5f4ef !important;
+}
+
+body.theme-classic .bg-slate-50 {
+  background-color: #f0eee8 !important;
+}
+
+/* ========================================================================= */
+/* VIBRANT EMERALD THEME (تم بازرگانی زمردی)                                 */
+/* ========================================================================= */
+body.theme-vibrant {
+  --bg-app: #f0fdf4;
+  --card-app: #ffffff;
+  --border-app: #bbf7d0;
+  --text-main: #064e3b;
+  background-color: #f0fdf4 !important;
+  color: #064e3b !important;
+}
+
+body.theme-vibrant header {
+  background-color: #ffffff !important;
+  border-color: #d1fae5 !important;
+}
+
+body.theme-vibrant aside {
+  background-color: #ffffff !important;
+  border-color: #d1fae5 !important;
+}
+
+body.theme-vibrant main {
+  background-color: #f0fdf4 !important;
+}
+
+body.theme-vibrant .bg-slate-50 {
+  background-color: #ecfdf5 !important;
+}
+
+/* Luxury active indicators across buttons and tabs */
+body.theme-gold [aria-selected="true"],
+body.theme-gold .btn-active-luxury,
+body.gold .btn-active-luxury {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.25) 0%, rgba(180, 83, 9, 0.35) 100%) !important;
+  border-color: #f59e0b !important;
+  color: #fef08a !important;
+  box-shadow: 0 0 14px rgba(245, 158, 11, 0.3) !important;
+}
+
+/* Custom Sleek Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f8fafc;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 5mm 6mm 5mm 6mm;
+  }
+
+  *, *::before, *::after {
+    box-sizing: border-box !important;
+  }
+
+  html, body {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    max-height: 100vh !important;
+    overflow: hidden !important;
+    position: static !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    direction: rtl !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* CRITICAL: Completely hide all background views, sidebars, headers, main containers, and other non-print dialogs */
+  aside,
+  header,
+  nav,
+  main,
+  #root > div > main,
+  #root > div > aside,
+  #root > div > header,
+  #root > div > nav,
+  #invoice-detail-modal-backdrop,
+  #payment-modal-backdrop,
+  #access-modal-backdrop,
+  #stock-transfer-modal-backdrop,
+  #quick-add-party-modal-backdrop,
+  .no-print,
+  [id*="sidebar"],
+  [id*="header"] {
+    display: none !important;
+  }
+
+  #root {
+    display: block !important;
+    background: transparent !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    height: 100% !important;
+  }
+
+  #root > div {
+    display: block !important;
+    background: transparent !important;
+    height: 100% !important;
+    overflow: hidden !important;
+  }
+
+  /* Target fixed print modal and reset it for flat single-page print */
+  #document-print-modal-backdrop,
+  .fixed.inset-0,
+  [role="dialog"] {
+    position: static !important;
+    inset: auto !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 100vh !important;
+    min-height: auto !important;
+    overflow: hidden !important;
+    background: #ffffff !important;
+    backdrop-filter: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    z-index: auto !important;
+    box-shadow: none !important;
+    display: block !important;
+  }
+
+  #document-print-modal-container,
+  .print-modal-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    max-height: 100vh !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    overflow: hidden !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+  }
+
+  #printable-paper-canvas,
+  .print-canvas {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 284mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+    page-break-before: avoid !important;
+    break-before: avoid !important;
+    overflow: hidden !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  table {
+    border-collapse: collapse !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  th, td {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+

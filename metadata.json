@@ -1,0 +1,8 @@
+{
+  "name": "شرکت تجارتی برادران نبوی",
+  "description": "سیستم جامع حسابداری، صرافی، انبارداری و خرید و فروش شرکت تجارتی برادران نبوی",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
