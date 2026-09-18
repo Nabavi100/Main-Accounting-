@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { User } from 'firebase/auth';
 import {
   signInWithGoogleDrive,
   signOutGoogleDrive,
@@ -12,13 +11,17 @@ import {
   pruneOldAutoBackups,
   getAutoBackupSettings,
   saveAutoBackupSettings,
+  initDriveAuth,
+  isRunningInIframe,
+  openInNewTab,
   AutoBackupSettings,
   DriveBackupFile,
+  DriveUser,
 } from '../services/googleDriveService';
 import { useAccounting } from '../context/AccountingContext';
 
 export interface UseGoogleDriveBackupReturn {
-  user: User | null;
+  user: DriveUser | null;
   isConnected: boolean;
   isConnecting: boolean;
   isBackingUp: boolean;
@@ -33,13 +36,18 @@ export interface UseGoogleDriveBackupReturn {
   restoreBackup: (fileId: string) => Promise<boolean>;
   deleteBackup: (fileId: string) => Promise<boolean>;
   refreshBackupsList: () => Promise<void>;
+  authErrorMessage: string | null;
+  clearAuthError: () => void;
+  isIframe: boolean;
+  openInNewTab: () => void;
 }
 
 export const useGoogleDriveBackup = (): UseGoogleDriveBackupReturn => {
   const { exportJSON, importJSON, notify } = useAccounting();
 
-  const [user, setUser] = useState<User | null>(getCurrentDriveUser());
+  const [user, setUser] = useState<DriveUser | null>(getCurrentDriveUser());
   const [isConnecting, setIsConnecting] = useState(false);
+  const [authErrorMessage, setAuthErrorMessage] = useState<string | null>(null);
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const [backups, setBackups] = useState<DriveBackupFile[]>([]);
@@ -48,6 +56,29 @@ export const useGoogleDriveBackup = (): UseGoogleDriveBackupReturn => {
 
   const isConnected = !!user && !!getDriveAccessToken();
   const autoBackupTimerRef = useRef<any>(null);
+  const isIframe = isRunningInIframe();
+
+  // Listen to drive auth state changes
+  useEffect(() => {
+    const unsubscribe = initDriveAuth(
+      (u, token) => {
+        setUser(u);
+        listDriveBackups(token).then(list => setBackups(list)).catch(() => {});
+      },
+      () => {
+        setUser(null);
+      }
+    );
+    return () => {
+      if (typeof unsubscribe === 'function') {
+        unsubscribe();
+      }
+    };
+  }, []);
+
+  const clearAuthError = useCallback(() => {
+    setAuthErrorMessage(null);
+  }, []);
 
   // Refresh backups list
   const refreshBackupsList = useCallback(async () => {
@@ -179,10 +210,12 @@ export const useGoogleDriveBackup = (): UseGoogleDriveBackupReturn => {
   // Connect to Google Drive
   const connectDrive = useCallback(async (): Promise<boolean> => {
     setIsConnecting(true);
+    setAuthErrorMessage(null);
     try {
       const res = await signInWithGoogleDrive();
       if (res) {
         setUser(res.user);
+        setAuthErrorMessage(null);
         notify('success', 'اتصال موفق به گوگل درایو', `خوش آمدید، ${res.user.displayName || res.user.email}`);
         // Fetch existing backups
         const list = await listDriveBackups(res.accessToken);
@@ -200,7 +233,9 @@ export const useGoogleDriveBackup = (): UseGoogleDriveBackupReturn => {
       return false;
     } catch (err: any) {
       console.error('Connect drive error:', err);
-      notify('error', 'خطا در اتصال به حساب گوگل', err?.message || 'اتصال لغو شد یا با خطا مواجه گردید.');
+      const errMsg = err?.message || 'اتصال لغو شد یا با خطا مواجه گردید.';
+      setAuthErrorMessage(errMsg);
+      notify('error', 'خطا در اتصال به حساب گوگل', errMsg);
       return false;
     } finally {
       setIsConnecting(false);
@@ -213,6 +248,7 @@ export const useGoogleDriveBackup = (): UseGoogleDriveBackupReturn => {
       await signOutGoogleDrive();
       setUser(null);
       setBackups([]);
+      setAuthErrorMessage(null);
       notify('info', 'قطع اتصال از گوگل درایو', 'نشست گوگل درایو با موفقیت بسته شد.');
     } catch (err) {
       console.warn('Sign out error:', err);
@@ -278,5 +314,9 @@ export const useGoogleDriveBackup = (): UseGoogleDriveBackupReturn => {
     restoreBackup,
     deleteBackup,
     refreshBackupsList,
+    authErrorMessage,
+    clearAuthError,
+    isIframe,
+    openInNewTab,
   };
 };

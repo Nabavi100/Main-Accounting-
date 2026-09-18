@@ -22,9 +22,122 @@ provider.setCustomParameters({
   prompt: 'select_account',
 });
 
+export interface DriveUser {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  photoURL: string | null;
+}
+
 // Cache the access token in memory (do not use localStorage/sessionStorage)
 let cachedAccessToken: string | null = null;
+let currentDriveUser: DriveUser | null = null;
 let isSigningIn = false;
+
+export const isRunningInIframe = (): boolean => {
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true;
+  }
+};
+
+export const openInNewTab = () => {
+  window.open(window.location.href, '_blank');
+};
+
+export const parseAuthErrorMessage = (error: any): string => {
+  const code = error?.code || '';
+  const message = error?.message || '';
+
+  if (code === 'auth/popup-blocked' || message.includes('popup-blocked')) {
+    return 'پنجره ورود گوگل توسط مرورگر یا محیط پیش‌نمایش مسدود شد. لطفاً برنامه را در برگهٔ جدید (Open in New Tab) باز کنید.';
+  }
+  if (code === 'auth/popup-closed-by-user' || message.includes('popup-closed')) {
+    return 'پنجره ورود گوگل پیش از تکمیل توسط کاربر بسته شد.';
+  }
+  if (code === 'auth/unauthorized-domain' || message.includes('unauthorized-domain')) {
+    return 'دامنه پیش‌نمایش در لیست دامنه‌های مجاز گوگل ثبت نشده است. لطفاً برنامه را در برگهٔ جدید باز کنید.';
+  }
+  if (code === 'auth/network-request-failed' || message.includes('network-request-failed')) {
+    return 'خطای شبکه در ارتباط با سرورهای گوگل. لطفاً اتصال اینترنت یا پروکسی خود را بررسی نمایید.';
+  }
+  if (code === 'auth/cancelled-popup-request' || message.includes('cancelled-popup-request')) {
+    return 'درخواست قبلی ورود لغو گردید. لطفاً مجدداً امتحان کنید.';
+  }
+  return message || 'اتصال به حساب گوگل با خطا مواجه شد.';
+};
+
+/**
+ * Sign in using Google Identity Services (GIS) Token Client
+ */
+export const signInWithGisTokenClient = (): Promise<{
+  user: DriveUser;
+  accessToken: string;
+}> => {
+  return new Promise((resolve, reject) => {
+    const googleObj = (window as any).google;
+    if (!googleObj?.accounts?.oauth2) {
+      reject(new Error('کتابخانه Google Identity Services در دسترس نیست.'));
+      return;
+    }
+
+    const clientId = firebaseConfig.oAuthClientId;
+    if (!clientId) {
+      reject(new Error('شناسه OAuth Client ID در تنظیمات برنامه یافت نشد.'));
+      return;
+    }
+
+    const tokenClient = googleObj.accounts.oauth2.initTokenClient({
+      client_id: clientId,
+      scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email openid',
+      callback: async (resp: any) => {
+        if (resp.error) {
+          reject(new Error(resp.error_description || resp.error || 'خطای احراز هویت با گوگل'));
+          return;
+        }
+        if (!resp.access_token) {
+          reject(new Error('توکن دسترسی از گوگل دریافت نگردید.'));
+          return;
+        }
+
+        try {
+          const profileRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+            headers: { Authorization: `Bearer ${resp.access_token}` },
+          });
+          const profile = profileRes.ok ? await profileRes.json() : {};
+
+          const driveUser: DriveUser = {
+            uid: profile.sub || 'gis-' + Date.now(),
+            email: profile.email || null,
+            displayName: profile.name || (profile.email ? profile.email.split('@')[0] : 'کاربر گوگل'),
+            photoURL: profile.picture || null,
+          };
+
+          resolve({
+            user: driveUser,
+            accessToken: resp.access_token,
+          });
+        } catch {
+          resolve({
+            user: {
+              uid: 'gis-' + Date.now(),
+              email: null,
+              displayName: 'کاربر گوگل',
+              photoURL: null,
+            },
+            accessToken: resp.access_token,
+          });
+        }
+      },
+      error_callback: (err: any) => {
+        reject(new Error(err?.message || 'پنجره انتخاب حساب گوگل باز نشد.'));
+      },
+    });
+
+    tokenClient.requestAccessToken({ prompt: 'select_account' });
+  });
+};
 
 export interface DriveBackupFile {
   id: string;
@@ -79,13 +192,19 @@ export const saveAutoBackupSettings = (settings: AutoBackupSettings) => {
  * Initialize auth state listener.
  */
 export const initDriveAuth = (
-  onAuthSuccess?: (user: User, token: string) => void,
+  onAuthSuccess?: (user: DriveUser, token: string) => void,
   onAuthFailure?: () => void
 ) => {
-  return onAuthStateChanged(auth, async (user: User | null) => {
-    if (user && cachedAccessToken) {
-      if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
-    } else if (!isSigningIn) {
+  return onAuthStateChanged(auth, async (firebaseUser: User | null) => {
+    if (firebaseUser && cachedAccessToken) {
+      currentDriveUser = {
+        uid: firebaseUser.uid,
+        email: firebaseUser.email,
+        displayName: firebaseUser.displayName,
+        photoURL: firebaseUser.photoURL,
+      };
+      if (onAuthSuccess) onAuthSuccess(currentDriveUser, cachedAccessToken);
+    } else if (!isSigningIn && !currentDriveUser) {
       cachedAccessToken = null;
       if (onAuthFailure) onAuthFailure();
     }
@@ -94,26 +213,51 @@ export const initDriveAuth = (
 
 /**
  * Sign in with Google Popup and obtain access token
+ * Tries Firebase Auth popup first, then falls back to GIS Token Client if popup blocked or domain restricted
  */
 export const signInWithGoogleDrive = async (): Promise<{
-  user: User;
+  user: DriveUser;
   accessToken: string;
 } | null> => {
+  isSigningIn = true;
+  let lastError: any = null;
+
+  // 1. Try Firebase Auth Popup first
   try {
-    isSigningIn = true;
     const result = await signInWithPopup(auth, provider);
     const credential = GoogleAuthProvider.credentialFromResult(result);
-    if (!credential?.accessToken) {
-      throw new Error('عدم دریافت توکن دسترسی از گوگل. لطفاً مجدداً وارد شوید.');
+    if (credential?.accessToken) {
+      cachedAccessToken = credential.accessToken;
+      currentDriveUser = {
+        uid: result.user.uid,
+        email: result.user.email,
+        displayName: result.user.displayName,
+        photoURL: result.user.photoURL,
+      };
+      return { user: currentDriveUser, accessToken: cachedAccessToken };
     }
-    cachedAccessToken = credential.accessToken;
-    return { user: result.user, accessToken: cachedAccessToken };
   } catch (error: any) {
-    console.error('Google Sign In Error:', error);
-    throw error;
+    lastError = error;
+    console.warn('Firebase signInWithPopup failed, attempting fallback...', error);
+  }
+
+  // 2. Try Google Identity Services (GIS) Token Client fallback
+  try {
+    if (typeof window !== 'undefined') {
+      const gisResult = await signInWithGisTokenClient();
+      cachedAccessToken = gisResult.accessToken;
+      currentDriveUser = gisResult.user;
+      return { user: currentDriveUser, accessToken: cachedAccessToken };
+    }
+  } catch (gisError: any) {
+    console.warn('GIS fallback failed:', gisError);
   } finally {
     isSigningIn = false;
   }
+
+  // If we reach here, throw a clear Persian error
+  const friendlyMsg = parseAuthErrorMessage(lastError);
+  throw new Error(friendlyMsg);
 };
 
 export const getDriveAccessToken = (): string | null => {
@@ -125,12 +269,26 @@ export const setDriveAccessToken = (token: string | null) => {
 };
 
 export const signOutGoogleDrive = async () => {
-  await signOut(auth);
+  try {
+    await signOut(auth);
+  } catch (e) {
+    console.warn('Sign out warning:', e);
+  }
   cachedAccessToken = null;
+  currentDriveUser = null;
 };
 
-export const getCurrentDriveUser = (): User | null => {
-  return auth.currentUser;
+export const getCurrentDriveUser = (): DriveUser | null => {
+  if (currentDriveUser) return currentDriveUser;
+  if (auth.currentUser) {
+    return {
+      uid: auth.currentUser.uid,
+      email: auth.currentUser.email,
+      displayName: auth.currentUser.displayName,
+      photoURL: auth.currentUser.photoURL,
+    };
+  }
+  return null;
 };
 
 /**
