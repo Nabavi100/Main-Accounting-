@@ -387,7 +387,7 @@ body.gold .btn-active-luxury {
 @media print {
   @page {
     size: A4 portrait;
-    margin: 5mm 6mm 5mm 6mm;
+    margin: 4mm 5mm 4mm 5mm;
   }
 
   *, *::before, *::after {
@@ -397,9 +397,10 @@ body.gold .btn-active-luxury {
   html, body {
     width: 100% !important;
     max-width: 100% !important;
-    height: 100% !important;
-    max-height: 100vh !important;
-    overflow: hidden !important;
+    height: auto !important;
+    min-height: 100% !important;
+    max-height: none !important;
+    overflow: visible !important;
     position: static !important;
     background: #ffffff !important;
     color: #000000 !important;
@@ -435,15 +436,17 @@ body.gold .btn-active-luxury {
     background: transparent !important;
     margin: 0 !important;
     padding: 0 !important;
-    overflow: hidden !important;
-    height: 100% !important;
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
   }
 
   #root > div {
     display: block !important;
     background: transparent !important;
-    height: 100% !important;
-    overflow: hidden !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
   }
 
   /* Target fixed print modal and reset it for flat single-page print */
@@ -453,10 +456,10 @@ body.gold .btn-active-luxury {
     position: static !important;
     inset: auto !important;
     width: 100% !important;
-    height: 100% !important;
-    max-height: 100vh !important;
+    height: auto !important;
+    max-height: none !important;
     min-height: auto !important;
-    overflow: hidden !important;
+    overflow: visible !important;
     background: #ffffff !important;
     backdrop-filter: none !important;
     padding: 0 !important;
@@ -470,13 +473,13 @@ body.gold .btn-active-luxury {
   .print-modal-container {
     width: 100% !important;
     max-width: 100% !important;
-    height: 100% !important;
-    max-height: 100vh !important;
+    height: auto !important;
+    max-height: none !important;
     margin: 0 !important;
     padding: 0 !important;
     border: none !important;
     box-shadow: none !important;
-    overflow: hidden !important;
+    overflow: visible !important;
     border-radius: 0 !important;
     background: #ffffff !important;
   }
@@ -485,18 +488,29 @@ body.gold .btn-active-luxury {
   .print-canvas {
     width: 100% !important;
     max-width: 100% !important;
-    max-height: 284mm !important;
-    margin: 0 !important;
-    padding: 0 !important;
+    height: auto !important;
+    max-height: none !important;
+    margin: 0 auto !important;
+    padding: 0 0 2mm 0 !important;
     border: none !important;
     box-shadow: none !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
-    page-break-after: avoid !important;
-    break-after: avoid !important;
-    page-break-before: avoid !important;
-    break-before: avoid !important;
-    overflow: hidden !important;
+    overflow: visible !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Ensure all frames and borders render sharply with complete boxes in print */
+  .print-frame-box,
+  .warehouse-exit-slip-frame,
+  .invoice-print-frame {
+    box-sizing: border-box !important;
+    border: 2px solid #0f172a !important;
+    border-radius: 10px !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   .print-only {

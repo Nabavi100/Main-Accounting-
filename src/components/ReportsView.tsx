@@ -6,6 +6,7 @@ import { PartyCardexModal } from './PartyCardexModal';
 import { ProductCardexModal } from './ProductCardexModal';
 import { FixedAssetsView } from './FixedAssetsView';
 import { ShareholdersView } from './ShareholdersView';
+import { GoogleDriveBackupPanel } from './GoogleDriveBackupPanel';
 import {
   FileBarChart,
   Users,
@@ -43,8 +44,10 @@ import {
   X,
   Tag,
   BarChart2,
+  Scale,
 } from 'lucide-react';
 import { ProductSalesAnalysis } from './ProductSalesAnalysis';
+import { PersianDateRangePicker } from './PersianDateRangePicker';
 
 export type ReportSection =
   | 'parties'       // گزارش و مانده اشخاص (بدهکاران و بستانکاران)
@@ -74,6 +77,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   onOpenTransferModal,
 }) => {
   const {
+    companySettings,
     cashRegister,
     parties,
     partyGroups,
@@ -407,10 +411,16 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   }, [allProductsWithStock, stockCategoryFilter, stockStatusFilter, stockWarehouseFilter, stockSearchQuery]);
 
   // -------------------------------------------------------------
-  // 3. SALES REPORT (گزارش فروشات)
+  // 3. SALES REPORT (گزارش فروشات) - فیلترهای پیشرفته و تقویم
   // -------------------------------------------------------------
   const [salesSearchQuery, setSalesSearchQuery] = useState('');
   const [salesCurrencyFilter, setSalesCurrencyFilter] = useState<'all' | 'AFN' | 'USD'>('all');
+  const [salesFromDate, setSalesFromDate] = useState('');
+  const [salesToDate, setSalesToDate] = useState('');
+  const [salesPartyFilter, setSalesPartyFilter] = useState<string>('all');
+  const [salesPaymentStatusFilter, setSalesPaymentStatusFilter] = useState<'all' | 'paid' | 'partial' | 'unpaid'>('all');
+  const [salesProductFilter, setSalesProductFilter] = useState<string>('all');
+  const [salesWarehouseFilter, setSalesWarehouseFilter] = useState<string>('all');
 
   const sellInvoices = useMemo(() => {
     return invoices.filter(inv => inv.type === 'sell');
@@ -419,17 +429,56 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   const filteredSellInvoices = useMemo(() => {
     return sellInvoices.filter(inv => {
       if (salesCurrencyFilter !== 'all' && inv.currency !== salesCurrencyFilter) return false;
+
+      if ((salesFromDate || salesToDate) && !isDateInRange(inv.date, salesFromDate, salesToDate)) {
+        return false;
+      }
+
+      if (salesPartyFilter !== 'all' && inv.partyId !== salesPartyFilter && inv.partyName !== salesPartyFilter) {
+        return false;
+      }
+
+      if (salesPaymentStatusFilter !== 'all') {
+        if (salesPaymentStatusFilter === 'paid' && inv.paymentStatus !== 'paid') return false;
+        if (salesPaymentStatusFilter === 'partial' && inv.paymentStatus !== 'partial') return false;
+        if (salesPaymentStatusFilter === 'unpaid' && inv.paymentStatus !== 'unpaid') return false;
+      }
+
+      if (salesWarehouseFilter !== 'all') {
+        const matchesWarehouse = inv.warehouseId === salesWarehouseFilter || inv.items?.some(it => it.warehouseId === salesWarehouseFilter);
+        if (!matchesWarehouse) return false;
+      }
+
+      if (salesProductFilter !== 'all') {
+        const hasProduct = inv.items?.some(it => it.productId === salesProductFilter || it.productName === salesProductFilter);
+        if (!hasProduct) return false;
+      }
+
       if (salesSearchQuery.trim()) {
         const q = salesSearchQuery.toLowerCase();
-        return (
-          inv.invoiceNumber.toLowerCase().includes(q) ||
-          inv.partyName.toLowerCase().includes(q) ||
-          inv.date.includes(q)
-        );
+        const matchNumber = inv.invoiceNumber.toLowerCase().includes(q);
+        const matchParty = inv.partyName.toLowerCase().includes(q);
+        const matchDate = inv.date.includes(q);
+        const matchItems = inv.items?.some(it => it.productName.toLowerCase().includes(q));
+        const matchNotes = (inv.notes || '').toLowerCase().includes(q);
+        if (!matchNumber && !matchParty && !matchDate && !matchItems && !matchNotes) {
+          return false;
+        }
       }
+
       return true;
     });
-  }, [sellInvoices, salesCurrencyFilter, salesSearchQuery]);
+  }, [
+    sellInvoices,
+    salesCurrencyFilter,
+    salesFromDate,
+    salesToDate,
+    salesPartyFilter,
+    salesPaymentStatusFilter,
+    salesWarehouseFilter,
+    salesProductFilter,
+    salesSearchQuery,
+  ]);
 
   const salesAggregations = useMemo(() => {
     let totalAFN = 0;
@@ -441,7 +490,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     let totalTons = 0;
     let totalBags = 0;
 
-    sellInvoices.forEach(inv => {
+    filteredSellInvoices.forEach(inv => {
       if (inv.currency === 'AFN') {
         totalAFN += inv.totalAmount;
         paidAFN += inv.paidAmount;
@@ -451,20 +500,26 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         paidUSD += inv.paidAmount;
         debtUSD += inv.balanceAmount;
       }
-      inv.items.forEach(it => {
+      inv.items?.forEach(it => {
         totalTons += it.tonsCount || 0;
         totalBags += it.bagsCount || 0;
       });
     });
 
     return { totalAFN, totalUSD, paidAFN, paidUSD, debtAFN, debtUSD, totalTons, totalBags };
-  }, [sellInvoices]);
+  }, [filteredSellInvoices]);
 
   // -------------------------------------------------------------
-  // 4. PURCHASES REPORT (گزارش خریدها)
+  // 4. PURCHASES REPORT (گزارش خریدها) - فیلترهای پیشرفته و تقویم
   // -------------------------------------------------------------
   const [buySearchQuery, setBuySearchQuery] = useState('');
   const [buyCurrencyFilter, setBuyCurrencyFilter] = useState<'all' | 'AFN' | 'USD'>('all');
+  const [buyFromDate, setBuyFromDate] = useState('');
+  const [buyToDate, setBuyToDate] = useState('');
+  const [buyPartyFilter, setBuyPartyFilter] = useState<string>('all');
+  const [buyPaymentStatusFilter, setBuyPaymentStatusFilter] = useState<'all' | 'paid' | 'partial' | 'unpaid'>('all');
+  const [buyProductFilter, setBuyProductFilter] = useState<string>('all');
+  const [buyWarehouseFilter, setBuyWarehouseFilter] = useState<string>('all');
 
   const buyInvoices = useMemo(() => {
     return invoices.filter(inv => inv.type === 'buy');
@@ -473,17 +528,56 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   const filteredBuyInvoices = useMemo(() => {
     return buyInvoices.filter(inv => {
       if (buyCurrencyFilter !== 'all' && inv.currency !== buyCurrencyFilter) return false;
+
+      if ((buyFromDate || buyToDate) && !isDateInRange(inv.date, buyFromDate, buyToDate)) {
+        return false;
+      }
+
+      if (buyPartyFilter !== 'all' && inv.partyId !== buyPartyFilter && inv.partyName !== buyPartyFilter) {
+        return false;
+      }
+
+      if (buyPaymentStatusFilter !== 'all') {
+        if (buyPaymentStatusFilter === 'paid' && inv.paymentStatus !== 'paid') return false;
+        if (buyPaymentStatusFilter === 'partial' && inv.paymentStatus !== 'partial') return false;
+        if (buyPaymentStatusFilter === 'unpaid' && inv.paymentStatus !== 'unpaid') return false;
+      }
+
+      if (buyWarehouseFilter !== 'all') {
+        const matchesWarehouse = inv.warehouseId === buyWarehouseFilter || inv.items?.some(it => it.warehouseId === buyWarehouseFilter);
+        if (!matchesWarehouse) return false;
+      }
+
+      if (buyProductFilter !== 'all') {
+        const hasProduct = inv.items?.some(it => it.productId === buyProductFilter || it.productName === buyProductFilter);
+        if (!hasProduct) return false;
+      }
+
       if (buySearchQuery.trim()) {
         const q = buySearchQuery.toLowerCase();
-        return (
-          inv.invoiceNumber.toLowerCase().includes(q) ||
-          inv.partyName.toLowerCase().includes(q) ||
-          inv.date.includes(q)
-        );
+        const matchNumber = inv.invoiceNumber.toLowerCase().includes(q);
+        const matchParty = inv.partyName.toLowerCase().includes(q);
+        const matchDate = inv.date.includes(q);
+        const matchItems = inv.items?.some(it => it.productName.toLowerCase().includes(q));
+        const matchNotes = (inv.notes || '').toLowerCase().includes(q);
+        if (!matchNumber && !matchParty && !matchDate && !matchItems && !matchNotes) {
+          return false;
+        }
       }
+
       return true;
     });
-  }, [buyInvoices, buyCurrencyFilter, buySearchQuery]);
+  }, [
+    buyInvoices,
+    buyCurrencyFilter,
+    buyFromDate,
+    buyToDate,
+    buyPartyFilter,
+    buyPaymentStatusFilter,
+    buyWarehouseFilter,
+    buyProductFilter,
+    buySearchQuery,
+  ]);
 
   const buyAggregations = useMemo(() => {
     let totalAFN = 0;
@@ -495,7 +589,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     let totalTons = 0;
     let totalBags = 0;
 
-    buyInvoices.forEach(inv => {
+    filteredBuyInvoices.forEach(inv => {
       if (inv.currency === 'AFN') {
         totalAFN += inv.totalAmount;
         paidAFN += inv.paidAmount;
@@ -505,14 +599,516 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         paidUSD += inv.paidAmount;
         payableUSD += inv.balanceAmount;
       }
-      inv.items.forEach(it => {
+      inv.items?.forEach(it => {
         totalTons += it.tonsCount || 0;
         totalBags += it.bagsCount || 0;
       });
     });
 
     return { totalAFN, totalUSD, paidAFN, paidUSD, payableAFN, payableUSD, totalTons, totalBags };
-  }, [buyInvoices]);
+  }, [filteredBuyInvoices]);
+
+  // -------------------------------------------------------------
+  // UNIVERSAL PRINT HANDLERS FOR ALL REPORTS & OPERATIONS
+  // -------------------------------------------------------------
+  const handlePrintInventoryReport = (specificCategory?: string) => {
+    const catToFilter = specificCategory || stockCategoryFilter;
+    const filteredProds = filteredProductsWithStock
+      .filter(item => {
+        if (specificCategory && specificCategory !== 'all') {
+          return item.product.category === specificCategory || item.product.categoryId === specificCategory;
+        }
+        return true;
+      })
+      .map(p => p.product);
+
+    const selectedWh = stockWarehouseFilter !== 'all'
+      ? warehouses.find(w => w.id === stockWarehouseFilter)?.name
+      : 'تمامی گدام‌ها';
+    const selectedCat = catToFilter !== 'all' ? catToFilter : 'همه گروه‌ها';
+
+    openPrintModal({
+      type: 'products_inventory_report',
+      inventoryProducts: filteredProds,
+      inventoryStocks: stocks,
+      selectedWarehouseName: selectedWh,
+      selectedCategoryName: selectedCat,
+      showSignatures: true,
+    });
+  };
+
+  const handlePrintSalesReport = () => {
+    const partyName = salesPartyFilter !== 'all'
+      ? parties.find(p => p.id === salesPartyFilter)?.name || salesPartyFilter
+      : 'همه مشتریان و خریداران';
+    const dateRangeText = (salesFromDate || salesToDate)
+      ? `از تاریخ ${salesFromDate || 'ابتدا'} تا ${salesToDate || 'کنون'}`
+      : 'تمامی ادوار مالی';
+    const currencyText = salesCurrencyFilter === 'all' ? 'همه ارزها (افغانی و دالر)' : salesCurrencyFilter === 'AFN' ? 'افغانی (AFN)' : 'دالر (USD)';
+    const statusText = salesPaymentStatusFilter === 'paid' ? 'تسویه کامل نقدی'
+      : salesPaymentStatusFilter === 'partial' ? 'نیمه‌نسیه'
+      : salesPaymentStatusFilter === 'unpaid' ? 'نسیه و قرض'
+      : 'همه وضعیت‌ها';
+
+    openPrintModal({
+      title: 'گزارش رسمی و تحلیلی فروشات کالا',
+      subtitle: `بازه زمانی: ${dateRangeText} • مشتری: ${partyName} • وضعیت: ${statusText} • ارز: ${currencyText}`,
+      metadata: [
+        { label: 'بازه تاریخی گزارش', value: dateRangeText },
+        { label: 'تعداد فاکتورهای صادر شده', value: `${filteredSellInvoices.length} فاکتور` },
+        { label: 'مجموع فروش افغانی', value: `${formatNumber(salesAggregations.totalAFN)} ؋` },
+        { label: 'مجموع فروش دالری', value: `$${formatNumber(salesAggregations.totalUSD)}` },
+        { label: 'کل تناژ فروخته شده', value: `${formatNumber(salesAggregations.totalTons)} تن` },
+        { label: 'کل کیسه‌های فروخته شده', value: `${formatNumber(salesAggregations.totalBags)} کیسه` },
+        { label: 'مانده طلب (نسیه)', value: `${formatNumber(salesAggregations.debtAFN)} ؋ / $${formatNumber(salesAggregations.debtUSD)}` },
+        { label: 'تاریخ تهیه گزارش', value: getPersianDate() },
+      ],
+      customContent: (
+        <div className="space-y-4 text-xs font-sans text-slate-800" dir="rtl">
+          <table className="w-full border-collapse border border-slate-300 text-xs">
+            <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-300">
+              <tr>
+                <th className="border border-slate-300 p-2 text-center w-10">ردیف</th>
+                <th className="border border-slate-300 p-2 text-center">شماره فاکتور</th>
+                <th className="border border-slate-300 p-2 text-center">تاریخ</th>
+                <th className="border border-slate-300 p-2">نام مشتری / خریدار</th>
+                <th className="border border-slate-300 p-2">کالای داخل فاکتور و تناژ</th>
+                <th className="border border-slate-300 p-2 text-left">مبلغ کل فاکتور</th>
+                <th className="border border-slate-300 p-2 text-left">دریافتی نقدی</th>
+                <th className="border border-slate-300 p-2 text-left">مانده نسیه</th>
+                <th className="border border-slate-300 p-2 text-center">وضعیت</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {filteredSellInvoices.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="p-8 text-center text-slate-400">فاکتور فروشی با این شرایط فیلتر یافت نشد.</td>
+                </tr>
+              ) : (
+                filteredSellInvoices.map((inv, idx) => {
+                  const totalTons = inv.items?.reduce((s, it) => s + (it.tonsCount || 0), 0) || 0;
+                  const totalBags = inv.items?.reduce((s, it) => s + (it.bagsCount || 0), 0) || 0;
+                  return (
+                    <tr key={inv.id} className="hover:bg-slate-50">
+                      <td className="border border-slate-300 p-2 text-center font-mono">{idx + 1}</td>
+                      <td className="border border-slate-300 p-2 text-center font-mono font-bold text-slate-900">{inv.invoiceNumber}</td>
+                      <td className="border border-slate-300 p-2 text-center font-mono text-slate-600">{inv.date}</td>
+                      <td className="border border-slate-300 p-2 font-bold text-slate-900">{inv.partyName}</td>
+                      <td className="border border-slate-300 p-2">
+                        <div className="space-y-1">
+                          {inv.items.map((it, itemIdx) => (
+                            <div key={itemIdx} className="text-[11px] text-slate-700">
+                              • <strong>{it.productName}</strong>: {formatNumber(it.quantity)} {it.unit === 'ton' ? 'تن' : 'کیسه'}
+                            </div>
+                          ))}
+                          {(totalTons > 0 || totalBags > 0) && (
+                            <div className="text-[10px] text-slate-500 font-mono pt-0.5 border-t border-dashed border-slate-200 font-bold">
+                              جمع: {totalTons > 0 ? `${formatNumber(totalTons)} تن` : ''} {totalBags > 0 ? `(${formatNumber(totalBags)} کیسه)` : ''}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="border border-slate-300 p-2 text-left font-mono font-black text-slate-900">{formatCurrency(inv.totalAmount, inv.currency)}</td>
+                      <td className="border border-slate-300 p-2 text-left font-mono font-bold text-emerald-700">{formatCurrency(inv.paidAmount, inv.currency)}</td>
+                      <td className="border border-slate-300 p-2 text-left font-mono font-bold text-rose-700">{formatCurrency(inv.balanceAmount, inv.currency)}</td>
+                      <td className="border border-slate-300 p-2 text-center text-[10px] font-bold">
+                        {inv.paymentStatus === 'paid' ? 'تسویه نقدی' : inv.paymentStatus === 'partial' ? 'نیمه‌نسیه' : 'نسیه'}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+            <tfoot className="bg-slate-100 font-bold border-t-2 border-slate-400">
+              <tr>
+                <td colSpan={5} className="border border-slate-300 p-2.5 text-right font-black">
+                  مجموع کل گزارش فروشات ({filteredSellInvoices.length} فاکتور):
+                </td>
+                <td className="border border-slate-300 p-2.5 text-left font-mono font-black text-slate-900">
+                  {formatNumber(salesAggregations.totalAFN)} ؋<br/>${formatNumber(salesAggregations.totalUSD)}
+                </td>
+                <td className="border border-slate-300 p-2.5 text-left font-mono font-black text-emerald-700">
+                  {formatNumber(salesAggregations.paidAFN)} ؋<br/>${formatNumber(salesAggregations.paidUSD)}
+                </td>
+                <td className="border border-slate-300 p-2.5 text-left font-mono font-black text-rose-700">
+                  {formatNumber(salesAggregations.debtAFN)} ؋<br/>${formatNumber(salesAggregations.debtUSD)}
+                </td>
+                <td className="border border-slate-300 p-2.5 text-center text-[10px]">-</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      ),
+    });
+  };
+
+  const handlePrintPurchasesReport = () => {
+    const partyName = buyPartyFilter !== 'all'
+      ? parties.find(p => p.id === buyPartyFilter)?.name || buyPartyFilter
+      : 'همه فروشندگان / واردکنندگان';
+    const dateRangeText = (buyFromDate || buyToDate)
+      ? `از تاریخ ${buyFromDate || 'ابتدا'} تا ${buyToDate || 'کنون'}`
+      : 'تمامی ادوار مالی';
+    const currencyText = buyCurrencyFilter === 'all' ? 'همه ارزها (افغانی و دالر)' : buyCurrencyFilter === 'AFN' ? 'افغانی (AFN)' : 'دالر (USD)';
+    const statusText = buyPaymentStatusFilter === 'paid' ? 'تسویه کامل نقدی'
+      : buyPaymentStatusFilter === 'partial' ? 'نیمه‌نسیه'
+      : buyPaymentStatusFilter === 'unpaid' ? 'نسیه (قرض)'
+      : 'همه وضعیت‌ها';
+
+    openPrintModal({
+      title: 'گزارش رسمی و تحلیلی خریدها و واردات کالا',
+      subtitle: `بازه زمانی: ${dateRangeText} • فروشنده: ${partyName} • وضعیت: ${statusText} • ارز: ${currencyText}`,
+      metadata: [
+        { label: 'بازه تاریخی گزارش', value: dateRangeText },
+        { label: 'تعداد فاکتورهای خرید', value: `${filteredBuyInvoices.length} فاکتور` },
+        { label: 'مجموع خرید افغانی', value: `${formatNumber(buyAggregations.totalAFN)} ؋` },
+        { label: 'مجموع خرید دالری', value: `$${formatNumber(buyAggregations.totalUSD)}` },
+        { label: 'کل تناژ خریداری شده', value: `${formatNumber(buyAggregations.totalTons)} تن` },
+        { label: 'کل کیسه‌های خریداری شده', value: `${formatNumber(buyAggregations.totalBags)} کیسه` },
+        { label: 'مانده بدهی ما به فروشندگان', value: `${formatNumber(buyAggregations.payableAFN)} ؋ / $${formatNumber(buyAggregations.payableUSD)}` },
+        { label: 'تاریخ تهیه گزارش', value: getPersianDate() },
+      ],
+      customContent: (
+        <div className="space-y-4 text-xs font-sans text-slate-800" dir="rtl">
+          <table className="w-full border-collapse border border-slate-300 text-xs">
+            <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-300">
+              <tr>
+                <th className="border border-slate-300 p-2 text-center w-10">ردیف</th>
+                <th className="border border-slate-300 p-2 text-center">شماره فاکتور</th>
+                <th className="border border-slate-300 p-2 text-center">تاریخ</th>
+                <th className="border border-slate-300 p-2">فروشنده / واردکننده</th>
+                <th className="border border-slate-300 p-2">کالای داخل فاکتور و تناژ</th>
+                <th className="border border-slate-300 p-2 text-left">مبلغ کل فاکتور</th>
+                <th className="border border-slate-300 p-2 text-left">پرداخت نقدی</th>
+                <th className="border border-slate-300 p-2 text-left">مانده طلب فروشنده</th>
+                <th className="border border-slate-300 p-2 text-center">وضعیت</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {filteredBuyInvoices.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="p-8 text-center text-slate-400">فاکتور خریدی با این شرایط فیلتر یافت نشد.</td>
+                </tr>
+              ) : (
+                filteredBuyInvoices.map((inv, idx) => {
+                  const totalTons = inv.items?.reduce((s, it) => s + (it.tonsCount || 0), 0) || 0;
+                  const totalBags = inv.items?.reduce((s, it) => s + (it.bagsCount || 0), 0) || 0;
+                  return (
+                    <tr key={inv.id} className="hover:bg-slate-50">
+                      <td className="border border-slate-300 p-2 text-center font-mono">{idx + 1}</td>
+                      <td className="border border-slate-300 p-2 text-center font-mono font-bold text-slate-900">{inv.invoiceNumber}</td>
+                      <td className="border border-slate-300 p-2 text-center font-mono text-slate-600">{inv.date}</td>
+                      <td className="border border-slate-300 p-2 font-bold text-slate-900">{inv.partyName}</td>
+                      <td className="border border-slate-300 p-2">
+                        <div className="space-y-1">
+                          {inv.items.map((it, itemIdx) => (
+                            <div key={itemIdx} className="text-[11px] text-slate-700">
+                              • <strong>{it.productName}</strong>: {formatNumber(it.quantity)} {it.unit === 'ton' ? 'تن' : 'کیسه'}
+                            </div>
+                          ))}
+                          {(totalTons > 0 || totalBags > 0) && (
+                            <div className="text-[10px] text-slate-500 font-mono pt-0.5 border-t border-dashed border-slate-200 font-bold">
+                              جمع: {totalTons > 0 ? `${formatNumber(totalTons)} تن` : ''} {totalBags > 0 ? `(${formatNumber(totalBags)} کیسه)` : ''}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      <td className="border border-slate-300 p-2 text-left font-mono font-black text-slate-900">{formatCurrency(inv.totalAmount, inv.currency)}</td>
+                      <td className="border border-slate-300 p-2 text-left font-mono font-bold text-emerald-700">{formatCurrency(inv.paidAmount, inv.currency)}</td>
+                      <td className="border border-slate-300 p-2 text-left font-mono font-bold text-blue-700">{formatCurrency(inv.balanceAmount, inv.currency)}</td>
+                      <td className="border border-slate-300 p-2 text-center text-[10px] font-bold">
+                        {inv.paymentStatus === 'paid' ? 'تسویه نقدی' : inv.paymentStatus === 'partial' ? 'نیمه‌نسیه' : 'نسیه'}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+            <tfoot className="bg-slate-100 font-bold border-t-2 border-slate-400">
+              <tr>
+                <td colSpan={5} className="border border-slate-300 p-2.5 text-right font-black">
+                  مجموع کل گزارش خریدها ({filteredBuyInvoices.length} فاکتور):
+                </td>
+                <td className="border border-slate-300 p-2.5 text-left font-mono font-black text-slate-900">
+                  {formatNumber(buyAggregations.totalAFN)} ؋<br/>${formatNumber(buyAggregations.totalUSD)}
+                </td>
+                <td className="border border-slate-300 p-2.5 text-left font-mono font-black text-emerald-700">
+                  {formatNumber(buyAggregations.paidAFN)} ؋<br/>${formatNumber(buyAggregations.paidUSD)}
+                </td>
+                <td className="border border-slate-300 p-2.5 text-left font-mono font-black text-blue-700">
+                  {formatNumber(buyAggregations.payableAFN)} ؋<br/>${formatNumber(buyAggregations.payableUSD)}
+                </td>
+                <td className="border border-slate-300 p-2.5 text-center text-[10px]">-</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      ),
+    });
+  };
+
+  const handlePrintPartiesReport = (targetFilter?: 'debtors' | 'creditors' | 'settled' | 'all', targetGroupId?: string) => {
+    const activeStatus = targetFilter !== undefined ? targetFilter : partyStatusFilter;
+    const activeGroupId = targetGroupId !== undefined ? targetGroupId : partyGroupFilter;
+
+    // Filter list specifically for this print request
+    const partiesToPrint = parties.filter(p => {
+      const isDebtor = p.balanceAFN < 0 || p.balanceUSD < 0;
+      const isCreditor = p.balanceAFN > 0 || p.balanceUSD > 0;
+      const isSettled = p.balanceAFN === 0 && p.balanceUSD === 0;
+
+      if (activeStatus === 'debtors' && !isDebtor) return false;
+      if (activeStatus === 'creditors' && !isCreditor) return false;
+      if (activeStatus === 'settled' && !isSettled) return false;
+
+      if (partyCurrencyFilter === 'afn' && p.balanceAFN === 0) return false;
+      if (partyCurrencyFilter === 'usd' && p.balanceUSD === 0) return false;
+      if (partyCurrencyFilter === 'both' && (p.balanceAFN === 0 || p.balanceUSD === 0)) return false;
+
+      if (activeGroupId !== 'all' && p.groupId !== activeGroupId) return false;
+
+      if (partySearchQuery.trim()) {
+        const q = partySearchQuery.toLowerCase();
+        const matchName = p.name.toLowerCase().includes(q);
+        const matchCompany = (p.company || '').toLowerCase().includes(q);
+        const matchPhone = (p.phone || '').includes(q);
+        const matchGroup = (p.groupName || '').toLowerCase().includes(q);
+        if (!matchName && !matchCompany && !matchPhone && !matchGroup) return false;
+      }
+
+      return true;
+    });
+
+    const statusTitle = activeStatus === 'debtors'
+      ? 'گزارش اختصاصی بدهکاران به شرکت (قرضداران و مطالبات)'
+      : activeStatus === 'creditors'
+      ? 'گزارش اختصاصی بستانکاران از شرکت (طلبکاران و تعهدات)'
+      : activeStatus === 'settled'
+      ? 'گزارش حساب‌های تسویه شده و بی‌حساب'
+      : 'گزارش تفصیلی مانده حساب کلیه اشخاص و طرف‌های حساب';
+
+    const groupName = activeGroupId !== 'all'
+      ? partyGroups.find(g => g.id === activeGroupId)?.name || 'گروه انتخابی'
+      : 'تمامی دسته‌ها و گروه‌ها';
+
+    let printDebtAFN = 0;
+    let printDebtUSD = 0;
+    let printCreditAFN = 0;
+    let printCreditUSD = 0;
+
+    partiesToPrint.forEach(p => {
+      if (p.balanceAFN < 0) printDebtAFN += Math.abs(p.balanceAFN);
+      if (p.balanceAFN > 0) printCreditAFN += p.balanceAFN;
+      if (p.balanceUSD < 0) printDebtUSD += Math.abs(p.balanceUSD);
+      if (p.balanceUSD > 0) printCreditUSD += p.balanceUSD;
+    });
+
+    const tableHeaders = ['ردیف', 'نام طرف‌حساب', 'گروه / صنف', 'شماره تماس', 'مانده افغانی (AFN)', 'مانده دالری (USD)', 'وضعیت'];
+    const tableRows = partiesToPrint.map((p, idx) => {
+      const isDebtor = p.balanceAFN < 0 || p.balanceUSD < 0;
+      const isCreditor = p.balanceAFN > 0 || p.balanceUSD > 0;
+      const statusLabel = isDebtor ? 'بدهکار (قرضدار)' : isCreditor ? 'طلبکار' : 'تسویه';
+      return [
+        idx + 1,
+        p.name,
+        p.groupName || 'عمومی',
+        p.phone || '—',
+        p.balanceAFN !== 0 ? `${formatNumber(p.balanceAFN)} ؋` : '۰ ؋',
+        p.balanceUSD !== 0 ? `$${formatNumber(p.balanceUSD)}` : '$۰',
+        statusLabel,
+      ];
+    });
+
+    openPrintModal({
+      title: statusTitle,
+      subtitle: `دسته‌بندی: ${groupName} • فیلتر وضعیت: ${activeStatus === 'debtors' ? 'فقط بدهکاران' : activeStatus === 'creditors' ? 'فقط بستانکاران' : 'همه'} • تاریخ گزارش: ${getPersianDate()}`,
+      metadata: [
+        { label: 'تعداد اشخاص در این لیست', value: `${partiesToPrint.length} شخص / شرکت` },
+        { label: 'گروه انتخاب شده', value: groupName },
+        { label: 'مجموع طلب ما (بدهکاران)', value: `${formatNumber(printDebtAFN)} ؋ / $${formatNumber(printDebtUSD)}` },
+        { label: 'مجموع بدهی ما (بستانکاران)', value: `${formatNumber(printCreditAFN)} ؋ / $${formatNumber(printCreditUSD)}` },
+        { label: 'تاریخ تهیه گزارش', value: getPersianDate() },
+      ],
+      summaryCards: [
+        { label: 'تعداد اشخاص لیست', value: `${partiesToPrint.length} نفر` },
+        { label: 'گروه چاپی', value: groupName },
+        { label: 'مجموع طلب ما', value: `${formatNumber(printDebtAFN)} ؋` },
+        { label: 'مجموع بدهی ما', value: `${formatNumber(printCreditAFN)} ؋` },
+      ],
+      tableHeaders,
+      tableRows,
+      customContent: (
+        <div className="space-y-4 text-xs font-sans text-slate-800" dir="rtl">
+          <table className="w-full border-collapse border border-slate-300 text-xs">
+            <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-300">
+              <tr>
+                <th className="border border-slate-300 p-2 text-center w-10">ردیف</th>
+                <th className="border border-slate-300 p-2">نام طرف‌حساب</th>
+                <th className="border border-slate-300 p-2 text-center">گروه</th>
+                <th className="border border-slate-300 p-2 text-center">شماره تماس</th>
+                <th className="border border-slate-300 p-2 text-left">مانده افغانی (AFN)</th>
+                <th className="border border-slate-300 p-2 text-left">مانده دالری (USD)</th>
+                <th className="border border-slate-300 p-2 text-center">وضعیت حساب</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {partiesToPrint.map((p, idx) => {
+                const isDebtor = p.balanceAFN < 0 || p.balanceUSD < 0;
+                const isCreditor = p.balanceAFN > 0 || p.balanceUSD > 0;
+                return (
+                  <tr key={p.id} className="hover:bg-slate-50">
+                    <td className="border border-slate-300 p-2 text-center font-mono">{idx + 1}</td>
+                    <td className="border border-slate-300 p-2 font-bold text-slate-900">{p.name}</td>
+                    <td className="border border-slate-300 p-2 text-center text-slate-600">{p.groupName || 'عمومی'}</td>
+                    <td className="border border-slate-300 p-2 text-center font-mono text-slate-500">{p.phone || '—'}</td>
+                    <td className={`border border-slate-300 p-2 text-left font-mono font-bold ${p.balanceAFN < 0 ? 'text-rose-700' : p.balanceAFN > 0 ? 'text-blue-700' : 'text-slate-400'}`}>
+                      {p.balanceAFN !== 0 ? formatCurrency(p.balanceAFN, 'AFN') : '۰ ؋'}
+                    </td>
+                    <td className={`border border-slate-300 p-2 text-left font-mono font-bold ${p.balanceUSD < 0 ? 'text-rose-700' : p.balanceUSD > 0 ? 'text-blue-700' : 'text-slate-400'}`}>
+                      {p.balanceUSD !== 0 ? `$${formatNumber(p.balanceUSD)}` : '$۰'}
+                    </td>
+                    <td className="border border-slate-300 p-2 text-center text-[10px] font-bold">
+                      {isDebtor ? 'بدهکار (قرضدار)' : isCreditor ? 'طلبکار' : 'تسویه'}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ),
+    });
+  };
+
+  const handlePrintProfitLoss = () => {
+    openPrintModal({
+      title: 'صورت سود و زیان رسمی (Profit & Loss Statement)',
+      subtitle: `دوره مالی: ${pnlPeriod === 'today' ? 'امروز' : pnlPeriod === 'month' ? 'این ماه' : pnlPeriod === 'year' ? 'امسال' : 'تمامی دوره‌ها'} • تاریخ گزارش: ${getPersianDate()}`,
+      metadata: [
+        { label: 'کل فروش خالص دوره', value: `${formatNumber(pnlSalesTotals.totalAFN)} ؋ / $${formatNumber(pnlSalesTotals.totalUSD)}` },
+        { label: 'بهای تمام شده کالای فروش رفته (COGS)', value: `${formatNumber(cogsCalculations.cogsAFN)} ؋ / $${formatNumber(cogsCalculations.cogsUSD)}` },
+        { label: 'سود ناخالص تجاری', value: `${formatNumber(totalGrossProfitEquivalentBase)} ${baseCurrency.symbol || baseCurrency.code}` },
+        { label: 'کل هزینه‌ها و مصارف جاری', value: `${formatNumber(pnlTotalExpEquivalentBase)} ${baseCurrency.symbol || baseCurrency.code}` },
+        { label: 'سود یا زیان خالص نهایی', value: `${formatNumber(netProfitBase)} ${baseCurrency.symbol || baseCurrency.code}` },
+      ],
+      customContent: (
+        <div className="space-y-4 text-xs font-sans text-slate-800" dir="rtl">
+          <table className="w-full border-collapse border border-slate-300 text-xs">
+            <tbody className="divide-y divide-slate-200">
+              <tr className="bg-slate-50 font-bold">
+                <td className="border border-slate-300 p-2.5">درآمد فروش کالاها</td>
+                <td className="border border-slate-300 p-2.5 text-left font-mono font-black text-emerald-800">{formatNumber(pnlSalesTotals.totalAFN)} ؋ / ${formatNumber(pnlSalesTotals.totalUSD)}</td>
+              </tr>
+              <tr>
+                <td className="border border-slate-300 p-2.5 text-rose-800 font-bold">کسر می‌شود: بهای تمام شده کالای فروش رفته (COGS)</td>
+                <td className="border border-slate-300 p-2.5 text-left font-mono font-bold text-rose-700">({formatNumber(cogsCalculations.cogsAFN)} ؋ / ${formatNumber(cogsCalculations.cogsUSD)})</td>
+              </tr>
+              <tr className="bg-emerald-50 font-black">
+                <td className="border border-slate-300 p-2.5 text-emerald-950">سود ناخالص عملیاتی (Gross Profit)</td>
+                <td className="border border-slate-300 p-2.5 text-left font-mono text-emerald-800">{formatNumber(totalGrossProfitEquivalentBase)} {baseCurrency.symbol || baseCurrency.code}</td>
+              </tr>
+              <tr>
+                <td className="border border-slate-300 p-2.5 text-slate-700 font-medium">افزودن: سایر عواید متفرقه</td>
+                <td className="border border-slate-300 p-2.5 text-left font-mono text-emerald-600">+{formatNumber(pnlTotalIncomeEquivalentBase)} {baseCurrency.symbol || baseCurrency.code}</td>
+              </tr>
+              <tr>
+                <td className="border border-slate-300 p-2.5 text-rose-800 font-medium">کسر می‌شود: کل هزینه‌ها و مصارف جاری دوره</td>
+                <td className="border border-slate-300 p-2.5 text-left font-mono text-rose-700">({formatNumber(pnlTotalExpEquivalentBase)} {baseCurrency.symbol || baseCurrency.code})</td>
+              </tr>
+              <tr className="bg-slate-900 text-white font-black text-sm">
+                <td className="border border-slate-900 p-3">سود (زیان) خالص نهایی دوره (Net Profit)</td>
+                <td className="border border-slate-900 p-3 text-left font-mono text-emerald-400">{formatNumber(netProfitBase)} {baseCurrency.symbol || baseCurrency.code}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      ),
+    });
+  };
+
+  const handlePrintBalanceSheet = () => {
+    openPrintModal({
+      title: 'ترازنامه مالی رسمی (Balance Sheet)',
+      subtitle: `تاریخ تنظیم: ${getPersianDate()} • مطابق استانداردهای حسابداری`,
+      metadata: [
+        { label: 'مجموع کل دارایی‌ها (افغانی)', value: `${formatNumber(totalAssetsAFN)} ؋` },
+        { label: 'مجموع کل بدهی‌ها (پاسیو)', value: `${formatNumber(totalLiabilitiesAFN)} ؋` },
+        { label: 'ارزش خالص شرکت و حقوق سرمایه', value: `${formatNumber(netCompanyWorthAFN)} ؋` },
+        { label: 'تاریخ تهیه ترازنامه', value: getPersianDate() },
+      ],
+      customContent: (
+        <div className="space-y-4 text-xs font-sans text-slate-800" dir="rtl">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="border border-slate-300 rounded p-3">
+              <h5 className="font-bold border-b pb-1 mb-2 text-slate-900">دارایی‌ها (اکتیو)</h5>
+              <div className="space-y-1.5 font-mono">
+                <div className="flex justify-between"><span>نقدینگی در صندوق افغانی:</span><strong>{formatNumber(cashRegister.afnBalance)} ؋</strong></div>
+                <div className="flex justify-between"><span>نقدینگی در صندوق دالری ($):</span><strong>${formatNumber(cashRegister.usdBalance)}</strong></div>
+                <div className="flex justify-between"><span>صندوق دالری سرای شهزاده:</span><strong>${formatNumber(cashRegister.exchangeUsdBalance || 0)}</strong></div>
+                <div className="flex justify-between"><span>ارزش موجودی کالا در گدام‌ها:</span><strong>{formatNumber(stockStats.afnValue)} ؋</strong></div>
+                <div className="flex justify-between"><span>طلبات از مشتریان (قرض‌ها):</span><strong>{formatNumber(partyMetrics.debtAFN)} ؋ + ${formatNumber(partyMetrics.debtUSD)}</strong></div>
+                <div className="flex justify-between border-t pt-1 font-black text-emerald-900 bg-emerald-50 p-1">
+                  <span>جمع کل دارایی‌ها (معادل افغانی):</span><span>{formatNumber(totalAssetsAFN)} ؋</span>
+                </div>
+              </div>
+            </div>
+            <div className="border border-slate-300 rounded p-3">
+              <h5 className="font-bold border-b pb-1 mb-2 text-slate-900">بدهی‌ها و سرمایه (پاسیو)</h5>
+              <div className="space-y-1.5 font-mono">
+                <div className="flex justify-between"><span>بدهی به تأمین‌کنندگان (افغانی):</span><strong>{formatNumber(partyMetrics.creditAFN)} ؋</strong></div>
+                <div className="flex justify-between"><span>بدهی به تأمین‌کنندگان (دالری):</span><strong>${formatNumber(partyMetrics.creditUSD)}</strong></div>
+                <div className="flex justify-between"><span>مجموع کل بدهی‌ها (معادل افغانی):</span><strong>{formatNumber(totalLiabilitiesAFN)} ؋</strong></div>
+                <div className="flex justify-between border-t pt-1 font-black text-blue-900 bg-blue-50 p-1">
+                  <span>ارزش خالص حقوق سرمایه (Equity):</span><span>{formatNumber(netCompanyWorthAFN)} ؋</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ),
+    });
+  };
+
+  const handlePrintExpensesReport = () => {
+    openPrintModal({
+      title: 'گزارش تفصیلی هزینه‌ها و مصارف',
+      subtitle: `تاریخ تهیه گزارش: ${getPersianDate()}`,
+      metadata: [
+        { label: 'تعداد کل هزینه‌ها', value: `${expenses.length} مورد` },
+        { label: 'مجموع هزینه‌های افغانی', value: `${formatNumber(totalExpensesAFN)} ؋` },
+        { label: 'مجموع هزینه‌های دالری', value: `$${formatNumber(totalExpensesUSD)}` },
+      ],
+      customContent: (
+        <div className="space-y-4 text-xs font-sans text-slate-800" dir="rtl">
+          <table className="w-full border-collapse border border-slate-300 text-xs">
+            <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-300">
+              <tr>
+                <th className="border border-slate-300 p-2 text-center w-10">ردیف</th>
+                <th className="border border-slate-300 p-2 text-center">تاریخ</th>
+                <th className="border border-slate-300 p-2">عنوان هزینه</th>
+                <th className="border border-slate-300 p-2 text-center">دسته‌بندی</th>
+                <th className="border border-slate-300 p-2">دریافت‌کننده</th>
+                <th className="border border-slate-300 p-2 text-left">مبلغ هزینه</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {expenses.map((exp, idx) => (
+                <tr key={exp.id} className="hover:bg-slate-50">
+                  <td className="border border-slate-300 p-2 text-center font-mono">{idx + 1}</td>
+                  <td className="border border-slate-300 p-2 text-center font-mono">{exp.date}</td>
+                  <td className="border border-slate-300 p-2 font-bold text-slate-900">{exp.title}</td>
+                  <td className="border border-slate-300 p-2 text-center">{exp.categoryName}</td>
+                  <td className="border border-slate-300 p-2 text-slate-600">{exp.recipient || '—'}</td>
+                  <td className="border border-slate-300 p-2 text-left font-mono font-bold text-rose-700">{formatCurrency(exp.amount, exp.currency)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ),
+    });
+  };
+
 
   // -------------------------------------------------------------
   // 5. EXPENSES & COSTS (هزینه‌ها و مصارف واقعی از سیستم)
@@ -902,7 +1498,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (file) handleLocalFileImport(file);
+  };
+
+  const handleLocalFileImport = (file: File) => {
     const reader = new FileReader();
     reader.onload = event => {
       const content = event.target?.result as string;
@@ -1125,12 +1724,22 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           {/* Summary KPI Cards for Party Balances */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Debtors in AFN & USD (Money owed to us) */}
-            <div className="bg-white p-5 rounded-3xl border border-rose-200/80 shadow-xs space-y-2 bg-gradient-to-br from-rose-50/40 via-white to-white">
+            <div className="bg-white p-5 rounded-3xl border border-rose-200/80 shadow-xs space-y-2 bg-gradient-to-br from-rose-50/40 via-white to-white relative group">
               <div className="flex items-center justify-between text-xs font-bold text-rose-700">
                 <span>طلبات ما از مشتریان (بدهکاران)</span>
-                <span className="text-[10px] bg-rose-100 text-rose-800 px-2 py-0.5 rounded-full font-mono">
-                  {partyMetrics.totalDebtorsCount} نفر
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] bg-rose-100 text-rose-800 px-2 py-0.5 rounded-full font-mono">
+                    {partyMetrics.totalDebtorsCount} نفر
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handlePrintPartiesReport('debtors')}
+                    className="p-1 text-rose-700 hover:bg-rose-100 rounded-lg transition border border-rose-200 cursor-pointer"
+                    title="چاپ اختصاصی لیست بدهکاران"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
               <div className="space-y-1">
                 <div className="text-xl font-black text-rose-700 font-mono">
@@ -1140,16 +1749,36 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                   {formatCurrency(partyMetrics.debtUSD, 'USD')}
                 </div>
               </div>
-              <p className="text-[10px] text-slate-400">مجموع قرضه مشتریان بابت فاکتورهای فروش</p>
+              <div className="flex items-center justify-between pt-1">
+                <p className="text-[10px] text-slate-400">مجموع قرضه مشتریان بابت فاکتورهای فروش</p>
+                <button
+                  type="button"
+                  onClick={() => handlePrintPartiesReport('debtors')}
+                  className="text-[10px] font-bold text-rose-700 hover:underline flex items-center gap-0.5 cursor-pointer"
+                >
+                  <Printer className="w-3 h-3" />
+                  <span>چاپ بدهکاران</span>
+                </button>
+              </div>
             </div>
 
             {/* Creditors in AFN & USD (Money we owe to suppliers) */}
-            <div className="bg-white p-5 rounded-3xl border border-blue-200/80 shadow-xs space-y-2 bg-gradient-to-br from-blue-50/40 via-white to-white">
+            <div className="bg-white p-5 rounded-3xl border border-blue-200/80 shadow-xs space-y-2 bg-gradient-to-br from-blue-50/40 via-white to-white relative group">
               <div className="flex items-center justify-between text-xs font-bold text-blue-700">
                 <span>بدهی ما به تأمین‌کنندگان (بستانکاران)</span>
-                <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-mono">
-                  {partyMetrics.totalCreditorsCount} نفر
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-mono">
+                    {partyMetrics.totalCreditorsCount} نفر
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handlePrintPartiesReport('creditors')}
+                    className="p-1 text-blue-700 hover:bg-blue-100 rounded-lg transition border border-blue-200 cursor-pointer"
+                    title="چاپ اختصاصی لیست بستانکاران (طلبکاران)"
+                  >
+                    <Printer className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
               <div className="space-y-1">
                 <div className="text-xl font-black text-blue-700 font-mono">
@@ -1159,7 +1788,17 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                   {formatCurrency(partyMetrics.creditUSD, 'USD')}
                 </div>
               </div>
-              <p className="text-[10px] text-slate-400">مجموع مانده حساب و طلب فروشندگان و تجار</p>
+              <div className="flex items-center justify-between pt-1">
+                <p className="text-[10px] text-slate-400">مجموع مانده حساب و طلب فروشندگان و تجار</p>
+                <button
+                  type="button"
+                  onClick={() => handlePrintPartiesReport('creditors')}
+                  className="text-[10px] font-bold text-blue-700 hover:underline flex items-center gap-0.5 cursor-pointer"
+                >
+                  <Printer className="w-3 h-3" />
+                  <span>چاپ بستانکاران</span>
+                </button>
+              </div>
             </div>
 
             {/* Net Receivables */}
@@ -1257,20 +1896,33 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 </button>
               </div>
 
-              {/* Group and Sort dropdowns */}
-              <div className="flex items-center gap-2 w-full md:w-auto justify-end">
-                <select
-                  value={partyGroupFilter}
-                  onChange={e => setPartyGroupFilter(e.target.value)}
-                  className="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-slate-50 text-slate-700 focus:outline-none"
-                >
-                  <option value="all">تمام گروه‌ها</option>
-                  {partyGroups.map(g => (
-                    <option key={g.id} value={g.id}>
-                      {g.name}
-                    </option>
-                  ))}
-                </select>
+              {/* Group and Sort dropdowns + Print button */}
+              <div className="flex items-center gap-2 w-full md:w-auto justify-end flex-wrap">
+                <div className="flex items-center gap-1">
+                  <select
+                    value={partyGroupFilter}
+                    onChange={e => setPartyGroupFilter(e.target.value)}
+                    className="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-slate-50 text-slate-700 focus:outline-none"
+                  >
+                    <option value="all">تمام گروه‌ها</option>
+                    {partyGroups.map(g => (
+                      <option key={g.id} value={g.id}>
+                        {g.name}
+                      </option>
+                    ))}
+                  </select>
+                  {partyGroupFilter !== 'all' && (
+                    <button
+                      type="button"
+                      onClick={() => handlePrintPartiesReport(partyStatusFilter, partyGroupFilter)}
+                      className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition border border-slate-200 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                      title={`چاپ مشخص این گروه (${partyGroups.find(g => g.id === partyGroupFilter)?.name || ''})`}
+                    >
+                      <Printer className="w-3.5 h-3.5 text-indigo-600" />
+                      <span className="hidden sm:inline">چاپ این گروه</span>
+                    </button>
+                  )}
+                </div>
 
                 <select
                   value={partySortBy}
@@ -1281,6 +1933,16 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                   <option value="max_credit">بیشترین بستانکاری (طلب)</option>
                   <option value="name">نام (الفبا)</option>
                 </select>
+
+                <button
+                  type="button"
+                  onClick={() => handlePrintPartiesReport()}
+                  className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer shrink-0"
+                  title="چاپ رسمی صورت وضعیت مانده حساب اشخاص"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span>چاپ گزارش اشخاص</span>
+                </button>
               </div>
             </div>
           </div>
@@ -1292,9 +1954,20 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 <Users className="w-4 h-4 text-indigo-600" />
                 <span>لیست تفصیلی مانده حساب اشخاص (افغانی و دلاری)</span>
               </span>
-              <span className="text-xs text-slate-500 font-bold">
-                تعداد موارد: <strong className="text-slate-900 font-mono">{filteredParties.length}</strong>
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-slate-500 font-bold">
+                  تعداد موارد: <strong className="text-slate-900 font-mono">{filteredParties.length}</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handlePrintPartiesReport()}
+                  className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                  title="چاپ لیست مانده حساب اشخاص"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>چاپ این لیست</span>
+                </button>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -1340,12 +2013,18 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                         >
                           {/* Name & Company */}
                           <td className="px-5 py-3.5">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-xs shrink-0 group-hover:bg-indigo-100 group-hover:text-indigo-800">
+                            <div
+                              onClick={() => setSelectedPartyForCardex(p)}
+                              className="flex items-center gap-2.5 cursor-pointer group/name"
+                              title="کلیک برای ورود به صفحه و پرونده مالی این شخص"
+                            >
+                              <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold text-xs shrink-0 group-hover/name:bg-indigo-600 group-hover/name:text-white transition">
                                 {p.name[0]}
                               </div>
                               <div>
-                                <span className="font-black text-slate-900 block">{p.name}</span>
+                                <span className="font-black text-slate-900 block group-hover/name:text-indigo-600 group-hover/name:underline transition">
+                                  {p.name}
+                                </span>
                                 {p.company && <span className="text-[10px] text-slate-400">{p.company}</span>}
                               </div>
                             </div>
@@ -1673,11 +2352,24 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                       ) : (
                         <span className="text-emerald-700 font-bold">✓ موجودی کافی</span>
                       )}
-                      <span className={`font-bold transition ${
-                        isSelected ? 'text-emerald-700 underline font-black' : 'text-slate-400 group-hover:text-emerald-600'
-                      }`}>
-                        {isSelected ? 'فیلتر فعال' : 'کلیک برای فیلتر'}
-                      </span>
+                      <div className="flex items-center gap-1">
+                        <span className={`font-bold transition ${
+                          isSelected ? 'text-emerald-700 underline font-black' : 'text-slate-400 group-hover:text-emerald-600'
+                        }`}>
+                          {isSelected ? 'فیلتر فعال' : 'کلیک برای فیلتر'}
+                        </span>
+                        <span
+                          role="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePrintInventoryReport(cat.name);
+                          }}
+                          className="p-1 hover:bg-emerald-100 text-emerald-700 rounded-md transition"
+                          title={`چاپ موجودی رسمی گروه ${cat.name}`}
+                        >
+                          <Printer className="w-3.5 h-3.5" />
+                        </span>
+                      </div>
                     </div>
                   </button>
                 );
@@ -1735,6 +2427,16 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 <option value="low">⚠️ هشدار کسری و موجودی کم</option>
                 <option value="out">❌ ناموجود (موجودی صفر)</option>
               </select>
+
+              <button
+                type="button"
+                onClick={() => handlePrintInventoryReport()}
+                className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1.5 transition cursor-pointer shrink-0 shadow-xs"
+                title="چاپ رسمی موجودی کالاها و تفکیک گدام‌ها"
+              >
+                <Printer className="w-4 h-4" />
+                <span>چاپ موجودی کالا</span>
+              </button>
             </div>
           </div>
 
@@ -1745,9 +2447,20 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 <Boxes className="w-4 h-4 text-emerald-600" />
                 <span>موجودی کلی کالاها، حد نصاب هشدار و تفکیک در هر گدام (تن و کیسه)</span>
               </span>
-              <span className="text-xs text-slate-500 font-bold">
-                تعداد اقلام: <strong className="text-slate-900 font-mono">{filteredProductsWithStock.length}</strong>
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-slate-500 font-bold">
+                  تعداد اقلام: <strong className="text-slate-900 font-mono">{filteredProductsWithStock.length}</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handlePrintInventoryReport()}
+                  className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                  title="چاپ رسمی لیست موجودی فیلتر شده"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>چاپ لیست</span>
+                </button>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -1895,6 +2608,14 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                               <span>کارتکس کالا</span>
                             </button>
 
+                            <button
+                              onClick={() => setSelectedProductForCardex(prod)}
+                              className="p-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl transition cursor-pointer shadow-xs"
+                              title="چاپ فوری کارتکس کالا"
+                            >
+                              <Printer className="w-3.5 h-3.5" />
+                            </button>
+
                             {onOpenTransferModal && (
                               <button
                                 onClick={() => onOpenTransferModal()}
@@ -1978,6 +2699,136 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             </button>
           </div>
 
+          {/* Advanced Filter Bar with Persian Calendar and Multi-criteria filters */}
+          <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-xs space-y-4">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+              {/* Persian Date Picker */}
+              <div className="flex-1">
+                <PersianDateRangePicker
+                  fromDate={salesFromDate}
+                  toDate={salesToDate}
+                  onChangeRange={(from, to) => {
+                    setSalesFromDate(from);
+                    setSalesToDate(to);
+                  }}
+                  onClear={() => {
+                    setSalesFromDate('');
+                    setSalesToDate('');
+                  }}
+                  label="فیلتر بازه زمانی و تقویم فروشات"
+                  themeColor="emerald"
+                />
+              </div>
+
+              {/* Universal Print Button */}
+              <button
+                type="button"
+                onClick={handlePrintSalesReport}
+                className="px-4 py-2.5 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer shadow-xs shrink-0"
+                title="چاپ گزارش رسمی و تفصیلی فروشات"
+              >
+                <Printer className="w-4 h-4" />
+                <span>چاپ رسمی گزارش فروشات</span>
+              </button>
+            </div>
+
+            {/* Detailed Select Filters */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5 pt-2 border-t border-slate-100">
+              {/* Search query */}
+              <div className="relative sm:col-span-2">
+                <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="جستجوی شماره فاکتور، خریدار، کالا..."
+                  value={salesSearchQuery}
+                  onChange={e => setSalesSearchQuery(e.target.value)}
+                  className="w-full pl-3 pr-9 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-rose-500 bg-slate-50 focus:bg-white"
+                />
+              </div>
+
+              {/* Party / Customer filter */}
+              <select
+                value={salesPartyFilter}
+                onChange={e => setSalesPartyFilter(e.target.value)}
+                className="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-slate-50 text-slate-700 focus:outline-none"
+              >
+                <option value="all">همه مشتریان</option>
+                {parties.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+
+              {/* Product filter */}
+              <select
+                value={salesProductFilter}
+                onChange={e => setSalesProductFilter(e.target.value)}
+                className="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-slate-50 text-slate-700 focus:outline-none"
+              >
+                <option value="all">همه کالاها</option>
+                {products.map(pr => (
+                  <option key={pr.id} value={pr.id}>
+                    {pr.name}
+                  </option>
+                ))}
+              </select>
+
+              {/* Currency filter */}
+              <select
+                value={salesCurrencyFilter}
+                onChange={e => setSalesCurrencyFilter(e.target.value as any)}
+                className="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-slate-50 text-slate-700 focus:outline-none font-bold"
+              >
+                <option value="all">همه ارزها (افغانی و دلار)</option>
+                <option value="AFN">فقط افغانی (AFN)</option>
+                <option value="USD">فقط دالر (USD)</option>
+              </select>
+
+              {/* Payment status filter */}
+              <select
+                value={salesPaymentStatusFilter}
+                onChange={e => setSalesPaymentStatusFilter(e.target.value as any)}
+                className="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-slate-50 text-slate-700 focus:outline-none"
+              >
+                <option value="all">همه وضعیت‌های پرداخت</option>
+                <option value="paid">تسویه کامل نقدی</option>
+                <option value="partial">نیمه‌نسیه</option>
+                <option value="unpaid">نسیه و قرض</option>
+              </select>
+            </div>
+
+            {/* Filter tags / active filters reset */}
+            {(salesSearchQuery || salesCurrencyFilter !== 'all' || salesPartyFilter !== 'all' || salesProductFilter !== 'all' || salesPaymentStatusFilter !== 'all' || salesFromDate || salesToDate) && (
+              <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-100 text-slate-500">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="font-bold text-rose-700">فیلترهای فعال:</span>
+                  {salesFromDate && <span className="px-2 py-0.5 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 text-[11px]">از {salesFromDate}</span>}
+                  {salesToDate && <span className="px-2 py-0.5 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 text-[11px]">تا {salesToDate}</span>}
+                  {salesPartyFilter !== 'all' && <span className="px-2 py-0.5 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 text-[11px]">مشتری انتخاب شده</span>}
+                  {salesProductFilter !== 'all' && <span className="px-2 py-0.5 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 text-[11px]">کالای انتخاب شده</span>}
+                  {salesCurrencyFilter !== 'all' && <span className="px-2 py-0.5 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 text-[11px]">ارز: {salesCurrencyFilter}</span>}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSalesSearchQuery('');
+                    setSalesCurrencyFilter('all');
+                    setSalesFromDate('');
+                    setSalesToDate('');
+                    setSalesPartyFilter('all');
+                    setSalesProductFilter('all');
+                    setSalesPaymentStatusFilter('all');
+                    setSalesWarehouseFilter('all');
+                  }}
+                  className="text-rose-600 hover:text-rose-800 font-bold underline cursor-pointer text-xs shrink-0"
+                >
+                  حذف همه فیلترها
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* Sales Invoices Table */}
           <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
             <div className="p-4 bg-slate-50/80 border-b border-slate-200 flex items-center justify-between">
@@ -1985,9 +2836,20 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 <TrendingUp className="w-4 h-4 text-rose-600" />
                 <span>فهرست فاکتورهای فروش صادر شده</span>
               </span>
-              <span className="text-xs text-slate-500 font-bold">
-                تعداد: <strong className="text-slate-900 font-mono">{filteredSellInvoices.length}</strong>
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-slate-500 font-bold">
+                  تعداد: <strong className="text-slate-900 font-mono">{filteredSellInvoices.length}</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={handlePrintSalesReport}
+                  className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-800 border border-rose-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                  title="چاپ رسمی فاکتورهای فیلتر شده"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>چاپ گزارش فروشات</span>
+                </button>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -1996,7 +2858,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                   <tr>
                     <th className="px-5 py-3.5">شماره فاکتور / تاریخ</th>
                     <th className="px-5 py-3.5">مشتری / خریدار</th>
-                    <th className="px-5 py-3.5">اقلام و تناژ فروش</th>
+                    <th className="px-5 py-3.5">اقلام، کالاها و تناژ فروش</th>
                     <th className="px-5 py-3.5 text-left">مبلغ کل فاکتور</th>
                     <th className="px-5 py-3.5 text-left">پرداخت نقدی</th>
                     <th className="px-5 py-3.5 text-left">مانده نسیه</th>
@@ -2004,37 +2866,76 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredSellInvoices.map(inv => (
-                    <tr key={inv.id} className="hover:bg-rose-50/20 transition">
-                      <td className="px-5 py-3.5 font-mono">
-                        <strong className="text-slate-900">{inv.invoiceNumber}</strong>
-                        <div className="text-[10px] text-slate-400">{inv.date}</div>
-                      </td>
-                      <td className="px-5 py-3.5 font-bold text-slate-800">
-                        {inv.partyName}
-                      </td>
-                      <td className="px-5 py-3.5 text-slate-600">
-                        {inv.items.map(it => `${it.productName} (${it.quantity} ${it.unit === 'ton' ? 'تن' : 'کیسه'})`).join(' , ')}
-                      </td>
-                      <td className="px-5 py-3.5 text-left font-mono font-black text-slate-900">
-                        {formatCurrency(inv.totalAmount, inv.currency)}
-                      </td>
-                      <td className="px-5 py-3.5 text-left font-mono text-emerald-700 font-bold">
-                        {formatCurrency(inv.paidAmount, inv.currency)}
-                      </td>
-                      <td className="px-5 py-3.5 text-left font-mono text-rose-600 font-black">
-                        {formatCurrency(inv.balanceAmount, inv.currency)}
-                      </td>
-                      <td className="px-5 py-3.5 text-center">
-                        <button
-                          onClick={() => onViewInvoice && onViewInvoice(inv.id)}
-                          className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition cursor-pointer"
-                        >
-                          نمایش و چاپ
-                        </button>
+                  {filteredSellInvoices.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="p-10 text-center text-slate-400 font-bold">
+                        هیچ فاکتور فروشی مطابق فیلترهای اعمال شده یافت نشد.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    filteredSellInvoices.map(inv => {
+                      const totalTons = inv.items?.reduce((sum, it) => sum + (it.tonsCount || 0), 0) || 0;
+                      const totalBags = inv.items?.reduce((sum, it) => sum + (it.bagsCount || 0), 0) || 0;
+
+                      return (
+                        <tr key={inv.id} className="hover:bg-rose-50/20 transition">
+                          <td className="px-5 py-3.5 font-mono">
+                            <strong className="text-slate-900">{inv.invoiceNumber}</strong>
+                            <div className="text-[10px] text-slate-400">{inv.date}</div>
+                          </td>
+                          <td className="px-5 py-3.5 font-bold text-slate-800">
+                            {inv.partyName}
+                          </td>
+                          <td className="px-5 py-3.5">
+                            <div className="flex flex-wrap gap-1.5 max-w-md">
+                              {inv.items?.map((it, idx) => (
+                                <span
+                                  key={idx}
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-rose-50 border border-rose-100 text-rose-900 text-[11px]"
+                                >
+                                  <Package className="w-3 h-3 text-rose-500" />
+                                  <strong className="font-bold">{it.productName}:</strong>
+                                  <span className="font-mono">{formatNumber(it.quantity)} {it.unit === 'ton' ? 'تن' : 'کیسه'}</span>
+                                </span>
+                              ))}
+                            </div>
+                            {(totalTons > 0 || totalBags > 0) && (
+                              <div className="text-[10px] text-slate-500 font-mono mt-1 font-bold">
+                                مجموع: {totalTons > 0 ? `${formatNumber(totalTons)} تن` : ''} {totalBags > 0 ? `(${formatNumber(totalBags)} کیسه)` : ''}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-5 py-3.5 text-left font-mono font-black text-slate-900">
+                            {formatCurrency(inv.totalAmount, inv.currency)}
+                          </td>
+                          <td className="px-5 py-3.5 text-left font-mono text-emerald-700 font-bold">
+                            {formatCurrency(inv.paidAmount, inv.currency)}
+                          </td>
+                          <td className="px-5 py-3.5 text-left font-mono text-rose-600 font-black">
+                            {formatCurrency(inv.balanceAmount, inv.currency)}
+                          </td>
+                          <td className="px-5 py-3.5 text-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                onClick={() => onViewInvoice && onViewInvoice(inv.id)}
+                                className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition cursor-pointer"
+                                title="مشاهده جزئیات فاکتور"
+                              >
+                                نمایش
+                              </button>
+                              <button
+                                onClick={() => openPrintModal({ type: 'invoice', invoice: inv })}
+                                className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl transition cursor-pointer"
+                                title="چاپ مستقیم فاکتور"
+                              >
+                                <Printer className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
@@ -2086,6 +2987,136 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             </div>
           </div>
 
+          {/* Advanced Filter Bar with Persian Calendar and Multi-criteria filters */}
+          <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-xs space-y-4">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+              {/* Persian Date Picker */}
+              <div className="flex-1">
+                <PersianDateRangePicker
+                  fromDate={buyFromDate}
+                  toDate={buyToDate}
+                  onChangeRange={(from, to) => {
+                    setBuyFromDate(from);
+                    setBuyToDate(to);
+                  }}
+                  onClear={() => {
+                    setBuyFromDate('');
+                    setBuyToDate('');
+                  }}
+                  label="فیلتر بازه زمانی و تقویم خریدها"
+                  themeColor="blue"
+                />
+              </div>
+
+              {/* Universal Print Button */}
+              <button
+                type="button"
+                onClick={handlePrintPurchasesReport}
+                className="px-4 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center justify-center gap-2 transition cursor-pointer shadow-xs shrink-0"
+                title="چاپ گزارش رسمی و تفصیلی خریدها"
+              >
+                <Printer className="w-4 h-4" />
+                <span>چاپ رسمی گزارش خریدها</span>
+              </button>
+            </div>
+
+            {/* Detailed Select Filters */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5 pt-2 border-t border-slate-100">
+              {/* Search query */}
+              <div className="relative sm:col-span-2">
+                <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="جستجوی شماره فاکتور، فروشنده، کالا..."
+                  value={buySearchQuery}
+                  onChange={e => setBuySearchQuery(e.target.value)}
+                  className="w-full pl-3 pr-9 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white"
+                />
+              </div>
+
+              {/* Party / Supplier filter */}
+              <select
+                value={buyPartyFilter}
+                onChange={e => setBuyPartyFilter(e.target.value)}
+                className="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-slate-50 text-slate-700 focus:outline-none"
+              >
+                <option value="all">همه فروشندگان</option>
+                {parties.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+
+              {/* Product filter */}
+              <select
+                value={buyProductFilter}
+                onChange={e => setBuyProductFilter(e.target.value)}
+                className="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-slate-50 text-slate-700 focus:outline-none"
+              >
+                <option value="all">همه کالاها</option>
+                {products.map(pr => (
+                  <option key={pr.id} value={pr.id}>
+                    {pr.name}
+                  </option>
+                ))}
+              </select>
+
+              {/* Currency filter */}
+              <select
+                value={buyCurrencyFilter}
+                onChange={e => setBuyCurrencyFilter(e.target.value as any)}
+                className="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-slate-50 text-slate-700 focus:outline-none font-bold"
+              >
+                <option value="all">همه ارزها (افغانی و دلار)</option>
+                <option value="AFN">فقط افغانی (AFN)</option>
+                <option value="USD">فقط دالر (USD)</option>
+              </select>
+
+              {/* Payment status filter */}
+              <select
+                value={buyPaymentStatusFilter}
+                onChange={e => setBuyPaymentStatusFilter(e.target.value as any)}
+                className="px-3 py-2 rounded-xl border border-slate-200 text-xs bg-slate-50 text-slate-700 focus:outline-none"
+              >
+                <option value="all">همه وضعیت‌های پرداخت</option>
+                <option value="paid">تسویه کامل نقدی</option>
+                <option value="partial">نیمه‌نسیه</option>
+                <option value="unpaid">نسیه و بدهی</option>
+              </select>
+            </div>
+
+            {/* Filter tags / active filters reset */}
+            {(buySearchQuery || buyCurrencyFilter !== 'all' || buyPartyFilter !== 'all' || buyProductFilter !== 'all' || buyPaymentStatusFilter !== 'all' || buyFromDate || buyToDate) && (
+              <div className="flex items-center justify-between text-xs pt-2 border-t border-slate-100 text-slate-500">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="font-bold text-blue-700">فیلترهای فعال:</span>
+                  {buyFromDate && <span className="px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 text-[11px]">از {buyFromDate}</span>}
+                  {buyToDate && <span className="px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 text-[11px]">تا {buyToDate}</span>}
+                  {buyPartyFilter !== 'all' && <span className="px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 text-[11px]">فروشنده انتخاب شده</span>}
+                  {buyProductFilter !== 'all' && <span className="px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 text-[11px]">کالای انتخاب شده</span>}
+                  {buyCurrencyFilter !== 'all' && <span className="px-2 py-0.5 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 text-[11px]">ارز: {buyCurrencyFilter}</span>}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBuySearchQuery('');
+                    setBuyCurrencyFilter('all');
+                    setBuyFromDate('');
+                    setBuyToDate('');
+                    setBuyPartyFilter('all');
+                    setBuyProductFilter('all');
+                    setBuyPaymentStatusFilter('all');
+                    setBuyWarehouseFilter('all');
+                  }}
+                  className="text-blue-600 hover:text-blue-800 font-bold underline cursor-pointer text-xs shrink-0"
+                >
+                  حذف همه فیلترها
+                </button>
+              </div>
+            )}
+          </div>
+
           {/* Purchases Table */}
           <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
             <div className="p-4 bg-slate-50/80 border-b border-slate-200 flex items-center justify-between">
@@ -2093,9 +3124,20 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 <TrendingDown className="w-4 h-4 text-blue-600" />
                 <span>فهرست فاکتورهای خرید و واردات کالا</span>
               </span>
-              <span className="text-xs text-slate-500 font-bold">
-                تعداد: <strong className="text-slate-900 font-mono">{filteredBuyInvoices.length}</strong>
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-slate-500 font-bold">
+                  تعداد: <strong className="text-slate-900 font-mono">{filteredBuyInvoices.length}</strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={handlePrintPurchasesReport}
+                  className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer"
+                  title="چاپ رسمی فاکتورهای خرید فیلتر شده"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>چاپ گزارش خریدها</span>
+                </button>
+              </div>
             </div>
 
             <div className="overflow-x-auto">
@@ -2112,37 +3154,76 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filteredBuyInvoices.map(inv => (
-                    <tr key={inv.id} className="hover:bg-blue-50/20 transition">
-                      <td className="px-5 py-3.5 font-mono">
-                        <strong className="text-slate-900">{inv.invoiceNumber}</strong>
-                        <div className="text-[10px] text-slate-400">{inv.date}</div>
-                      </td>
-                      <td className="px-5 py-3.5 font-bold text-slate-800">
-                        {inv.partyName}
-                      </td>
-                      <td className="px-5 py-3.5 text-slate-600">
-                        {inv.items.map(it => `${it.productName} (${it.quantity} ${it.unit === 'ton' ? 'تن' : 'کیسه'})`).join(' , ')}
-                      </td>
-                      <td className="px-5 py-3.5 text-left font-mono font-black text-slate-900">
-                        {formatCurrency(inv.totalAmount, inv.currency)}
-                      </td>
-                      <td className="px-5 py-3.5 text-left font-mono text-emerald-700 font-bold">
-                        {formatCurrency(inv.paidAmount, inv.currency)}
-                      </td>
-                      <td className="px-5 py-3.5 text-left font-mono text-blue-700 font-black">
-                        {formatCurrency(inv.balanceAmount, inv.currency)}
-                      </td>
-                      <td className="px-5 py-3.5 text-center">
-                        <button
-                          onClick={() => onViewInvoice && onViewInvoice(inv.id)}
-                          className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition cursor-pointer"
-                        >
-                          نمایش و چاپ
-                        </button>
+                  {filteredBuyInvoices.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="p-10 text-center text-slate-400 font-bold">
+                        هیچ فاکتور خریدی مطابق فیلترهای اعمال شده یافت نشد.
                       </td>
                     </tr>
-                  ))}
+                  ) : (
+                    filteredBuyInvoices.map(inv => {
+                      const totalTons = inv.items?.reduce((sum, it) => sum + (it.tonsCount || 0), 0) || 0;
+                      const totalBags = inv.items?.reduce((sum, it) => sum + (it.bagsCount || 0), 0) || 0;
+
+                      return (
+                        <tr key={inv.id} className="hover:bg-blue-50/20 transition">
+                          <td className="px-5 py-3.5 font-mono">
+                            <strong className="text-slate-900">{inv.invoiceNumber}</strong>
+                            <div className="text-[10px] text-slate-400">{inv.date}</div>
+                          </td>
+                          <td className="px-5 py-3.5 font-bold text-slate-800">
+                            {inv.partyName}
+                          </td>
+                          <td className="px-5 py-3.5">
+                            <div className="flex flex-wrap gap-1.5 max-w-md">
+                              {inv.items?.map((it, idx) => (
+                                <span
+                                  key={idx}
+                                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-50 border border-blue-100 text-blue-900 text-[11px]"
+                                >
+                                  <Package className="w-3 h-3 text-blue-500" />
+                                  <strong className="font-bold">{it.productName}:</strong>
+                                  <span className="font-mono">{formatNumber(it.quantity)} {it.unit === 'ton' ? 'تن' : 'کیسه'}</span>
+                                </span>
+                              ))}
+                            </div>
+                            {(totalTons > 0 || totalBags > 0) && (
+                              <div className="text-[10px] text-slate-500 font-mono mt-1 font-bold">
+                                مجموع: {totalTons > 0 ? `${formatNumber(totalTons)} تن` : ''} {totalBags > 0 ? `(${formatNumber(totalBags)} کیسه)` : ''}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-5 py-3.5 text-left font-mono font-black text-slate-900">
+                            {formatCurrency(inv.totalAmount, inv.currency)}
+                          </td>
+                          <td className="px-5 py-3.5 text-left font-mono text-emerald-700 font-bold">
+                            {formatCurrency(inv.paidAmount, inv.currency)}
+                          </td>
+                          <td className="px-5 py-3.5 text-left font-mono text-blue-700 font-black">
+                            {formatCurrency(inv.balanceAmount, inv.currency)}
+                          </td>
+                          <td className="px-5 py-3.5 text-center">
+                            <div className="flex items-center justify-center gap-1.5">
+                              <button
+                                onClick={() => onViewInvoice && onViewInvoice(inv.id)}
+                                className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition cursor-pointer"
+                                title="مشاهده جزئیات فاکتور"
+                              >
+                                نمایش
+                              </button>
+                              <button
+                                onClick={() => openPrintModal({ type: 'invoice', invoice: inv })}
+                                className="p-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-xl transition cursor-pointer"
+                                title="چاپ مستقیم فاکتور"
+                              >
+                                <Printer className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
                 </tbody>
               </table>
             </div>
@@ -2171,13 +3252,25 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               </div>
             </div>
 
-            <button
-              onClick={() => setIsAddingExpense(true)}
-              className="px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-xs cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>ثبت مصارف و هزینه جدید</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handlePrintExpensesReport}
+                className="px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-xs cursor-pointer"
+                title="چاپ رسمی گزارش هزینه‌ها و مصارف"
+              >
+                <Printer className="w-4 h-4" />
+                <span>چاپ گزارش هزینه‌ها</span>
+              </button>
+
+              <button
+                onClick={() => setIsAddingExpense(true)}
+                className="px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-xs cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>ثبت مصارف و هزینه جدید</span>
+              </button>
+            </div>
           </div>
 
           {/* Add Expense Form Modal */}
@@ -2423,12 +3516,24 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               )}
             </div>
 
-            <div className="text-xs text-slate-500 font-mono font-medium">
-              {pnlPeriod === 'all' && 'محاسبه از آغاز عملیات سیستم تا کنون'}
-              {pnlPeriod === 'today' && `گزارش روزانه: ${getPersianDate()}`}
-              {pnlPeriod === 'month' && 'گزارش ماه جاری بر مبنای تقویم شمسی'}
-              {pnlPeriod === 'year' && 'گزارش کل سال مالی جاری'}
-              {pnlPeriod === 'custom' && (effectivePnlDateRange.from || effectivePnlDateRange.to ? `از ${effectivePnlDateRange.from || 'ابتدا'} تا ${effectivePnlDateRange.to || 'اکنون'}` : 'لطفاً بازه تاریخ را وارد نمایید')}
+            <div className="flex items-center gap-3">
+              <div className="text-xs text-slate-500 font-mono font-medium">
+                {pnlPeriod === 'all' && 'محاسبه از آغاز عملیات سیستم تا کنون'}
+                {pnlPeriod === 'today' && `گزارش روزانه: ${getPersianDate()}`}
+                {pnlPeriod === 'month' && 'گزارش ماه جاری بر مبنای تقویم شمسی'}
+                {pnlPeriod === 'year' && 'گزارش کل سال مالی جاری'}
+                {pnlPeriod === 'custom' && (effectivePnlDateRange.from || effectivePnlDateRange.to ? `از ${effectivePnlDateRange.from || 'ابتدا'} تا ${effectivePnlDateRange.to || 'اکنون'}` : 'لطفاً بازه تاریخ را وارد نمایید')}
+              </div>
+
+              <button
+                type="button"
+                onClick={handlePrintProfitLoss}
+                className="px-4 py-2 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer shrink-0"
+                title="چاپ رسمی صورت حساب سود و زیان (P&L)"
+              >
+                <Printer className="w-4 h-4" />
+                <span>چاپ صورت سود و زیان</span>
+              </button>
             </div>
           </div>
 
@@ -2576,6 +3681,25 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       {/* ========================================================================= */}
       {activeSection === 'balance_sheet' && (
         <div className="space-y-6">
+          <div className="bg-white rounded-3xl p-4 border border-slate-200 shadow-xs flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Scale className="w-5 h-5 text-indigo-600" />
+              <div>
+                <h3 className="text-sm font-black text-slate-900">ترازنامه مالی و بیلاننس تجارتی</h3>
+                <p className="text-[11px] text-slate-500">تطابق دارایی‌ها، بدهی‌ها و حقوق صاحبان سرمایه</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handlePrintBalanceSheet}
+              className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-xs cursor-pointer"
+              title="چاپ رسمی ترازنامه و بیلاننس مالی"
+            >
+              <Printer className="w-4 h-4" />
+              <span>چاپ ترازنامه مالی</span>
+            </button>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Assets (دارایی‌ها) */}
             <div className="bg-white rounded-3xl border border-emerald-200 p-6 shadow-xs space-y-4">
@@ -2832,82 +3956,73 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       {/* 11. SECTION: BACKUP & DATABASE / پشتیبان‌گیری و پایگاه داده */}
       {/* ========================================================================= */}
       {activeSection === 'backup' && (
-        <div className="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 shadow-xs space-y-6">
+        <div className="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 shadow-xs space-y-8">
           <div>
-            <h3 className="font-black text-slate-900 text-base mb-1">پشتیبان‌گیری و مدیریت پایگاه داده</h3>
+            <h3 className="font-black text-slate-900 text-base mb-1">پشتیبان‌گیری ابری گوگل درایو و پایگاه داده</h3>
             <p className="text-xs text-slate-500">
-              شما می‌توانید از تمامی فاکتورها، حساب‌های اشخاص، موجودی گدام‌ها، هزینه‌ها و تراکنش‌های مالی نسخه پشتیبان بگیرید، آن را بازیابی کنید، یا دیتابیس را ریست و پاک‌سازی نمایید.
+              پشتیبان‌گیری خودکار و دستی در فضای ابری امن Google Drive، دانلود فایل پشتیبان محلی (JSON) و مدیریت بازنشانی داده‌ها.
             </p>
           </div>
 
           {importStatus && (
             <div className="p-3 rounded-2xl bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200 flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
               <span>{importStatus}</span>
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            <button
-              onClick={handleDownloadBackup}
-              className="flex items-center justify-center gap-2 px-5 py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-bold transition shadow-xs cursor-pointer"
-            >
-              <Download className="w-4 h-4" />
-              <span>دانلود فایل پشتیبان کامل (JSON)</span>
-            </button>
+          {/* Google Drive & Backup Hub Panel */}
+          <GoogleDriveBackupPanel
+            onLocalExport={handleDownloadBackup}
+            onLocalImport={handleLocalFileImport}
+          />
 
-            <label className="flex items-center justify-center gap-2 px-5 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-2xl text-xs font-bold transition cursor-pointer border border-slate-200">
-              <Upload className="w-4 h-4 text-emerald-600" />
-              <span>بازیابی پایگاه داده از فایل</span>
-              <input
-                type="file"
-                accept=".json"
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-            </label>
+          {/* Advanced Administration / Database Resets */}
+          <div className="pt-6 border-t border-slate-200 space-y-3">
+            <h4 className="text-xs font-black text-slate-700">عملیات پیشرفته مدیریتی و ریست پایگاه داده</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <button
+                onClick={() => {
+                  if (confirm('آیا مطمئن هستید که می‌خواهید تمام داده‌ها به حالت نمونه اولیه (Demo) بازنشانی شوند؟')) {
+                    resetToDemoData();
+                    setImportStatus('داده‌های نمونه پیش‌فرض با موفقیت بارگذاری شد.');
+                    setTimeout(() => setImportStatus(null), 3000);
+                  }
+                }}
+                className="flex items-center justify-center gap-2 px-4 py-3 border border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-2xl text-xs font-bold transition cursor-pointer"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span>بازنشانی به داده‌های دمو</span>
+              </button>
 
-            <button
-              onClick={() => {
-                if (confirm('آیا مطمئن هستید که می‌خواهید تمام داده‌ها به حالت نمونه اولیه (Demo) بازنشانی شوند؟')) {
-                  resetToDemoData();
-                  setImportStatus('داده‌های نمونه پیش‌فرض با موفقیت بارگذاری شد.');
-                  setTimeout(() => setImportStatus(null), 3000);
-                }
-              }}
-              className="flex items-center justify-center gap-2 px-5 py-3.5 border border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-2xl text-xs font-bold transition cursor-pointer"
-            >
-              <RefreshCw className="w-4 h-4" />
-              <span>بازنشانی به داده‌های دمو</span>
-            </button>
+              <button
+                onClick={() => {
+                  if (confirm('آیا می‌خواهید سال مالی جدید شروع کنید؟ (فاکتورها، تراکنش‌ها و اسناد صفر شده و کالاها، اشخاص و مانده‌ها حفظ می‌گردند)')) {
+                    resetNewFinancialYear();
+                    setImportStatus('سال مالی جدید با موفقیت ایجاد گردید.');
+                    setTimeout(() => setImportStatus(null), 3000);
+                  }
+                }}
+                className="flex items-center justify-center gap-2 px-4 py-3 border border-blue-300 text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-2xl text-xs font-bold transition cursor-pointer"
+              >
+                <FileText className="w-4 h-4" />
+                <span>شروع سال مالی جدید</span>
+              </button>
 
-            <button
-              onClick={() => {
-                if (confirm('آیا می‌خواهید سال مالی جدید شروع کنید؟ (فاکتورها، تراکنش‌ها و اسناد صفر شده و کالاها، اشخاص و مانده‌ها حفظ می‌گردند)')) {
-                  resetNewFinancialYear();
-                  setImportStatus('سال مالی جدید با موفقیت ایجاد گردید.');
-                  setTimeout(() => setImportStatus(null), 3000);
-                }
-              }}
-              className="flex items-center justify-center gap-2 px-5 py-3.5 border border-blue-300 text-blue-800 bg-blue-50 hover:bg-blue-100 rounded-2xl text-xs font-bold transition cursor-pointer"
-            >
-              <FileText className="w-4 h-4" />
-              <span>شروع سال مالی جدید</span>
-            </button>
-
-            <button
-              onClick={() => {
-                if (confirm('هشدار: آیا مطمئن هستید که می‌خواهید کل داده‌ها، اسناد، فاکتورها و هزینه‌ها را کاملاً پاک و صفر کنید (Wipe Clean)؟ این عملیات غیرقابل برگشت است.')) {
-                  resetWipeCleanAll();
-                  setImportStatus('تمامی اطلاعات، اسناد و هزینه‌ها با موفقیت پاک و صفر شدند.');
-                  setTimeout(() => setImportStatus(null), 3000);
-                }
-              }}
-              className="flex items-center justify-center gap-2 px-5 py-3.5 border border-rose-300 text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-2xl text-xs font-bold transition cursor-pointer col-span-1 sm:col-span-2 lg:col-span-1"
-            >
-              <Trash2 className="w-4 h-4" />
-              <span>پاک‌سازی کامل کلیه اسناد و داده‌ها</span>
-            </button>
+              <button
+                onClick={() => {
+                  if (confirm('هشدار: آیا مطمئن هستید که می‌خواهید کل داده‌ها، اسناد، فاکتورها و هزینه‌ها را کاملاً پاک و صفر کنید (Wipe Clean)؟ این عملیات غیرقابل برگشت است.')) {
+                    resetWipeCleanAll();
+                    setImportStatus('تمامی اطلاعات، اسناد و هزینه‌ها با موفقیت پاک و صفر شدند.');
+                    setTimeout(() => setImportStatus(null), 3000);
+                  }
+                }}
+                className="flex items-center justify-center gap-2 px-4 py-3 border border-rose-300 text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-2xl text-xs font-bold transition cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>پاک‌سازی کامل کلیه اسناد (Wipe)</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

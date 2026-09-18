@@ -113,23 +113,19 @@ export const PurchaseInvoiceCreateView: React.FC<PurchaseInvoiceCreateViewProps>
   // Quick Party Modal state
   const [isQuickPartyModalOpen, setIsQuickPartyModalOpen] = useState(false);
 
-  // Items table rows (Starts with 1 item row by default; user clicks 'افزودن ردیف کالا' for more)
-  const [rows, setRows] = useState<PurchaseItemRowState[]>(() => {
-    const p0 = products[0];
-    const defaultPrice = p0 ? (currency === 'AFN' ? p0.buyPriceAFN : p0.buyPriceUSD) : 0;
-    return [
-      {
-        id: 'row-1',
-        productId: p0?.id || '',
-        productName: p0?.name || '',
-        unit: 'ton',
-        quantity: 1,
-        unitPrice: defaultPrice,
-        totalPrice: defaultPrice,
-        description: '',
-      },
-    ];
-  });
+  // Items table rows (Starts with 1 clean item row ready for instant search)
+  const [rows, setRows] = useState<PurchaseItemRowState[]>([
+    {
+      id: 'row-1',
+      productId: '',
+      productName: '',
+      unit: 'ton',
+      quantity: 1,
+      unitPrice: 0,
+      totalPrice: 0,
+      description: '',
+    },
+  ]);
 
   // Overall discounts
   const [discount, setDiscount] = useState<number>(0);
@@ -172,32 +168,33 @@ export const PurchaseInvoiceCreateView: React.FC<PurchaseInvoiceCreateViewProps>
     return parties.filter(p => p.name.toLowerCase().includes(q) || (p.code && p.code.toLowerCase().includes(q)));
   }, [parties, partySearch]);
 
-  // Add new item row
+  // Add new item row and focus search input
   const handleAddRow = () => {
-    const p = products[0];
-    const defaultPrice = p ? (currency === 'AFN' ? p.buyPriceAFN : p.buyPriceUSD) : 0;
+    const newId = 'row-' + Date.now() + Math.random().toString(36).substring(2, 6);
     const newRow: PurchaseItemRowState = {
-      id: 'row-' + Date.now() + Math.random(),
-      productId: p?.id || '',
-      productName: p?.name || '',
+      id: newId,
+      productId: '',
+      productName: '',
       unit: 'ton',
       quantity: 1,
-      unitPrice: defaultPrice,
-      totalPrice: defaultPrice * 1,
+      unitPrice: 0,
+      totalPrice: 0,
       description: '',
     };
     setRows(prev => [...prev, newRow]);
+    setTimeout(() => {
+      document.getElementById(`prod-search-${newId}`)?.focus();
+    }, 50);
   };
 
   // Remove item row
   const handleRemoveRow = (id: string) => {
     if (rows.length === 1) {
-      const p = products[0];
       setRows([
         {
           id: 'row-1',
-          productId: p?.id || '',
-          productName: p?.name || '',
+          productId: '',
+          productName: '',
           unit: 'ton',
           quantity: 1,
           unitPrice: 0,
@@ -217,15 +214,22 @@ export const PurchaseInvoiceCreateView: React.FC<PurchaseInvoiceCreateViewProps>
         if (r.id !== id) return r;
         const updated = { ...r, ...updates };
 
-        if (updates.productId) {
-          const prod = products.find(p => p.id === updates.productId);
-          if (prod) {
-            updated.productName = prod.name;
-            const basePrice = currency === 'AFN' ? prod.buyPriceAFN : prod.buyPriceUSD;
-            if (updated.unit === 'bag') {
-              updated.unitPrice = Math.round(basePrice / (prod.bagsPerTon || 20));
-            } else {
-              updated.unitPrice = basePrice;
+        // If product changed or cleared
+        if ('productId' in updates) {
+          if (!updates.productId) {
+            updated.productName = '';
+            updated.unitPrice = 0;
+            updated.totalPrice = 0;
+          } else {
+            const prod = products.find(p => p.id === updates.productId);
+            if (prod) {
+              updated.productName = prod.name;
+              const basePrice = currency === 'AFN' ? prod.buyPriceAFN : prod.buyPriceUSD;
+              if (updated.unit === 'bag') {
+                updated.unitPrice = Math.round(basePrice / (prod.bagsPerTon || 20));
+              } else {
+                updated.unitPrice = basePrice;
+              }
             }
           }
         }
@@ -798,23 +802,27 @@ export const PurchaseInvoiceCreateView: React.FC<PurchaseInvoiceCreateViewProps>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {rows.map(row => (
+                {rows.map((row, index) => (
                   <tr key={row.id} className="hover:bg-slate-50/60 transition">
-                    {/* 1. نام یا کد کالا (تایپ و جستجوی هوشمند) */}
-                    <td className="p-2 min-w-[200px]">
+                    {/* 1. نام یا کد کالا (تایپ و جستجوی هوشمند Autocomplete) */}
+                    <td className="p-2 min-w-[220px]">
                       <ProductSearchSelector
+                        id={`prod-search-${row.id}`}
                         compact
                         products={products}
                         selectedProductId={row.productId}
                         warehouseId={selectedWarehouseId}
                         currency={currency}
                         priceType="buy"
-                        placeholder="تایپ یا جستجوی نام، کد یا دسته کالا..."
+                        placeholder="تایپ نام، کد یا بارکد کالا..."
                         onSelectProduct={(p) => {
                           handleUpdateRow(row.id, { productId: p.id, productName: p.name });
                         }}
                         onClear={() => {
                           handleUpdateRow(row.id, { productId: '', productName: '', unitPrice: 0, totalPrice: 0 });
+                        }}
+                        onAdvanceFocus={() => {
+                          document.getElementById(`qty-input-${row.id}`)?.focus();
                         }}
                       />
                     </td>
@@ -834,11 +842,19 @@ export const PurchaseInvoiceCreateView: React.FC<PurchaseInvoiceCreateViewProps>
                     {/* 3. تعداد */}
                     <td className="p-2">
                       <input
+                        id={`qty-input-${row.id}`}
                         type="number"
                         step="any"
                         min="0"
-                        value={row.quantity}
+                        value={row.quantity || ''}
                         onChange={e => handleUpdateRow(row.id, { quantity: parseFloat(e.target.value) || 0 })}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            document.getElementById(`price-input-${row.id}`)?.focus();
+                          }
+                        }}
+                        placeholder="تعداد"
                         className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold text-center text-slate-800 focus:border-blue-500 outline-none"
                       />
                     </td>
@@ -846,11 +862,24 @@ export const PurchaseInvoiceCreateView: React.FC<PurchaseInvoiceCreateViewProps>
                     {/* 4. قیمت واحد */}
                     <td className="p-2">
                       <input
+                        id={`price-input-${row.id}`}
                         type="number"
                         step="any"
                         min="0"
-                        value={row.unitPrice}
+                        value={row.unitPrice || ''}
                         onChange={e => handleUpdateRow(row.id, { unitPrice: parseFloat(e.target.value) || 0 })}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            const isLast = index === rows.length - 1;
+                            if (isLast && row.productId) {
+                              handleAddRow();
+                            } else if (rows[index + 1]) {
+                              document.getElementById(`prod-search-${rows[index + 1].id}`)?.focus();
+                            }
+                          }
+                        }}
+                        placeholder="نرخ فی"
                         className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold text-center text-slate-800 focus:border-blue-500 outline-none"
                       />
                     </td>

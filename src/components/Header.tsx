@@ -8,6 +8,7 @@ import {
   RefreshCw,
   Lock,
   Coins,
+  Cloud,
 } from 'lucide-react';
 import { NavTab } from './Sidebar';
 import { ThemeSwitcherDropdown } from './ThemeSwitcherDropdown';
@@ -128,8 +129,19 @@ export const Header: React.FC<HeaderProps> = ({
         <CurrencyRateCalculator />
       </div>
 
-      {/* Left side: Theme switcher, User profile pill & Lock button */}
+      {/* Left side: Theme switcher, Google Drive backup pill, User profile pill & Lock button */}
       <div className="flex items-center gap-2 sm:gap-3">
+        {/* Quick Google Drive Cloud Backup Pill */}
+        <button
+          type="button"
+          onClick={() => onOpenAccessModal && onOpenAccessModal('backup')}
+          className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-700 rounded-full border border-slate-200/90 text-xs font-bold transition shadow-2xs cursor-pointer"
+          title="پشتیبان‌گیری ابری و تنظیمات گوگل درایو"
+        >
+          <Cloud className="w-3.5 h-3.5 text-blue-600" />
+          <span className="text-[11px]">گوگل درایو</span>
+        </button>
+
         {/* Theme Manager Dropdown */}
         <ThemeSwitcherDropdown />
 

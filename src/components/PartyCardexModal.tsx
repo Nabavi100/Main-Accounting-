@@ -23,6 +23,9 @@ import {
   Plus,
   AlertCircle,
   CheckCircle2,
+  Maximize2,
+  Minimize2,
+  ArrowRight,
 } from 'lucide-react';
 
 interface PartyCardexModalProps {
@@ -47,6 +50,7 @@ export const PartyCardexModal: React.FC<PartyCardexModalProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
+  const [isFullScreen, setIsFullScreen] = useState(false);
 
   // Close on Escape key press
   useEffect(() => {
@@ -254,30 +258,50 @@ export const PartyCardexModal: React.FC<PartyCardexModalProps> = ({
   return (
     <div
       id="party-cardex-modal-backdrop"
-      className="fixed inset-0 bg-slate-900/65 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 z-50 overflow-y-auto"
+      className={`fixed inset-0 bg-slate-900/70 backdrop-blur-xs z-50 overflow-y-auto ${
+        isFullScreen ? 'p-0 flex flex-col' : 'p-2 sm:p-4 md:p-6 flex items-center justify-center'
+      }`}
       onClick={e => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget && !isFullScreen) onClose();
       }}
     >
       <div
         id="party-cardex-modal-container"
-        className="bg-white rounded-3xl max-w-5xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[94vh] my-auto"
+        className={`bg-white shadow-2xl border border-slate-200 overflow-hidden flex flex-col ${
+          isFullScreen
+            ? 'w-full h-full rounded-none border-none max-h-screen'
+            : 'rounded-3xl max-w-6xl w-full max-h-[94vh] my-auto'
+        }`}
         dir="rtl"
       >
-        {/* Header */}
-        <div className="px-6 py-4.5 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white flex items-center justify-between border-b border-slate-700 shrink-0">
+        {/* Header with Navigation & Full-Page Toggle */}
+        <div className="px-6 py-4 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white flex items-center justify-between border-b border-slate-700 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-blue-600 flex items-center justify-center text-white font-black shadow-md">
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-2 bg-white/10 hover:bg-white/20 text-slate-200 hover:text-white rounded-xl transition border border-white/15 cursor-pointer flex items-center gap-1.5 text-xs font-bold"
+              title="بازگشت به لیست اشخاص و گزارشات"
+            >
+              <ArrowRight className="w-4 h-4" />
+              <span className="hidden sm:inline">بازگشت به گزارش اشخاص</span>
+            </button>
+            <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white font-black shadow-md shrink-0">
               <User className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-base font-black text-white">
-                  کارتکس مالی و دفتر کل طرف حساب: {party.name}
+                  صفحه اختصاصی و کارتکس مالی: {party.name}
                 </h3>
                 {party.groupName && (
                   <span className="text-xs font-bold bg-white/15 px-2.5 py-0.5 rounded-full text-slate-200 border border-white/10">
-                    {party.groupName}
+                    گروه: {party.groupName}
+                  </span>
+                )}
+                {isFullScreen && (
+                  <span className="text-[10px] font-bold bg-indigo-500/30 text-indigo-200 px-2 py-0.5 rounded-md border border-indigo-400/30">
+                    صفحه کامل
                   </span>
                 )}
               </div>
@@ -287,17 +311,39 @@ export const PartyCardexModal: React.FC<PartyCardexModalProps> = ({
             </div>
           </div>
 
-          {/* Prominent Standardized Close Button */}
-          <button
-            id="party-cardex-modal-close-btn"
-            type="button"
-            onClick={onClose}
-            className="px-3 py-1.5 bg-white/10 hover:bg-rose-600 text-slate-200 hover:text-white rounded-xl transition border border-white/15 hover:border-rose-500 cursor-pointer flex items-center gap-1.5 text-xs font-bold shrink-0 shadow-xs"
-            title="بستن فرم (ESC)"
-          >
-            <X className="w-4 h-4" />
-            <span>بستن (ESC)</span>
-          </button>
+          {/* Action buttons: Fullscreen toggle & Close */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsFullScreen(!isFullScreen)}
+              className="px-2.5 py-1.5 bg-white/10 hover:bg-white/20 text-slate-200 hover:text-white rounded-xl transition border border-white/15 cursor-pointer flex items-center gap-1.5 text-xs font-bold shadow-xs"
+              title={isFullScreen ? 'خروج از حالت تمام صفحه' : 'نمایش صفحه کامل'}
+            >
+              {isFullScreen ? (
+                <>
+                  <Minimize2 className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">حالت پنجره</span>
+                </>
+              ) : (
+                <>
+                  <Maximize2 className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">صفحه اختصاصی کامل</span>
+                </>
+              )}
+            </button>
+
+            {/* Prominent Standardized Close Button */}
+            <button
+              id="party-cardex-modal-close-btn"
+              type="button"
+              onClick={onClose}
+              className="px-3 py-1.5 bg-white/10 hover:bg-rose-600 text-slate-200 hover:text-white rounded-xl transition border border-white/15 hover:border-rose-500 cursor-pointer flex items-center gap-1.5 text-xs font-bold shrink-0 shadow-xs"
+              title="بستن (ESC)"
+            >
+              <X className="w-4 h-4" />
+              <span>بستن</span>
+            </button>
+          </div>
         </div>
 
         {/* Scrollable Body */}

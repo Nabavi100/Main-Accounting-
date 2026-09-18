@@ -102,23 +102,19 @@ export const SalesInvoiceCreateView: React.FC<SalesInvoiceCreateViewProps> = ({
   // Quick Party Modal state
   const [isQuickPartyModalOpen, setIsQuickPartyModalOpen] = useState(false);
 
-  // Items table rows (Starts with 1 item row by default; user clicks 'افزودن ردیف کالا' for more)
-  const [rows, setRows] = useState<ItemRowState[]>(() => {
-    const p0 = products[0];
-    const defaultPrice = p0 ? (currency === 'AFN' ? p0.sellPriceAFN : p0.sellPriceUSD) : 0;
-    return [
-      {
-        id: 'row-1',
-        productId: p0?.id || '',
-        productName: p0?.name || '',
-        unit: 'ton',
-        quantity: 1,
-        unitPrice: defaultPrice,
-        totalPrice: defaultPrice,
-        description: '',
-      },
-    ];
-  });
+  // Items table rows (Starts with 1 empty item row ready for instant search)
+  const [rows, setRows] = useState<ItemRowState[]>([
+    {
+      id: 'row-1',
+      productId: '',
+      productName: '',
+      unit: 'ton',
+      quantity: 1,
+      unitPrice: 0,
+      totalPrice: 0,
+      description: '',
+    },
+  ]);
 
   // Bottom section: discount, shipping, payment type, cash account, paid amount
   const [discount, setDiscount] = useState<number>(0);
@@ -159,33 +155,34 @@ export const SalesInvoiceCreateView: React.FC<SalesInvoiceCreateViewProps> = ({
     return parties.filter(p => p.name.toLowerCase().includes(q) || (p.code && p.code.toLowerCase().includes(q)));
   }, [parties, partySearch]);
 
-  // Add new item row
+  // Add new item row and focus search input
   const handleAddRow = () => {
-    const p = products[0];
-    const defaultPrice = p ? (currency === 'AFN' ? p.sellPriceAFN : p.sellPriceUSD) : 0;
+    const newId = 'row-' + Date.now() + Math.random().toString(36).substring(2, 6);
     const newRow: ItemRowState = {
-      id: 'row-' + Date.now() + Math.random(),
-      productId: p?.id || '',
-      productName: p?.name || '',
+      id: newId,
+      productId: '',
+      productName: '',
       unit: 'ton',
       quantity: 1,
-      unitPrice: defaultPrice,
-      totalPrice: defaultPrice * 1,
+      unitPrice: 0,
+      totalPrice: 0,
       description: '',
     };
     setRows(prev => [...prev, newRow]);
+    setTimeout(() => {
+      document.getElementById(`prod-search-${newId}`)?.focus();
+    }, 50);
   };
 
   // Remove item row
   const handleRemoveRow = (id: string) => {
     if (rows.length === 1) {
       // If only 1 row, reset it instead of empty
-      const p = products[0];
       setRows([
         {
           id: 'row-1',
-          productId: p?.id || '',
-          productName: p?.name || '',
+          productId: '',
+          productName: '',
           unit: 'ton',
           quantity: 1,
           unitPrice: 0,
@@ -205,16 +202,22 @@ export const SalesInvoiceCreateView: React.FC<SalesInvoiceCreateViewProps> = ({
         if (r.id !== id) return r;
         const updated = { ...r, ...updates };
 
-        // If product changed, reset price
-        if (updates.productId) {
-          const prod = products.find(p => p.id === updates.productId);
-          if (prod) {
-            updated.productName = prod.name;
-            const basePrice = currency === 'AFN' ? prod.sellPriceAFN : prod.sellPriceUSD;
-            if (updated.unit === 'bag') {
-              updated.unitPrice = Math.round(basePrice / (prod.bagsPerTon || 20));
-            } else {
-              updated.unitPrice = basePrice;
+        // If product changed or cleared
+        if ('productId' in updates) {
+          if (!updates.productId) {
+            updated.productName = '';
+            updated.unitPrice = 0;
+            updated.totalPrice = 0;
+          } else {
+            const prod = products.find(p => p.id === updates.productId);
+            if (prod) {
+              updated.productName = prod.name;
+              const basePrice = currency === 'AFN' ? prod.sellPriceAFN : prod.sellPriceUSD;
+              if (updated.unit === 'bag') {
+                updated.unitPrice = Math.round(basePrice / (prod.bagsPerTon || 20));
+              } else {
+                updated.unitPrice = basePrice;
+              }
             }
           }
         }
@@ -764,21 +767,25 @@ export const SalesInvoiceCreateView: React.FC<SalesInvoiceCreateViewProps> = ({
                     : '---';
                   return (
                     <tr key={row.id} className="hover:bg-slate-50/60 transition">
-                      {/* 1. نام یا کد کالا (انتخاب با تایپ و جستجو) */}
-                      <td className="p-2 min-w-[200px]">
+                      {/* 1. نام یا کد کالا (تایپ و جستجوی سریع Autocomplete) */}
+                      <td className="p-2 min-w-[220px]">
                         <ProductSearchSelector
+                          id={`prod-search-${row.id}`}
                           compact
                           products={products}
                           selectedProductId={row.productId}
                           warehouseId={selectedWarehouseId}
                           currency={currency}
                           priceType="sell"
-                          placeholder="تایپ یا جستجوی نام، کد یا دسته کالا..."
+                          placeholder="تایپ نام، کد یا بارکد کالا..."
                           onSelectProduct={(p) => {
                             handleUpdateRow(row.id, { productId: p.id, productName: p.name });
                           }}
                           onClear={() => {
                             handleUpdateRow(row.id, { productId: '', productName: '', unitPrice: 0, totalPrice: 0 });
+                          }}
+                          onAdvanceFocus={() => {
+                            document.getElementById(`qty-input-${row.id}`)?.focus();
                           }}
                         />
                       </td>
@@ -805,11 +812,19 @@ export const SalesInvoiceCreateView: React.FC<SalesInvoiceCreateViewProps> = ({
                       {/* 4. تعداد فروش */}
                       <td className="p-2">
                         <input
+                          id={`qty-input-${row.id}`}
                           type="number"
                           step="any"
                           min="0"
-                          value={row.quantity}
+                          value={row.quantity || ''}
                           onChange={e => handleUpdateRow(row.id, { quantity: parseFloat(e.target.value) || 0 })}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              document.getElementById(`price-input-${row.id}`)?.focus();
+                            }
+                          }}
+                          placeholder="تعداد"
                           className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold text-center text-slate-800 focus:border-emerald-500 outline-none"
                         />
                       </td>
@@ -817,11 +832,24 @@ export const SalesInvoiceCreateView: React.FC<SalesInvoiceCreateViewProps> = ({
                       {/* 5. قیمت فروش (فی) */}
                       <td className="p-2">
                         <input
+                          id={`price-input-${row.id}`}
                           type="number"
                           step="any"
                           min="0"
-                          value={row.unitPrice}
+                          value={row.unitPrice || ''}
                           onChange={e => handleUpdateRow(row.id, { unitPrice: parseFloat(e.target.value) || 0 })}
+                          onKeyDown={e => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              const isLast = index === rows.length - 1;
+                              if (isLast && row.productId) {
+                                handleAddRow();
+                              } else if (rows[index + 1]) {
+                                document.getElementById(`prod-search-${rows[index + 1].id}`)?.focus();
+                              }
+                            }
+                          }}
+                          placeholder="نرخ فی"
                           className="w-full px-2 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-mono font-bold text-center text-slate-800 focus:border-emerald-500 outline-none"
                         />
                       </td>

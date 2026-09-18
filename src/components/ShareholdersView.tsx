@@ -145,6 +145,22 @@ export const ShareholdersView: React.FC = () => {
     openPrintModal({
       title: 'جدول رسمی سهامداران، سرمایه ثبتی و فیصدی سهام شرکت',
       subtitle: `تاریخ تنظیم: ${getPersianDate()} | مجموع سرمایه ثبتی شرکت: $${formatNumber(totalCompanyCapitalUSD)} (${formatNumber(totalCompanyCapitalAFN)} ؋)`,
+      summaryCards: [
+        { label: 'تعداد کل شرکا و سهامداران', value: `${shareholders.length} نفر` },
+        { label: 'سرمایه کل به دالر ($)', value: `$${formatNumber(totalCompanyCapitalUSD)}` },
+        { label: 'سرمایه کل به افغانی (؋)', value: `${formatNumber(totalCompanyCapitalAFN)} ؋` },
+        { label: 'نرخ روز تسعیر ارز', value: `۱$ = ${usdRate} AFN` },
+      ],
+      tableHeaders: ['ردیف', 'نام و تخلص سهامدار', 'سمت / مسئولیت', 'سرمایه دالری ($)', 'سرمایه افغانی (؋)', 'فیصدی سهام (%)', 'شماره تماس'],
+      tableRows: shareholders.map((sh, idx) => [
+        idx + 1,
+        sh.name,
+        sh.role || 'شریک',
+        `$${formatNumber(sh.capitalUSD || 0)}`,
+        `${formatNumber(sh.capitalAFN || 0)} ؋`,
+        `%${sh.sharePercentage || 0}`,
+        sh.phone || '-',
+      ]),
       sections: [
         {
           title: 'خلاصه ساختار سهام و سرمایه شرکت',
@@ -348,7 +364,26 @@ export const ShareholdersView: React.FC = () => {
                   onClick={() => {
                     openPrintModal({
                       title: `صورتحساب سرمایه و سهم شریک: ${sh.name}`,
-                      subtitle: `سمت: ${sh.role} | فیصدی سهام: %${sh.sharePercentage} | تاریخ: ${getPersianDate()}`,
+                      subtitle: `سمت: ${sh.role || 'شریک'} | فیصدی سهام: %${sh.sharePercentage || 0} | تاریخ: ${getPersianDate()}`,
+                      summaryCards: [
+                        { label: 'نام سهامدار / شریک', value: sh.name },
+                        { label: 'سمت در شرکت', value: sh.role || 'شریک' },
+                        { label: 'سرمایه دالری ($)', value: `$${formatNumber(sh.capitalUSD || 0)}` },
+                        { label: 'سهم از کل شرکت', value: `%${sh.sharePercentage || 0}` },
+                      ],
+                      tableHeaders: ['مشخصه / آیتم مالی', 'مقدار / وضعیت ثبت شده'],
+                      tableRows: [
+                        ['نام و تخلص سهامدار', sh.name],
+                        ['سمت و مسئولیت در شرکت', sh.role || 'شریک و سهامدار'],
+                        ['سرمایه دلاری ثبت شده ($)', `$${formatNumber(sh.capitalUSD || 0)}`],
+                        ['سرمایه افغانی ثبت شده (؋)', `${formatNumber(sh.capitalAFN || 0)} ؋`],
+                        ['فیصدی کل سهام از شرکت', `%${sh.sharePercentage || 0}`],
+                        ['سود تخصیص یافته (افغانی)', `${formatNumber(sh.profitShareAFN || 0)} ؋`],
+                        ['مجموع برداشتی‌ها ($)', `$${formatNumber(sh.withdrawalsUSD || 0)}`],
+                        ['شماره تماس', sh.phone || '—'],
+                        ['آدرس و محل سکونت', sh.address || '—'],
+                        ['توضیحات و اسناد', sh.notes || '—'],
+                      ],
                       sections: [
                         {
                           title: 'اطلاعات سرمایه‌گذاری و سهام',
@@ -364,7 +399,7 @@ export const ShareholdersView: React.FC = () => {
                           ],
                         },
                       ],
-                      footerNote: `تاییدیه مدیریت مالی شرکت ${companySettings.name}`,
+                      footerNote: `تاییدیه هیات مدیره و امور مالی شرکت ${companySettings.name}`,
                     });
                   }}
                   className="text-cyan-700 font-bold hover:underline flex items-center gap-1 cursor-pointer"

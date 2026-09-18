@@ -286,4 +286,94 @@ export const extractSolarMonthIndex = (dateStr?: string): number => {
   return -1;
 };
 
+/**
+ * تبدیل اعداد به حروف فارسی (جهت درج در فاکتورهای رسمی و اسناد مالی)
+ */
+export const numberToPersianWords = (num: number, currencySuffix?: string): string => {
+  if (isNaN(num) || num === 0) {
+    const zeroStr = 'صفر';
+    return currencySuffix ? `${zeroStr} ${currencySuffix}` : zeroStr;
+  }
+
+  const isNegative = num < 0;
+  const absNum = Math.floor(Math.abs(num));
+
+  const yekan = ['', 'یک', 'دو', 'سه', 'چهار', 'پنج', 'شش', 'هفت', 'هشت', 'نه'];
+  const dahha = [
+    'ده',
+    'یازده',
+    'دوازده',
+    'سیزده',
+    'چهارده',
+    'پانزده',
+    'شانزده',
+    'هفده',
+    'هجده',
+    'نوزده',
+  ];
+  const dahgan = ['', '', 'بیست', 'سی', 'چهل', 'پنجاه', 'شصت', 'هفتاد', 'هشتاد', 'نود'];
+  const sadgan = [
+    '',
+    'یکصد',
+    'دویست',
+    'سیصد',
+    'چهارصد',
+    'پانصد',
+    'ششصد',
+    'هفتصد',
+    'هشتصد',
+    'نهصد',
+  ];
+  const scales = ['', 'هزار', 'میلیون', 'میلیارد', 'تریلیون'];
+
+  const threeDigitsToWords = (n: number): string => {
+    const s = Math.floor(n / 100);
+    const remainder = n % 100;
+    const parts: string[] = [];
+
+    if (s > 0) {
+      parts.push(sadgan[s]);
+    }
+
+    if (remainder >= 10 && remainder <= 19) {
+      parts.push(dahha[remainder - 10]);
+    } else {
+      const d = Math.floor(remainder / 10);
+      const y = remainder % 10;
+      if (d > 0) parts.push(dahgan[d]);
+      if (y > 0) parts.push(yekan[y]);
+    }
+
+    return parts.join(' و ');
+  };
+
+  const chunks: number[] = [];
+  let temp = absNum;
+  while (temp > 0) {
+    chunks.push(temp % 1000);
+    temp = Math.floor(temp / 1000);
+  }
+
+  const words: string[] = [];
+  for (let i = chunks.length - 1; i >= 0; i--) {
+    const chunk = chunks[i];
+    if (chunk > 0) {
+      const chunkWords = threeDigitsToWords(chunk);
+      const scale = scales[i];
+      words.push(scale ? `${chunkWords} ${scale}` : chunkWords);
+    }
+  }
+
+  let result = words.join(' و ');
+  if (isNegative) {
+    result = `منفی ${result}`;
+  }
+
+  if (currencySuffix) {
+    result = `${result} ${currencySuffix}`;
+  }
+
+  return result;
+};
+
 

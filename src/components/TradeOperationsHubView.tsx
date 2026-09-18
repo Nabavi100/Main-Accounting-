@@ -29,6 +29,7 @@ import {
   ArrowUpRight,
   Layers,
   Edit2,
+  Package,
 } from 'lucide-react';
 import { EditInvoiceModal } from './EditInvoiceModal';
 
@@ -751,17 +752,36 @@ export const TradeOperationsHubView: React.FC<TradeOperationsHubViewProps> = ({
                           <td className="py-3.5 px-4">
                             <span className="font-bold text-slate-900">{inv.partyName}</span>
                           </td>
-                          <td className="py-3.5 px-4">
-                            <div className="text-[11px] space-y-0.5">
-                              <span className="font-semibold text-slate-800">
-                                {inv.items?.length || 0} قلم کالا
-                              </span>
+                          <td className="py-3 px-4 min-w-[200px] max-w-sm">
+                            <div className="space-y-1.5">
+                              <div className="flex flex-wrap gap-1">
+                                {inv.items && inv.items.length > 0 ? (
+                                  inv.items.map((it, itemIdx) => (
+                                    <span
+                                      key={itemIdx}
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-100 hover:bg-slate-200/80 border border-slate-200/70 text-slate-800 text-[11px] transition-colors"
+                                      title={`${it.productName}: ${formatNumber(it.quantity)} ${it.unit === 'ton' ? 'تن' : 'کیسه'}${it.unitPrice ? ` • فی: ${formatNumber(it.unitPrice)}` : ''}`}
+                                    >
+                                      <Package className="w-3 h-3 text-blue-600 shrink-0" />
+                                      <strong className="font-bold text-slate-900">{it.productName}</strong>
+                                      <span className="font-mono text-[10px] text-blue-700 font-bold bg-blue-50 px-1 rounded border border-blue-200/60">
+                                        {formatNumber(it.quantity)} {it.unit === 'ton' ? 'تن' : 'کیسه'}
+                                      </span>
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span className="text-slate-400 text-[11px]">بدون اقلام کالا</span>
+                                )}
+                              </div>
                               {(totalTons > 0 || totalBags > 0) && (
-                                <span className="text-[10px] text-slate-500 block font-mono">
-                                  ({totalTons > 0 ? `${totalTons} تن` : ''}
-                                  {totalTons > 0 && totalBags > 0 ? ' و ' : ''}
-                                  {totalBags > 0 ? `${totalBags} کیسه` : ''})
-                                </span>
+                                <div className="text-[10px] text-slate-500 font-mono flex items-center gap-1 font-bold">
+                                  <span className="text-slate-400">جمع:</span>
+                                  <span>
+                                    {totalTons > 0 ? `${formatNumber(totalTons)} تن` : ''}
+                                    {totalTons > 0 && totalBags > 0 ? ' • ' : ''}
+                                    {totalBags > 0 ? `${formatNumber(totalBags)} کیسه` : ''}
+                                  </span>
+                                </div>
                               )}
                             </div>
                           </td>

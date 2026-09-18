@@ -3,16 +3,20 @@ import { useAccounting } from '../context/AccountingContext';
 import { AppUser, UserRole, CompanySettings } from '../types';
 import { CompanyStampSeal } from './CompanyStampSeal';
 import { SignatureAndSealModal } from './SignatureAndSealModal';
+import { GoogleDriveBackupPanel } from './GoogleDriveBackupPanel';
 import {
   Shield,
   RotateCcw,
   Users,
   KeyRound,
   Lock,
+  Unlock,
+  ShieldAlert,
   Eye,
   EyeOff,
   Download,
   Upload,
+  Cloud,
   AlertTriangle,
   CheckCircle2,
   Trash2,
@@ -75,6 +79,111 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
   const [compForm, setCompForm] = useState<CompanySettings>(companySettings);
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
 
+  // Security Protection & Lock State for Company Branding / Settings
+  const [isCompanyUnlocked, setIsCompanyUnlocked] = useState<boolean>(() => !companySettings.isProtected);
+  const [unlockPasswordInput, setUnlockPasswordInput] = useState('');
+  const [unlockError, setUnlockError] = useState('');
+  const [showUnlockPassword, setShowUnlockPassword] = useState(false);
+  const [isChangingProtectionPassword, setIsChangingProtectionPassword] = useState(false);
+  const [newProtectionPassword, setNewProtectionPassword] = useState('');
+  const [confirmProtectionPassword, setConfirmProtectionPassword] = useState('');
+  const [protectionPasswordError, setProtectionPasswordError] = useState('');
+
+  // When modal is opened or protection status changes, lock accordingly
+  useEffect(() => {
+    if (companySettings.isProtected) {
+      setIsCompanyUnlocked(false);
+      setUnlockPasswordInput('');
+      setUnlockError('');
+    } else {
+      setIsCompanyUnlocked(true);
+    }
+  }, [isOpen, companySettings.isProtected]);
+
+  const isCompanyLocked = Boolean(compForm.isProtected && !isCompanyUnlocked);
+
+  const handleUnlockCompanySettings = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const correctPassword = compForm.protectionPassword || companySettings.protectionPassword || '123';
+    const adminUser = users.find(u => u.role === 'admin');
+    const adminPassword = adminUser?.password;
+
+    if (
+      (unlockPasswordInput.trim() && unlockPasswordInput.trim() === correctPassword.trim()) ||
+      (adminPassword && unlockPasswordInput.trim() === adminPassword.trim())
+    ) {
+      setIsCompanyUnlocked(true);
+      setUnlockError('');
+      setSaveSuccessMessage('قفل امنیتی با موفقیت باز شد. اکنون مجاز به ویرایش مشخصات، نام و لوگوی شرکت هستید.');
+      setTimeout(() => setSaveSuccessMessage(null), 4000);
+    } else {
+      setUnlockError('رمز عبور امنیتی اشتباه است! (رمز پیش‌فرض اولیه: 123 یا رمز عبور مدیر سیستم)');
+    }
+  };
+
+  const handleLockCompanyImmediately = () => {
+    setIsCompanyUnlocked(false);
+    setUnlockPasswordInput('');
+    setUnlockError('');
+    setIsChangingProtectionPassword(false);
+    setSaveSuccessMessage('مشخصات شرکت مجدداً با رمز عبور قفل گردید.');
+    setTimeout(() => setSaveSuccessMessage(null), 3000);
+  };
+
+  const handleToggleProtection = () => {
+    if (compForm.isProtected) {
+      if (!isCompanyUnlocked) {
+        setUnlockError('برای غیرفعال کردن حفاظت، ابتدا باید قفل را با وارد کردن رمز باز کنید.');
+        return;
+      }
+      const updated: CompanySettings = {
+        ...compForm,
+        isProtected: false,
+      };
+      setCompForm(updated);
+      updateCompanySettings(updated);
+      setIsCompanyUnlocked(true);
+      setSaveSuccessMessage('قفل حفاظتی غیرفعال شد. اکنون تغییر مشخصات شرکت بدون رمز انجام می‌شود.');
+      setTimeout(() => setSaveSuccessMessage(null), 4000);
+    } else {
+      const updated: CompanySettings = {
+        ...compForm,
+        isProtected: true,
+        protectionPassword: compForm.protectionPassword || '123',
+      };
+      setCompForm(updated);
+      updateCompanySettings(updated);
+      setIsCompanyUnlocked(true);
+      setSaveSuccessMessage('دکمه حفاظتی با موفقیت فعال شد (رمز امنیتی پیش‌فرض: 123).');
+      setTimeout(() => setSaveSuccessMessage(null), 4000);
+    }
+  };
+
+  const handleSaveNewProtectionPassword = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProtectionPassword.trim()) {
+      setProtectionPasswordError('لطفاً رمز عبور جدید را وارد فرمایید.');
+      return;
+    }
+    if (newProtectionPassword !== confirmProtectionPassword) {
+      setProtectionPasswordError('تکرار رمز عبور جدید با آن همخوانی ندارد.');
+      return;
+    }
+    const updated: CompanySettings = {
+      ...compForm,
+      isProtected: true,
+      protectionPassword: newProtectionPassword.trim(),
+    };
+    setCompForm(updated);
+    updateCompanySettings(updated);
+    setIsChangingProtectionPassword(false);
+    setNewProtectionPassword('');
+    setConfirmProtectionPassword('');
+    setProtectionPasswordError('');
+    setSaveSuccessMessage('رمز عبور حفاظتی جدید با موفقیت ذخیره شد.');
+    setTimeout(() => setSaveSuccessMessage(null), 4000);
+  };
+
   useEffect(() => {
     setCompForm(companySettings);
   }, [companySettings]);
@@ -98,6 +207,10 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
 
   // Handle Logo Upload to Base64
   const handleLogoFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isCompanyLocked) {
+      alert('مشخصات شرکت قفل است. لطفاً ابتدا رمز عبور حفاظتی را در کادر بالای صفحه وارد کنید.');
+      return;
+    }
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -119,6 +232,10 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
   const [isDrawSignatureModalOpen, setIsDrawSignatureModalOpen] = useState(false);
 
   const handleStampUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isCompanyLocked) {
+      alert('مشخصات شرکت قفل است. لطفاً ابتدا رمز عبور حفاظتی را وارد کنید.');
+      return;
+    }
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) {
@@ -134,6 +251,10 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
   };
 
   const handleSignatureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (isCompanyLocked) {
+      alert('مشخصات شرکت قفل است. لطفاً ابتدا رمز عبور حفاظتی را وارد کنید.');
+      return;
+    }
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) {
@@ -150,12 +271,20 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
 
   const handleSaveCompanySettings = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isCompanyLocked) {
+      setUnlockError('مشخصات شرکت قفل است! برای ثبت هرگونه تغییر، ابتدا رمز حفاظتی را وارد فرمایید.');
+      return;
+    }
     updateCompanySettings(compForm);
     setSaveSuccessMessage('مشخصات شرکت و قالب چاپ فاکتورها با موفقیت ذخیره و در کل سیستم اعمال شد.');
     setTimeout(() => setSaveSuccessMessage(null), 4000);
   };
 
   const handleResetCompanyToDefault = () => {
+    if (isCompanyLocked) {
+      setUnlockError('مشخصات شرکت قفل است. برای بازگردانی به پیش‌فرض، ابتدا قفل امنیتی را باز کنید.');
+      return;
+    }
     if (window.confirm('آیا مایلید مشخصات شرکت به مشخصات اصلی برادران نبوی بازگردد؟')) {
       resetCompanySettings();
       setSaveSuccessMessage('مشخصات شرکت به پیش‌فرض نبوی بازگردانده شد.');
@@ -264,8 +393,10 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
 
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (file) handleImportFileDirect(file);
+  };
 
+  const handleImportFileDirect = (file: File) => {
     const reader = new FileReader();
     reader.onload = event => {
       const content = event.target?.result as string;
@@ -369,12 +500,12 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
               onClick={() => setActiveSubTab('backup')}
               className={`flex-1 min-w-[150px] flex items-center justify-center gap-2 py-2.5 rounded-xl transition cursor-pointer ${
                 activeSubTab === 'backup'
-                  ? 'bg-white text-indigo-700 shadow-xs'
+                  ? 'bg-white text-blue-700 shadow-xs font-bold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <Download className="w-4 h-4 text-indigo-600" />
-              <span>پشتیبان‌گیری JSON</span>
+              <Cloud className="w-4 h-4 text-blue-600" />
+              <span>پشتیبان‌گیری و گوگل درایو</span>
             </button>
           </div>
         </div>
@@ -391,6 +522,232 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
         {/* ================= TAB 0: COMPANY SETTINGS & PRINT CUSTOMIZATION ================= */}
         {activeSubTab === 'company' && (
           <div className="space-y-6">
+            {/* Security Protection Control Card */}
+            <div
+              className={`p-4 sm:p-5 rounded-2xl border transition-all ${
+                compForm.isProtected
+                  ? isCompanyUnlocked
+                    ? 'bg-emerald-50/80 border-emerald-300'
+                    : 'bg-amber-50/90 border-amber-300 shadow-sm'
+                  : 'bg-slate-50/90 border-slate-200'
+              }`}
+            >
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-xs ${
+                      compForm.isProtected
+                        ? isCompanyUnlocked
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-amber-600 text-white animate-pulse'
+                        : 'bg-slate-200 text-slate-600'
+                    }`}
+                  >
+                    {compForm.isProtected ? (
+                      isCompanyUnlocked ? (
+                        <Unlock className="w-5 h-5" />
+                      ) : (
+                        <Lock className="w-5 h-5" />
+                      )
+                    ) : (
+                      <Shield className="w-5 h-5" />
+                    )}
+                  </div>
+
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-xs sm:text-sm font-black text-slate-900">
+                        دکمه حفاظتی و قفل امنیتی مشخصات و لوگوی شرکت
+                      </h3>
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          compForm.isProtected
+                            ? isCompanyUnlocked
+                              ? 'bg-emerald-200 text-emerald-900'
+                              : 'bg-amber-200 text-amber-950 font-black'
+                            : 'bg-slate-200 text-slate-700'
+                        }`}
+                      >
+                        {compForm.isProtected
+                          ? isCompanyUnlocked
+                            ? 'قفل باز است (مجاز به ویرایش)'
+                            : 'حفاظت فعال است (قفل شده)'
+                          : 'حفاظت غیرفعال (بدون رمز)'}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 mt-0.5 leading-relaxed">
+                      {compForm.isProtected
+                        ? isCompanyUnlocked
+                          ? 'قفل امنیتی باز است. تغییرات شما تا زمان بستن پنجره یا فشردن دکمه قفل مجدد آزاد است.'
+                          : 'برای جلوگیری از تغییرات ناخواسته در نام و لوگوی شرکت، قبل از هر تغییری وارد کردن رمز عبور الزامی است.'
+                        : 'جهت محافظت از مشخصات شرکت و لوگو در برابر تغییرات از پنل مدیریتی، دکمه حفاظت را فعال کنید.'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Protection Buttons */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {compForm.isProtected && isCompanyUnlocked && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setIsChangingProtectionPassword(!isChangingProtectionPassword)}
+                        className="px-3 py-1.5 bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-100 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                      >
+                        <KeyRound className="w-3.5 h-3.5 text-emerald-700" />
+                        <span>تغییر رمز قفل</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleLockCompanyImmediately}
+                        className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                      >
+                        <Lock className="w-3.5 h-3.5" />
+                        <span>قفل کردن مجدد</span>
+                      </button>
+                    </>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleToggleProtection}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-xs ${
+                      compForm.isProtected
+                        ? 'bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100'
+                        : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                    }`}
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>
+                      {compForm.isProtected
+                        ? 'غیرفعال‌سازی قفل حفاظتی'
+                        : 'فعال‌سازی دکمه حفاظتی (رمزدار)'}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Challenge password box if locked */}
+              {isCompanyLocked && (
+                <div className="mt-4 pt-4 border-t border-amber-200 bg-amber-100/60 -mx-4 -mb-4 sm:-mx-5 sm:-mb-5 p-4 sm:p-5 rounded-b-2xl space-y-2.5">
+                  <div className="text-xs text-amber-950 font-bold flex items-center gap-2">
+                    <KeyRound className="w-4 h-4 text-amber-700 shrink-0" />
+                    <span>برای ویرایش نام شرکت، لوگو و سربرگ، ابتدا رمز عبور حفاظتی را وارد فرمایید:</span>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type={showUnlockPassword ? 'text' : 'password'}
+                        value={unlockPasswordInput}
+                        onChange={e => {
+                          setUnlockPasswordInput(e.target.value);
+                          if (unlockError) setUnlockError('');
+                        }}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleUnlockCompanySettings();
+                          }
+                        }}
+                        placeholder="رمز عبور حفاظتی را وارد کنید (پیش‌فرض: 123 یا رمز عبور مدیر)..."
+                        className="w-full px-3.5 py-2 bg-white border border-amber-300 rounded-xl text-xs font-mono font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500 pl-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowUnlockPassword(!showUnlockPassword)}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                        title={showUnlockPassword ? 'مخفی کردن' : 'نمایش رمز'}
+                      >
+                        {showUnlockPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleUnlockCompanySettings}
+                      className="px-5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer shadow-xs whitespace-nowrap"
+                    >
+                      <Unlock className="w-4 h-4" />
+                      <span>تأیید و باز کردن قفل</span>
+                    </button>
+                  </div>
+
+                  {unlockError && (
+                    <p className="text-[11px] text-rose-700 font-bold flex items-center gap-1 pt-1">
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{unlockError}</span>
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Changing protection password panel */}
+              {isChangingProtectionPassword && isCompanyUnlocked && (
+                <div className="mt-4 pt-4 border-t border-emerald-200 bg-emerald-100/50 -mx-4 -mb-4 sm:-mx-5 sm:-mb-5 p-4 sm:p-5 rounded-b-2xl space-y-3">
+                  <div className="text-xs text-emerald-950 font-bold flex items-center gap-2">
+                    <KeyRound className="w-4 h-4 text-emerald-700 shrink-0" />
+                    <span>تعیین رمز عبور جدید برای دکمه حفاظتی شرکت:</span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[11px] font-bold text-emerald-900 mb-1">
+                        رمز عبور جدید:
+                      </label>
+                      <input
+                        type="password"
+                        value={newProtectionPassword}
+                        onChange={e => setNewProtectionPassword(e.target.value)}
+                        placeholder="رمز جدید دلخواه..."
+                        className="w-full px-3 py-2 bg-white border border-emerald-300 rounded-xl text-xs font-mono font-bold text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-emerald-900 mb-1">
+                        تکرار رمز عبور جدید:
+                      </label>
+                      <input
+                        type="password"
+                        value={confirmProtectionPassword}
+                        onChange={e => setConfirmProtectionPassword(e.target.value)}
+                        placeholder="تکرار مجدد رمز جدید..."
+                        className="w-full px-3 py-2 bg-white border border-emerald-300 rounded-xl text-xs font-mono font-bold text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                  </div>
+
+                  {protectionPasswordError && (
+                    <p className="text-[11px] text-rose-700 font-bold flex items-center gap-1">
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{protectionPasswordError}</span>
+                    </p>
+                  )}
+
+                  <div className="flex items-center gap-2 justify-end pt-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsChangingProtectionPassword(false);
+                        setProtectionPasswordError('');
+                      }}
+                      className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50 cursor-pointer"
+                    >
+                      انصراف
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveNewProtectionPassword}
+                      className="px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>ذخیره رمز جدید</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-4 flex items-start gap-3">
               <Sparkles className="w-5 h-5 text-emerald-700 shrink-0 mt-0.5" />
               <div className="text-xs text-emerald-950 leading-relaxed">
@@ -407,23 +764,37 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Form Fields Column */}
                 <div className="space-y-4 bg-slate-50/70 p-5 rounded-2xl border border-slate-200">
-                  <h3 className="text-xs font-black text-slate-800 pb-2 border-b border-slate-200 flex items-center gap-2">
-                    <Building className="w-4 h-4 text-emerald-600" />
-                    <span>مشخصات سازمانی و شماره‌های تماس</span>
+                  <h3 className="text-xs font-black text-slate-800 pb-2 border-b border-slate-200 flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <Building className="w-4 h-4 text-emerald-600" />
+                      <span>مشخصات سازمانی و شماره‌های تماس</span>
+                    </span>
+                    {isCompanyLocked && (
+                      <span className="text-[10px] text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                        <Lock className="w-3 h-3" />
+                        <span>قفل شده</span>
+                      </span>
+                    )}
                   </h3>
 
                   {/* Company Name */}
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1.5">
                       نام شرکت یا تجارتخانه <span className="text-rose-500">*</span>
+                      {isCompanyLocked && <span className="text-amber-600 text-[10px] mr-1">(جهت تغییر، ابتدا رمز را وارد کنید)</span>}
                     </label>
                     <input
                       type="text"
                       required
+                      disabled={isCompanyLocked}
                       value={compForm.name}
                       onChange={e => setCompForm(prev => ({ ...prev, name: e.target.value }))}
                       placeholder="مثلاً: شرکت تجارتی برادران نبوی"
-                      className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 font-bold outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition"
+                      className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-bold outline-none transition ${
+                        isCompanyLocked
+                          ? 'bg-slate-100 text-slate-500 border border-slate-200 cursor-not-allowed'
+                          : 'bg-white border border-slate-200 text-slate-900 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500'
+                      }`}
                     />
                   </div>
 
@@ -434,10 +805,15 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
                     </label>
                     <input
                       type="text"
+                      disabled={isCompanyLocked}
                       value={compForm.tagline || ''}
                       onChange={e => setCompForm(prev => ({ ...prev, tagline: e.target.value }))}
                       placeholder="مثلاً: واردات، ترانزیت و پخش عمده آرد، برنج، روغن و شکر"
-                      className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:border-emerald-500 transition"
+                      className={`w-full px-3.5 py-2.5 rounded-xl text-xs outline-none transition ${
+                        isCompanyLocked
+                          ? 'bg-slate-100 text-slate-500 border border-slate-200 cursor-not-allowed'
+                          : 'bg-white border border-slate-200 text-slate-900 focus:border-emerald-500'
+                      }`}
                     />
                   </div>
 
@@ -452,10 +828,15 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
                       <input
                         type="text"
                         required
+                        disabled={isCompanyLocked}
                         value={compForm.phone}
                         onChange={e => setCompForm(prev => ({ ...prev, phone: e.target.value }))}
                         placeholder="0794006460"
-                        className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 font-mono font-bold outline-none focus:border-emerald-500 transition"
+                        className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-mono font-bold outline-none transition ${
+                          isCompanyLocked
+                            ? 'bg-slate-100 text-slate-500 border border-slate-200 cursor-not-allowed'
+                            : 'bg-white border border-slate-200 text-slate-900 focus:border-emerald-500'
+                        }`}
                       />
                     </div>
                     <div>
@@ -465,12 +846,17 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
                       </label>
                       <input
                         type="text"
+                        disabled={isCompanyLocked}
                         value={compForm.phoneSecondary || ''}
                         onChange={e =>
                           setCompForm(prev => ({ ...prev, phoneSecondary: e.target.value }))
                         }
                         placeholder="0780000000"
-                        className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 font-mono outline-none focus:border-emerald-500 transition"
+                        className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-mono outline-none transition ${
+                          isCompanyLocked
+                            ? 'bg-slate-100 text-slate-500 border border-slate-200 cursor-not-allowed'
+                            : 'bg-white border border-slate-200 text-slate-900 focus:border-emerald-500'
+                        }`}
                       />
                     </div>
                   </div>
@@ -484,10 +870,15 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
                       </label>
                       <input
                         type="email"
+                        disabled={isCompanyLocked}
                         value={compForm.email || ''}
                         onChange={e => setCompForm(prev => ({ ...prev, email: e.target.value }))}
                         placeholder="nabavi100@gmail.com"
-                        className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:border-emerald-500 transition"
+                        className={`w-full px-3.5 py-2.5 rounded-xl text-xs outline-none transition ${
+                          isCompanyLocked
+                            ? 'bg-slate-100 text-slate-500 border border-slate-200 cursor-not-allowed'
+                            : 'bg-white border border-slate-200 text-slate-900 focus:border-emerald-500'
+                        }`}
                       />
                     </div>
                     <div>
@@ -497,12 +888,17 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
                       <input
                         type="text"
                         maxLength={2}
+                        disabled={isCompanyLocked}
                         value={compForm.logoIconText || 'ن'}
                         onChange={e =>
                           setCompForm(prev => ({ ...prev, logoIconText: e.target.value }))
                         }
                         placeholder="ن"
-                        className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 text-center font-bold outline-none focus:border-emerald-500 transition"
+                        className={`w-full px-3.5 py-2.5 rounded-xl text-xs text-center font-bold outline-none transition ${
+                          isCompanyLocked
+                            ? 'bg-slate-100 text-slate-500 border border-slate-200 cursor-not-allowed'
+                            : 'bg-white border border-slate-200 text-slate-900 focus:border-emerald-500'
+                        }`}
                       />
                     </div>
                   </div>
@@ -515,9 +911,14 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
                         <span>سیستم تاریخ و تقویم</span>
                       </label>
                       <select
+                        disabled={isCompanyLocked}
                         value={compForm.calendarType || 'jalali'}
                         onChange={e => setCompForm(prev => ({ ...prev, calendarType: e.target.value as 'jalali' | 'gregorian' }))}
-                        className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 font-bold outline-none focus:border-emerald-500 transition"
+                        className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-bold outline-none transition ${
+                          isCompanyLocked
+                            ? 'bg-slate-100 text-slate-500 border border-slate-200 cursor-not-allowed'
+                            : 'bg-white border border-slate-200 text-slate-900 focus:border-emerald-500'
+                        }`}
                       >
                         <option value="jalali">تقویم هجری شمسی (مثلاً: ۱۴۰۳/۰۶/۱۱)</option>
                         <option value="gregorian">تقویم میلادی Gregorian (مثلاً: 2026-09-01)</option>
@@ -530,12 +931,16 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
                       </label>
                       <input
                         type="text"
+                        disabled={isCompanyLocked}
                         value={compForm.commercialCode || ''}
                         onChange={e => setCompForm(prev => ({ ...prev, commercialCode: e.target.value }))}
                         placeholder="مثلاً: 900-452-110"
-                        className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 font-mono outline-none focus:border-emerald-500 transition"
-                      >
-                      </input>
+                        className={`w-full px-3.5 py-2.5 rounded-xl text-xs font-mono outline-none transition ${
+                          isCompanyLocked
+                            ? 'bg-slate-100 text-slate-500 border border-slate-200 cursor-not-allowed'
+                            : 'bg-white border border-slate-200 text-slate-900 focus:border-emerald-500'
+                        }`}
+                      />
                     </div>
                   </div>
 
@@ -549,10 +954,15 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
                     <textarea
                       rows={2}
                       required
+                      disabled={isCompanyLocked}
                       value={compForm.address}
                       onChange={e => setCompForm(prev => ({ ...prev, address: e.target.value }))}
                       placeholder="کابل، سرای شهزاده، مارکیت رحیم‌داد، منزل ۲، دفتر شماره ۱۲"
-                      className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:border-emerald-500 transition resize-none"
+                      className={`w-full px-3.5 py-2.5 rounded-xl text-xs outline-none transition resize-none ${
+                        isCompanyLocked
+                          ? 'bg-slate-100 text-slate-500 border border-slate-200 cursor-not-allowed'
+                          : 'bg-white border border-slate-200 text-slate-900 focus:border-emerald-500'
+                      }`}
                     />
                   </div>
 
@@ -564,12 +974,17 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
                     </label>
                     <textarea
                       rows={2}
+                      disabled={isCompanyLocked}
                       value={compForm.invoiceFooterNote || ''}
                       onChange={e =>
                         setCompForm(prev => ({ ...prev, invoiceFooterNote: e.target.value }))
                       }
                       placeholder="کالای فروخته شده تا ۲۴ ساعت با ارائه فاکتور قابل بازبینی است..."
-                      className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 outline-none focus:border-emerald-500 transition resize-none"
+                      className={`w-full px-3.5 py-2.5 rounded-xl text-xs outline-none transition resize-none ${
+                        isCompanyLocked
+                          ? 'bg-slate-100 text-slate-500 border border-slate-200 cursor-not-allowed'
+                          : 'bg-white border border-slate-200 text-slate-900 focus:border-emerald-500'
+                      }`}
                     />
                   </div>
                 </div>
@@ -591,14 +1006,16 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
                             alt="Logo"
                             className="w-20 h-20 object-contain rounded-2xl bg-white border border-slate-200 p-1 shadow-xs"
                           />
-                          <button
-                            type="button"
-                            onClick={() => setCompForm(prev => ({ ...prev, logoUrl: '' }))}
-                            className="absolute -top-2 -right-2 bg-rose-600 text-white rounded-full p-1 shadow-md hover:bg-rose-700 transition"
-                            title="حذف لوگو"
-                          >
-                            <X className="w-3 h-3" />
-                          </button>
+                          {!isCompanyLocked && (
+                            <button
+                              type="button"
+                              onClick={() => setCompForm(prev => ({ ...prev, logoUrl: '' }))}
+                              className="absolute -top-2 -right-2 bg-rose-600 text-white rounded-full p-1 shadow-md hover:bg-rose-700 transition"
+                              title="حذف لوگو"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          )}
                         </div>
                       ) : (
                         <div className="w-20 h-20 rounded-2xl bg-emerald-700 text-white flex items-center justify-center font-black text-3xl shadow-xs">
@@ -608,19 +1025,28 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
 
                       <div className="flex-1 space-y-2">
                         <label className="block">
-                          <span className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold cursor-pointer transition shadow-xs">
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition shadow-xs ${
+                              isCompanyLocked
+                                ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                                : 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer'
+                            }`}
+                          >
                             <Upload className="w-4 h-4" />
-                            <span>آپلود فایل عکس لوگو</span>
+                            <span>{isCompanyLocked ? 'لوگو قفل است' : 'آپلود فایل عکس لوگو'}</span>
                           </span>
                           <input
                             type="file"
                             accept="image/*"
+                            disabled={isCompanyLocked}
                             onChange={handleLogoFileUpload}
                             className="hidden"
                           />
                         </label>
                         <p className="text-[11px] text-slate-500">
-                          فرمت‌های PNG، JPG، WebP یا SVG (حداکثر ۱.۵ مگابایت)
+                          {isCompanyLocked
+                            ? 'برای آپلود لوگوی جدید، ابتدا قفل امنیتی بالا را باز کنید.'
+                            : 'فرمت‌های PNG، JPG، WebP یا SVG (حداکثر ۱.۵ مگابایت)'}
                         </p>
                       </div>
                     </div>
@@ -632,10 +1058,15 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
                       </label>
                       <input
                         type="url"
+                        disabled={isCompanyLocked}
                         value={compForm.logoUrl || ''}
                         onChange={e => setCompForm(prev => ({ ...prev, logoUrl: e.target.value }))}
                         placeholder="https://example.com/logo.png"
-                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs text-slate-900 outline-none font-mono"
+                        className={`w-full px-3 py-2 rounded-xl text-xs font-mono outline-none transition ${
+                          isCompanyLocked
+                            ? 'bg-slate-100 text-slate-500 border border-slate-200 cursor-not-allowed'
+                            : 'bg-white border border-slate-200 text-slate-900 focus:border-emerald-500'
+                        }`}
                       />
                     </div>
                   </div>
@@ -696,8 +1127,16 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
                       </h3>
                       <button
                         type="button"
-                        onClick={() => setIsDrawSignatureModalOpen(true)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg text-xs font-bold transition border border-blue-200 cursor-pointer"
+                        disabled={isCompanyLocked}
+                        onClick={() => {
+                          if (isCompanyLocked) return;
+                          setIsDrawSignatureModalOpen(true);
+                        }}
+                        className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition border ${
+                          isCompanyLocked
+                            ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                            : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200 cursor-pointer'
+                        }`}
                       >
                         <PenTool className="w-3.5 h-3.5" />
                         <span>ترسیم یا انتخاب امضای آماده</span>
@@ -731,54 +1170,66 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
 
                           <div className="space-y-2 flex-1">
                             <label className="block">
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[11px] font-bold cursor-pointer transition shadow-2xs">
+                              <span
+                                className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold transition shadow-2xs ${
+                                  isCompanyLocked
+                                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                                    : 'bg-amber-600 hover:bg-amber-700 text-white cursor-pointer'
+                                }`}
+                              >
                                 <Upload className="w-3 h-3" />
                                 <span>آپلود عکس مهر</span>
                               </span>
                               <input
                                 type="file"
                                 accept="image/*"
+                                disabled={isCompanyLocked}
                                 onChange={handleStampUpload}
                                 className="hidden"
                               />
                             </label>
 
                             {compForm.stampUrl ? (
-                              <button
-                                type="button"
-                                onClick={() => setCompForm(prev => ({ ...prev, stampUrl: '' }))}
-                                className="text-[11px] text-rose-600 hover:text-rose-700 font-bold flex items-center gap-1 cursor-pointer"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                                <span>بازگشت به مهر سیستمی</span>
-                              </button>
+                              !isCompanyLocked && (
+                                <button
+                                  type="button"
+                                  onClick={() => setCompForm(prev => ({ ...prev, stampUrl: '' }))}
+                                  className="text-[11px] text-rose-600 hover:text-rose-700 font-bold flex items-center gap-1 cursor-pointer"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                  <span>بازگشت به مهر سیستمی</span>
+                                </button>
+                              )
                             ) : (
                               <div className="flex items-center gap-1.5 pt-0.5">
                                 <span className="text-[10px] text-slate-500 font-bold">رنگ مهر:</span>
                                 <button
                                   type="button"
+                                  disabled={isCompanyLocked}
                                   onClick={() => setCompForm(prev => ({ ...prev, stampColor: 'navy' }))}
                                   className={`w-4 h-4 rounded-full bg-blue-900 border ${
                                     compForm.stampColor === 'navy' || !compForm.stampColor
                                       ? 'ring-2 ring-amber-400'
                                       : ''
-                                  }`}
+                                  } ${isCompanyLocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
                                   title="سرمه‌ای"
                                 />
                                 <button
                                   type="button"
+                                  disabled={isCompanyLocked}
                                   onClick={() => setCompForm(prev => ({ ...prev, stampColor: 'red' }))}
                                   className={`w-4 h-4 rounded-full bg-rose-700 border ${
                                     compForm.stampColor === 'red' ? 'ring-2 ring-amber-400' : ''
-                                  }`}
+                                  } ${isCompanyLocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
                                   title="قرمز"
                                 />
                                 <button
                                   type="button"
+                                  disabled={isCompanyLocked}
                                   onClick={() => setCompForm(prev => ({ ...prev, stampColor: 'blue' }))}
                                   className={`w-4 h-4 rounded-full bg-sky-600 border ${
                                     compForm.stampColor === 'blue' ? 'ring-2 ring-amber-400' : ''
-                                  }`}
+                                  } ${isCompanyLocked ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
                                   title="آبی"
                                 />
                               </div>
@@ -786,9 +1237,12 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
                           </div>
                         </div>
 
-                        <label className="flex items-center gap-2 text-[11px] font-bold text-slate-700 cursor-pointer pt-1 border-t border-slate-100">
+                        <label className={`flex items-center gap-2 text-[11px] font-bold pt-1 border-t border-slate-100 ${
+                          isCompanyLocked ? 'text-slate-400 cursor-not-allowed' : 'text-slate-700 cursor-pointer'
+                        }`}>
                           <input
                             type="checkbox"
+                            disabled={isCompanyLocked}
                             checked={compForm.showStampOnInvoice !== false}
                             onChange={e =>
                               setCompForm(prev => ({
@@ -832,19 +1286,26 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
 
                           <div className="space-y-1.5 flex-1">
                             <label className="block">
-                              <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[11px] font-bold cursor-pointer transition shadow-2xs">
+                              <span
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold transition shadow-2xs ${
+                                  isCompanyLocked
+                                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                                    : 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer'
+                                }`}
+                              >
                                 <Upload className="w-3 h-3" />
                                 <span>آپلود فایل عکس</span>
                               </span>
                               <input
                                 type="file"
                                 accept="image/*"
+                                disabled={isCompanyLocked}
                                 onChange={handleSignatureUpload}
                                 className="hidden"
                               />
                             </label>
 
-                            {compForm.signatureUrl && (
+                            {compForm.signatureUrl && !isCompanyLocked && (
                               <button
                                 type="button"
                                 onClick={() => setCompForm(prev => ({ ...prev, signatureUrl: '' }))}
@@ -857,9 +1318,12 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
                           </div>
                         </div>
 
-                        <label className="flex items-center gap-2 text-[11px] font-bold text-slate-700 cursor-pointer pt-1 border-t border-slate-100">
+                        <label className={`flex items-center gap-2 text-[11px] font-bold pt-1 border-t border-slate-100 ${
+                          isCompanyLocked ? 'text-slate-400 cursor-not-allowed' : 'text-slate-700 cursor-pointer'
+                        }`}>
                           <input
                             type="checkbox"
+                            disabled={isCompanyLocked}
                             checked={compForm.showSignatureOnInvoice !== false}
                             onChange={e =>
                               setCompForm(prev => ({
@@ -1053,16 +1517,35 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
                   <div className="flex items-center gap-3 pt-2">
                     <button
                       type="submit"
-                      className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+                      disabled={isCompanyLocked}
+                      className={`flex-1 py-3 rounded-2xl text-xs font-bold transition flex items-center justify-center gap-2 shadow-sm ${
+                        isCompanyLocked
+                          ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                          : 'bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer'
+                      }`}
                     >
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>ذخیره و اعمال در کل سیستم و فاکتورها</span>
+                      {isCompanyLocked ? (
+                        <>
+                          <Lock className="w-4 h-4 text-slate-400" />
+                          <span>تنظیمات قفل است — برای ذخیره تغییرات، ابتدا قفل بالا را باز کنید</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" />
+                          <span>ذخیره و اعمال در کل سیستم و فاکتورها</span>
+                        </>
+                      )}
                     </button>
 
                     <button
                       type="button"
+                      disabled={isCompanyLocked}
                       onClick={handleResetCompanyToDefault}
-                      className="py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-bold transition cursor-pointer"
+                      className={`py-3 px-4 rounded-2xl text-xs font-bold transition ${
+                        isCompanyLocked
+                          ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer'
+                      }`}
                     >
                       بازگردانی پیش‌فرض
                     </button>
@@ -1485,53 +1968,9 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
           </div>
         )}
 
-        {/* ================= TAB 3: BACKUP & RESTORE ================= */}
+        {/* ================= TAB 3: BACKUP & RESTORE & GOOGLE DRIVE ================= */}
         {activeSubTab === 'backup' && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Export Backup Card */}
-              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-3">
-                <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
-                  <Download className="w-5 h-5 text-blue-600" />
-                  <span>دریافت نسخه پشتیبان کامل (Export)</span>
-                </div>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  یک نسخه کامل از تمام فاکتورها، تراکنش‌های مالی، موجودی گدام‌ها و حساب‌های مشتریان
-                  در قالب یک فایل استاندارد JSON در سیستم شما دانلود خواهد شد.
-                </p>
-                <button
-                  onClick={handleDownloadBackup}
-                  className="flex items-center justify-center gap-2 w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition cursor-pointer"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>دانلود فایل پشتیبان JSON</span>
-                </button>
-              </div>
-
-              {/* Import Backup Card */}
-              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-3">
-                <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
-                  <Upload className="w-5 h-5 text-emerald-600" />
-                  <span>بازیابی اطلاعات از فایل پشتیبان (Import)</span>
-                </div>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  فایل پشتیبان JSON دانلود شده از قبل را انتخاب نمایید تا دیتابیس به صورت کامل
-                  جایگزین و بازگردانی شود.
-                </p>
-                <label className="flex items-center justify-center gap-2 w-full py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition cursor-pointer">
-                  <Upload className="w-4 h-4" />
-                  <span>انتخاب و بارگذاری فایل JSON</span>
-                  <input
-                    type="file"
-                    accept=".json"
-                    onChange={handleImportFile}
-                    className="hidden"
-                  />
-                </label>
-              </div>
-            </div>
-
-            {/* Import Status Alert */}
+          <div className="space-y-4">
             {importStatusMessage && (
               <div
                 className={`p-4 rounded-2xl text-xs font-bold flex items-center gap-2 ${
@@ -1541,13 +1980,18 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
                 }`}
               >
                 {importStatusMessage.type === 'success' ? (
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
                 ) : (
-                  <AlertTriangle className="w-5 h-5 text-rose-600" />
+                  <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
                 )}
                 <span>{importStatusMessage.text}</span>
               </div>
             )}
+
+            <GoogleDriveBackupPanel
+              onLocalExport={handleDownloadBackup}
+              onLocalImport={handleImportFileDirect}
+            />
           </div>
         )}
 

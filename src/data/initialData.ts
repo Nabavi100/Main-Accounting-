@@ -47,6 +47,8 @@ export const initialCompanySettings: CompanySettings = {
   invoiceFooterNote: 'مشتری محترم لطفاً هنگام تحویل کالا، تعداد کیسه‌ها و مشخصات را دقیق بررسی نمایید.',
   calendarType: 'jalali',
   autoLockMinutes: 0,
+  isProtected: false,
+  protectionPassword: '123',
 };
 
 export const initialProductCategories: ProductCategory[] = [

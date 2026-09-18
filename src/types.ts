@@ -232,6 +232,8 @@ export interface CompanySettings {
   fontSizeNumber?: number; // اندازه فونت بر حسب عدد (10, 11, 12, 13, 14, 15, 16, 18, 20)
   defaultPrintFormat?: 'a4' | 'continuous'; // فرمت چاپ پیش‌فرض (A4 استاندارد یا کاغذهای سوزنی/پیوسته)
   autoLockMinutes?: number; // زمان قفل خودکار برنامه بر حسب دقیقه در صورت عدم فعالیت (0 = غیرفعال)
+  isProtected?: boolean; // قفل حفاظتی تغییر نام، لوگو و مشخصات شرکت با رمز عبور مدیریت
+  protectionPassword?: string; // رمز عبور حفاظتی برای تغییر نام و لوگوی شرکت (پیش‌فرض: 123)
 }
 
 export type InvoiceType = 'buy' | 'sell' | 'return_buy' | 'return_sell';

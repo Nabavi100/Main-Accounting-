@@ -16,6 +16,7 @@ import {
   TrendingDown,
   Warehouse as WarehouseIcon,
   Edit2,
+  Package,
 } from 'lucide-react';
 import { EditInvoiceModal } from './EditInvoiceModal';
 
@@ -293,8 +294,43 @@ export const PurchaseInvoicesListView: React.FC<PurchaseInvoicesListViewProps> =
                           </div>
                         )}
                       </td>
-                      <td className="py-3 px-4 text-slate-600 max-w-xs truncate" title={itemsSummary}>
-                        {itemsSummary}
+                      <td className="py-3 px-4 min-w-[200px] max-w-sm">
+                        <div className="space-y-1.5">
+                          <div className="flex flex-wrap gap-1">
+                            {inv.items && inv.items.length > 0 ? (
+                              inv.items.map((it, itemIdx) => (
+                                <span
+                                  key={itemIdx}
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-100 hover:bg-slate-200/80 border border-slate-200/70 text-slate-800 text-[11px] transition-colors"
+                                  title={`${it.productName}: ${formatNumber(it.quantity)} ${it.unit === 'ton' ? 'تن' : 'کیسه'}`}
+                                >
+                                  <Package className="w-3 h-3 text-indigo-600 shrink-0" />
+                                  <strong className="font-bold text-slate-900">{it.productName}</strong>
+                                  <span className="font-mono text-[10px] text-indigo-700 font-bold bg-indigo-50 px-1 rounded border border-indigo-200/60">
+                                    {formatNumber(it.quantity)} {it.unit === 'ton' ? 'تن' : 'کیسه'}
+                                  </span>
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-slate-400 text-[11px]">بدون اقلام کالا</span>
+                            )}
+                          </div>
+                          {(() => {
+                            const totalTons = inv.items?.reduce((s, it) => s + (it.tonsCount || 0), 0) || 0;
+                            const totalBags = inv.items?.reduce((s, it) => s + (it.bagsCount || 0), 0) || 0;
+                            if (totalTons <= 0 && totalBags <= 0) return null;
+                            return (
+                              <div className="text-[10px] text-slate-500 font-mono flex items-center gap-1 font-bold">
+                                <span className="text-slate-400">جمع:</span>
+                                <span>
+                                  {totalTons > 0 ? `${formatNumber(totalTons)} تن` : ''}
+                                  {totalTons > 0 && totalBags > 0 ? ' • ' : ''}
+                                  {totalBags > 0 ? `${formatNumber(totalBags)} کیسه` : ''}
+                                </span>
+                              </div>
+                            );
+                          })()}
+                        </div>
                       </td>
                       <td className="py-3 px-4 font-mono font-bold text-slate-900">
                         {formatNumber(inv.totalAmount)} {inv.currency === 'AFN' ? '؋' : '$'}
