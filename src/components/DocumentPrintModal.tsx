@@ -392,6 +392,7 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
                 partyTransactions={document.partyLedgerTransactions || []}
                 companySettings={companySettings}
                 showSignatures={showSignatures}
+                selectedCurrency={document.selectedCurrency || document.currency}
               />
             );
           })()}

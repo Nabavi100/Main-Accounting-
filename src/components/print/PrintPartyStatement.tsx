@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Party, Invoice, FinancialTransaction, CompanySettings } from '../../types';
+import { Party, Invoice, FinancialTransaction, CompanySettings, Currency } from '../../types';
 import { formatNumber, formatCurrency, getPersianDate, cleanCardexDescription } from '../../utils/formatters';
 
 interface PrintPartyStatementProps {
@@ -8,6 +8,7 @@ interface PrintPartyStatementProps {
   partyTransactions?: FinancialTransaction[];
   companySettings: CompanySettings;
   showSignatures?: boolean;
+  selectedCurrency?: string; // 'AFN' | 'USD' | 'all' or specific currency
 }
 
 interface StatementEntry {
@@ -19,9 +20,14 @@ interface StatementEntry {
   description: string;
   debit: number;   // بدهکار (فروش به مشتری یا پرداخت به تامین کننده)
   credit: number;  // بستانکار (دریافت از مشتری یا خرید از تامین کننده)
-  currency: 'AFN' | 'USD';
+  currency: Currency;
+  runningBalance?: number;
   runningBalanceAFN?: number;
   runningBalanceUSD?: number;
+  isExchange?: boolean;
+  exchangeRate?: number;
+  cashAmount?: number;
+  cashCurrency?: Currency;
 }
 
 export const PrintPartyStatement: React.FC<PrintPartyStatementProps> = ({
@@ -30,8 +36,9 @@ export const PrintPartyStatement: React.FC<PrintPartyStatementProps> = ({
   partyTransactions = [],
   companySettings,
   showSignatures = true,
+  selectedCurrency = 'all',
 }) => {
-  const { entries, totalDebitAFN, totalCreditAFN, totalDebitUSD, totalCreditUSD, finalBalanceAFN, finalBalanceUSD } = useMemo(() => {
+  const { entries, totalDebit, totalCredit, finalBalance, totalDebitAFN, totalCreditAFN, totalDebitUSD, totalCreditUSD, finalBalanceAFN, finalBalanceUSD } = useMemo(() => {
     const list: StatementEntry[] = [];
 
     // 1. Initial Opening Balance
@@ -79,7 +86,7 @@ export const PrintPartyStatement: React.FC<PrintPartyStatementProps> = ({
         description: `${isSale ? 'فروش اقلام:' : 'خرید اقلام:'} ${itemsSummary}`,
         debit: isSale ? inv.totalAmount : 0,
         credit: !isSale ? inv.totalAmount : 0,
-        currency: inv.currency as 'AFN' | 'USD',
+        currency: inv.currency,
       });
 
       // Upfront cash payment attached to invoice
@@ -93,26 +100,41 @@ export const PrintPartyStatement: React.FC<PrintPartyStatementProps> = ({
           description: `تسویه نقدی بابت فاکتور ${inv.invoiceNumber}`,
           debit: !isSale ? inv.paidAmount : 0,
           credit: isSale ? inv.paidAmount : 0,
-          currency: inv.currency as 'AFN' | 'USD',
+          currency: inv.currency,
         });
       }
     });
 
-    // 3. Transactions (payments & receipts not attached to invoice)
+    // 3. Transactions (payments & receipts not attached to invoice, including exchange mode)
     partyTransactions
       .filter(tx => !tx.invoiceId && !tx.id.startsWith('tx-inv-'))
       .forEach(tx => {
         const isReceive = tx.type === 'receive_payment';
+        const isExch = !!tx.isExchange || tx.type === 'currency_exchange';
+        let typeLbl = isReceive ? 'رسید دریافت وجه (صندوق)' : 'سند پرداخت وجه (صندوق)';
+        if (isExch) {
+          typeLbl = isReceive ? 'دریافت با تسویه اکسچنج' : 'پرداخت با تسویه اکسچنج';
+        }
+
+        let desc = tx.description || (isReceive ? 'دریافت وجه از طرف حساب' : 'پرداخت وجه به طرف حساب');
+        if (isExch && tx.cashAmount && tx.cashCurrency && tx.cashCurrency !== tx.currency) {
+          desc += ` [تبدیل نقدی: ${formatNumber(tx.cashAmount)} ${tx.cashCurrency === 'AFN' ? 'افغانی' : 'دالر'}${tx.exchangeRate ? ` به نرخ ${tx.exchangeRate}` : ''}]`;
+        }
+
         list.push({
           id: `tx-${tx.id}`,
           date: tx.date,
           time: tx.issueTime,
           docNumber: `سند ${tx.transactionNumber}`,
-          typeLabel: isReceive ? 'رسید دریافت وجه (صندوق)' : 'سند پرداخت وجه (صندوق)',
-          description: tx.description || (isReceive ? 'دریافت وجه از طرف حساب' : 'پرداخت وجه به طرف حساب'),
+          typeLabel: typeLbl,
+          description: desc,
           debit: !isReceive ? tx.amount : 0,
           credit: isReceive ? tx.amount : 0,
-          currency: tx.currency as 'AFN' | 'USD',
+          currency: tx.currency,
+          isExchange: isExch,
+          exchangeRate: tx.exchangeRate,
+          cashAmount: tx.cashAmount,
+          cashCurrency: tx.cashCurrency,
         });
       });
 
@@ -123,7 +145,7 @@ export const PrintPartyStatement: React.FC<PrintPartyStatementProps> = ({
       return dateA.localeCompare(dateB);
     });
 
-    // Calculate running balance
+    // Calculate running balance for all
     let runAFN = 0;
     let runUSD = 0;
     let debAFN = 0;
@@ -145,8 +167,38 @@ export const PrintPartyStatement: React.FC<PrintPartyStatementProps> = ({
       }
     });
 
+    // If a specific currency was selected, filter and compute pure single-currency running balance
+    if (selectedCurrency && selectedCurrency !== 'all') {
+      const filtered = list.filter(e => e.currency === selectedCurrency);
+      let curRun = 0;
+      let curDeb = 0;
+      let curCred = 0;
+      filtered.forEach(entry => {
+        curDeb += entry.debit;
+        curCred += entry.credit;
+        curRun += (entry.debit - entry.credit);
+        entry.runningBalance = curRun;
+      });
+
+      return {
+        entries: filtered,
+        totalDebit: curDeb,
+        totalCredit: curCred,
+        finalBalance: curRun,
+        totalDebitAFN: debAFN,
+        totalCreditAFN: credAFN,
+        totalDebitUSD: debUSD,
+        totalCreditUSD: credUSD,
+        finalBalanceAFN: runAFN,
+        finalBalanceUSD: runUSD,
+      };
+    }
+
     return {
       entries: list,
+      totalDebit: debAFN + debUSD,
+      totalCredit: credAFN + credUSD,
+      finalBalance: runAFN,
       totalDebitAFN: debAFN,
       totalCreditAFN: credAFN,
       totalDebitUSD: debUSD,
@@ -154,7 +206,16 @@ export const PrintPartyStatement: React.FC<PrintPartyStatementProps> = ({
       finalBalanceAFN: runAFN,
       finalBalanceUSD: runUSD,
     };
-  }, [party, partyInvoices, partyTransactions]);
+  }, [party, partyInvoices, partyTransactions, selectedCurrency]);
+
+  const isSingleCurrency = selectedCurrency && selectedCurrency !== 'all';
+  const currencyLabel = isSingleCurrency
+    ? selectedCurrency === 'AFN'
+      ? 'افغانی (AFN)'
+      : selectedCurrency === 'USD'
+      ? 'دالر آمریکا (USD)'
+      : selectedCurrency
+    : 'کلیه ارزها (تجمیعی)';
 
   return (
     <div className="relative z-10 space-y-3 font-sans text-slate-900 printable-content">
@@ -178,6 +239,11 @@ export const PrintPartyStatement: React.FC<PrintPartyStatementProps> = ({
             </h1>
             <p className="text-[11px] text-slate-600 font-medium mt-0.5">
               صورت‌حساب و کارتکس مالی طرف حساب (دفتر معین / تفصیلی)
+              {isSingleCurrency && (
+                <span className="font-bold text-blue-800 mr-1.5 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                  حساب ارزی: {currencyLabel}
+                </span>
+              )}
             </p>
             <div className="text-[10px] text-slate-500 font-mono mt-0.5">
               تلفن: {companySettings.phone || '---'} {companySettings.address ? `• آدرس: ${companySettings.address}` : ''}
@@ -187,7 +253,7 @@ export const PrintPartyStatement: React.FC<PrintPartyStatementProps> = ({
 
         <div className="text-left font-mono shrink-0 flex flex-col items-end">
           <span className="inline-block text-[11px] font-black px-3 py-1 rounded-lg bg-slate-900 text-white">
-            صورت‌حساب مالی
+            صورت‌حساب مالی {isSingleCurrency ? selectedCurrency : ''}
           </span>
           <div className="text-xs font-black text-slate-900 mt-1">
             کد مشتری: #{party.code || party.id.slice(0, 6)}
@@ -221,51 +287,79 @@ export const PrintPartyStatement: React.FC<PrintPartyStatementProps> = ({
       </div>
 
       {/* 3. Summary KPI Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-        <div className="bg-white border-2 border-slate-300 rounded-xl p-2.5 text-center shadow-2xs">
-          <span className="text-[10.5px] text-slate-600 block font-bold mb-0.5">مانده نهایی افغانی:</span>
-          <strong className={`text-base font-black font-mono ${finalBalanceAFN > 0 ? 'text-rose-700' : finalBalanceAFN < 0 ? 'text-emerald-700' : 'text-slate-700'}`}>
-            {formatCurrency(Math.abs(finalBalanceAFN), 'AFN')}
-          </strong>
-          <span className="block text-[9.5px] font-bold text-slate-500 mt-0.5">
-            {finalBalanceAFN > 0 ? '(بدهکار به ما)' : finalBalanceAFN < 0 ? '(بستانکار از ما)' : '(حساب تسویه)'}
-          </span>
-        </div>
-
-        <div className="bg-white border-2 border-slate-300 rounded-xl p-2.5 text-center shadow-2xs">
-          <span className="text-[10.5px] text-slate-600 block font-bold mb-0.5">مانده نهایی دلاری:</span>
-          <strong className={`text-base font-black font-mono ${finalBalanceUSD > 0 ? 'text-rose-700' : finalBalanceUSD < 0 ? 'text-emerald-700' : 'text-slate-700'}`}>
-            {formatCurrency(Math.abs(finalBalanceUSD), 'USD')}
-          </strong>
-          <span className="block text-[9.5px] font-bold text-slate-500 mt-0.5">
-            {finalBalanceUSD > 0 ? '(بدهکار به ما)' : finalBalanceUSD < 0 ? '(بستانکار از ما)' : '(حساب تسویه)'}
-          </span>
-        </div>
-
-        <div className="bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-center">
-          <span className="text-[10.5px] text-slate-600 block font-bold mb-0.5">مجموع گردش بدهکار:</span>
-          <strong className="text-xs font-black text-rose-700 font-mono block">
-            {formatCurrency(totalDebitAFN, 'AFN')}
-          </strong>
-          {totalDebitUSD > 0 && (
-            <span className="text-xs font-bold text-rose-700 font-mono block">
-              {formatCurrency(totalDebitUSD, 'USD')}
+      {isSingleCurrency ? (
+        <div className="grid grid-cols-3 gap-2.5">
+          <div className="bg-white border-2 border-slate-300 rounded-xl p-2.5 text-center shadow-2xs">
+            <span className="text-[10.5px] text-slate-600 block font-bold mb-0.5">مانده نهایی {currencyLabel}:</span>
+            <strong className={`text-base font-black font-mono ${finalBalance > 0 ? 'text-rose-700' : finalBalance < 0 ? 'text-emerald-700' : 'text-slate-700'}`}>
+              {formatCurrency(Math.abs(finalBalance), selectedCurrency)}
+            </strong>
+            <span className="block text-[9.5px] font-bold text-slate-500 mt-0.5">
+              {finalBalance > 0 ? '(بدهکار به ما)' : finalBalance < 0 ? '(بستانکار از ما)' : '(حساب تسویه)'}
             </span>
-          )}
-        </div>
+          </div>
 
-        <div className="bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-center">
-          <span className="text-[10.5px] text-slate-600 block font-bold mb-0.5">مجموع گردش بستانکار:</span>
-          <strong className="text-xs font-black text-emerald-700 font-mono block">
-            {formatCurrency(totalCreditAFN, 'AFN')}
-          </strong>
-          {totalCreditUSD > 0 && (
-            <span className="text-xs font-bold text-emerald-700 font-mono block">
-              {formatCurrency(totalCreditUSD, 'USD')}
-            </span>
-          )}
+          <div className="bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-center">
+            <span className="text-[10.5px] text-slate-600 block font-bold mb-0.5">مجموع گردش بدهکار:</span>
+            <strong className="text-sm font-black text-rose-700 font-mono block">
+              {formatCurrency(totalDebit, selectedCurrency)}
+            </strong>
+          </div>
+
+          <div className="bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-center">
+            <span className="text-[10.5px] text-slate-600 block font-bold mb-0.5">مجموع گردش بستانکار:</span>
+            <strong className="text-sm font-black text-emerald-700 font-mono block">
+              {formatCurrency(totalCredit, selectedCurrency)}
+            </strong>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <div className="bg-white border-2 border-slate-300 rounded-xl p-2.5 text-center shadow-2xs">
+            <span className="text-[10.5px] text-slate-600 block font-bold mb-0.5">مانده نهایی افغانی:</span>
+            <strong className={`text-base font-black font-mono ${finalBalanceAFN > 0 ? 'text-rose-700' : finalBalanceAFN < 0 ? 'text-emerald-700' : 'text-slate-700'}`}>
+              {formatCurrency(Math.abs(finalBalanceAFN), 'AFN')}
+            </strong>
+            <span className="block text-[9.5px] font-bold text-slate-500 mt-0.5">
+              {finalBalanceAFN > 0 ? '(بدهکار به ما)' : finalBalanceAFN < 0 ? '(بستانکار از ما)' : '(حساب تسویه)'}
+            </span>
+          </div>
+
+          <div className="bg-white border-2 border-slate-300 rounded-xl p-2.5 text-center shadow-2xs">
+            <span className="text-[10.5px] text-slate-600 block font-bold mb-0.5">مانده نهایی دلاری:</span>
+            <strong className={`text-base font-black font-mono ${finalBalanceUSD > 0 ? 'text-rose-700' : finalBalanceUSD < 0 ? 'text-emerald-700' : 'text-slate-700'}`}>
+              {formatCurrency(Math.abs(finalBalanceUSD), 'USD')}
+            </strong>
+            <span className="block text-[9.5px] font-bold text-slate-500 mt-0.5">
+              {finalBalanceUSD > 0 ? '(بدهکار به ما)' : finalBalanceUSD < 0 ? '(بستانکار از ما)' : '(حساب تسویه)'}
+            </span>
+          </div>
+
+          <div className="bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-center">
+            <span className="text-[10.5px] text-slate-600 block font-bold mb-0.5">مجموع گردش بدهکار:</span>
+            <strong className="text-xs font-black text-rose-700 font-mono block">
+              {formatCurrency(totalDebitAFN, 'AFN')}
+            </strong>
+            {totalDebitUSD > 0 && (
+              <span className="text-xs font-bold text-rose-700 font-mono block">
+                {formatCurrency(totalDebitUSD, 'USD')}
+              </span>
+            )}
+          </div>
+
+          <div className="bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-center">
+            <span className="text-[10.5px] text-slate-600 block font-bold mb-0.5">مجموع گردش بستانکار:</span>
+            <strong className="text-xs font-black text-emerald-700 font-mono block">
+              {formatCurrency(totalCreditAFN, 'AFN')}
+            </strong>
+            {totalCreditUSD > 0 && (
+              <span className="text-xs font-bold text-emerald-700 font-mono block">
+                {formatCurrency(totalCreditUSD, 'USD')}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 4. Complete Detailed Ledger Table */}
       <div className="border-2 border-slate-300 rounded-xl overflow-hidden bg-white">
@@ -277,6 +371,9 @@ export const PrintPartyStatement: React.FC<PrintPartyStatementProps> = ({
               <th className="p-2 border border-slate-700 text-center w-28">نوع سند</th>
               <th className="p-2 border border-slate-700 text-center w-24">شماره سند</th>
               <th className="p-2 border border-slate-700 text-right">شرح عملیات / اقلام کالا</th>
+              {!isSingleCurrency && (
+                <th className="p-2 border border-slate-700 text-center w-14">ارز</th>
+              )}
               <th className="p-2 border border-slate-700 text-center w-24">بدهکار (+)</th>
               <th className="p-2 border border-slate-700 text-center w-24">بستانکار (-)</th>
               <th className="p-2 border border-slate-700 text-center w-28">مانده ردیف</th>
@@ -285,14 +382,17 @@ export const PrintPartyStatement: React.FC<PrintPartyStatementProps> = ({
           <tbody className="divide-y divide-slate-200">
             {entries.length === 0 ? (
               <tr>
-                <td colSpan={8} className="p-8 text-center text-slate-400 font-bold">
-                  هیچ سابقه گردش حساب، فاکتور یا پرداختی برای این طرف حساب ثبت نشده است.
+                <td colSpan={isSingleCurrency ? 8 : 9} className="p-8 text-center text-slate-400 font-bold">
+                  هیچ سابقه گردش حساب، فاکتور یا پرداختی برای این طرف حساب با ارز انتخابی ثبت نشده است.
                 </td>
               </tr>
             ) : (
               entries.map((item, idx) => {
-                const isAFN = item.currency === 'AFN';
-                const bal = isAFN ? item.runningBalanceAFN || 0 : item.runningBalanceUSD || 0;
+                const bal = isSingleCurrency
+                  ? (item.runningBalance ?? 0)
+                  : item.currency === 'AFN'
+                  ? (item.runningBalanceAFN || 0)
+                  : (item.runningBalanceUSD || 0);
                 return (
                   <tr key={item.id} className={idx % 2 === 1 ? 'bg-slate-50/70' : 'bg-white'}>
                     <td className="p-2 border border-slate-200 text-center font-mono font-bold text-slate-500">
@@ -303,7 +403,11 @@ export const PrintPartyStatement: React.FC<PrintPartyStatementProps> = ({
                       {item.time && <div className="text-[9px] text-slate-400">{item.time}</div>}
                     </td>
                     <td className="p-2 border border-slate-200 text-center whitespace-nowrap">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-black bg-slate-100 text-slate-800 border border-slate-300">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-black border ${
+                        item.isExchange
+                          ? 'bg-purple-100 text-purple-900 border-purple-300'
+                          : 'bg-slate-100 text-slate-800 border-slate-300'
+                      }`}>
                         {item.typeLabel}
                       </span>
                     </td>
@@ -312,7 +416,21 @@ export const PrintPartyStatement: React.FC<PrintPartyStatementProps> = ({
                     </td>
                     <td className="p-2 border border-slate-200 text-slate-800 text-[10px] leading-tight font-medium max-w-[200px]" title={item.description}>
                       <div className="truncate">{cleanCardexDescription(item.description, 42)}</div>
+                      {item.isExchange && item.cashAmount && item.cashCurrency && (
+                        <div className="text-[9px] text-purple-700 font-mono mt-0.5">
+                          تبدیل نقدی: {formatNumber(item.cashAmount)} {item.cashCurrency} {item.exchangeRate ? `(نرخ: ${item.exchangeRate})` : ''}
+                        </div>
+                      )}
                     </td>
+                    {!isSingleCurrency && (
+                      <td className="p-2 border border-slate-200 text-center font-mono font-bold">
+                        <span className={`px-1.5 py-0.5 rounded text-[9.5px] ${
+                          item.currency === 'USD' ? 'bg-blue-100 text-blue-800' : 'bg-emerald-100 text-emerald-800'
+                        }`}>
+                          {item.currency}
+                        </span>
+                      </td>
+                    )}
                     <td className="p-2 border border-slate-200 text-center font-mono font-bold text-rose-700 whitespace-nowrap">
                       {item.debit > 0 ? formatCurrency(item.debit, item.currency) : '-'}
                     </td>

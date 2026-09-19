@@ -593,6 +593,11 @@ export interface PartyLedgerEntry {
   credit: number;  // بستانکار (او به ما پرداخت می‌کند یا از ما طلبکار می‌شود)
   balanceAFN: number;
   balanceUSD: number;
+  runningBalance?: number; // مانده جاری در تب ارز اختصاصی
+  isExchange?: boolean;    // آیا با حالت اکسچنج ارزی ثبت شده است
+  exchangeRate?: number;   // نرخ تسویه / تبدیل اکسچنج
+  cashAmount?: number;     // مبلغ نقدی واقعی مبادله شده در صندوق
+  cashCurrency?: Currency; // ارز نقدی واقعی صندوق
 }
 
 // ================= TRIAL BALANCE (تراز آزمایشی کل و معین) =================
