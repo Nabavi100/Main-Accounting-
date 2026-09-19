@@ -526,52 +526,68 @@ export const GoogleDriveBackupPanel: React.FC<GoogleDriveBackupPanelProps> = ({
 
       {/* ================= LOCAL / OFFLINE BACKUP TAB ================= */}
       {activeTab === 'local' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Export Backup Card */}
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-3">
-            <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
-              <Download className="w-5 h-5 text-blue-600" />
-              <span>دریافت فایل پشتیبان محلی (Export JSON)</span>
+        <div className="space-y-4">
+          <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-start gap-3">
+            <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
+              <ShieldCheck className="w-4 h-4" />
             </div>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              یک نسخه کامل از تمام فاکتورها، تراکنش‌های مالی، موجودی گدام‌ها و حساب‌های مشتریان در قالب
-              یک فایل استاندارد JSON در حافظهٔ دستگاه شما دانلود خواهد شد.
-            </p>
-            <button
-              type="button"
-              onClick={onLocalExport}
-              className="flex items-center justify-center gap-2 w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition cursor-pointer"
-            >
-              <Download className="w-4 h-4" />
-              <span>دانلود فایل JSON در کامپیوتر</span>
-            </button>
+            <div className="text-xs space-y-1">
+              <div className="font-bold text-emerald-950">
+                امنیت کامل و ۱۰۰٪ آفلاین داده‌ها (عدم وابستگی به اینترنت)
+              </div>
+              <p className="text-emerald-800 leading-relaxed">
+                حتی بدون دسترسی به اینترنت یا حساب جیمیل، می‌توانید فایل‌های پشتیبان را مستقیماً روی کامپیوتر یا فلش‌مموری ذخیره (Export) نموده و هر زمان که نیاز داشتید با فشردن یک دکمه بازگردانی (Import) فرمایید.
+              </p>
+            </div>
           </div>
 
-          {/* Import Backup Card */}
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-3">
-            <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
-              <Upload className="w-5 h-5 text-emerald-600" />
-              <span>بازیابی از فایل محلی (Import JSON)</span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Export Backup Card */}
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-3">
+              <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
+                <Download className="w-5 h-5 text-blue-600" />
+                <span>ذخیره‌سازی دستی بکاپ روی حافظه محلی (Export JSON)</span>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                یک نسخه کامل از تمام فاکتورها، تراکنش‌های مالی، موجودی گدام‌ها و حساب‌های مشتریان در قالب
+                یک فایل استاندارد JSON در حافظهٔ دستگاه شما دانلود خواهد شد.
+              </p>
+              <button
+                type="button"
+                onClick={onLocalExport}
+                className="flex items-center justify-center gap-2 w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-xs"
+              >
+                <Download className="w-4 h-4" />
+                <span>دانلود و ذخیره فایل JSON در کامپیوتر</span>
+              </button>
             </div>
-            <p className="text-xs text-slate-600 leading-relaxed">
-              فایل پشتیبان JSON دانلود شده از قبل را انتخاب نمایید تا پایگاه داده به صورت کامل جایگزین
-              و بازگردانی شود.
-            </p>
-            <label className="flex items-center justify-center gap-2 w-full py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition cursor-pointer">
-              <Upload className="w-4 h-4" />
-              <span>انتخاب و بارگذاری فایل JSON</span>
-              <input
-                type="file"
-                accept=".json"
-                onChange={e => {
-                  const file = e.target.files?.[0];
-                  if (file && onLocalImport) {
-                    onLocalImport(file);
-                  }
-                }}
-                className="hidden"
-              />
-            </label>
+
+            {/* Import Backup Card */}
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-3">
+              <div className="flex items-center gap-2 text-slate-900 font-bold text-sm">
+                <Upload className="w-5 h-5 text-emerald-600" />
+                <span>بازیابی اطلاعات از فایل محلی (Import JSON)</span>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                فایل پشتیبان JSON دانلود شده از قبل را انتخاب نمایید تا پایگاه داده به صورت کامل جایگزین
+                و بازگردانی شود.
+              </p>
+              <label className="flex items-center justify-center gap-2 w-full py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition cursor-pointer shadow-xs">
+                <Upload className="w-4 h-4 text-emerald-400" />
+                <span>انتخاب و بازگردانی فایل JSON</span>
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file && onLocalImport) {
+                      onLocalImport(file);
+                    }
+                  }}
+                  className="hidden"
+                />
+              </label>
+            </div>
           </div>
         </div>
       )}

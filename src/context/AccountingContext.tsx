@@ -380,10 +380,15 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   });
 
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    // Purge any legacy localStorage authentication flags so credentials are required when reopening
+    try {
+      localStorage.removeItem(LOCAL_STORAGE_KEY + '_is_authenticated');
+    } catch {}
+
+    // Require username and password whenever the application is closed and reopened.
+    // In web browsers, sessionStorage is automatically deleted upon closing the tab/window.
     const savedSession = sessionStorage.getItem(LOCAL_STORAGE_KEY + '_auth_session');
-    if (savedSession !== null) return savedSession === 'true';
-    const savedLocal = localStorage.getItem(LOCAL_STORAGE_KEY + '_is_authenticated');
-    return savedLocal === 'true';
+    return savedSession === 'true';
   });
 
   const [activePrintDoc, setActivePrintDoc] = useState<PrintableDocumentPayload | null>(null);
@@ -3577,7 +3582,9 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setCurrentUser(foundUser);
     setIsAuthenticated(true);
     sessionStorage.setItem(LOCAL_STORAGE_KEY + '_auth_session', 'true');
-    localStorage.setItem(LOCAL_STORAGE_KEY + '_is_authenticated', 'true');
+    try {
+      localStorage.removeItem(LOCAL_STORAGE_KEY + '_is_authenticated');
+    } catch {}
     localStorage.setItem(LOCAL_STORAGE_KEY + '_current_user', JSON.stringify(foundUser));
     notify('success', `خوش آمدید، جناب ${foundUser.name}`, `ورود به سیستم با سطح دسترسی ${foundUser.roleTitle} تأیید شد.`);
     return { success: true };
@@ -3585,8 +3592,10 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const logout = () => {
     setIsAuthenticated(false);
-    sessionStorage.setItem(LOCAL_STORAGE_KEY + '_auth_session', 'false');
-    localStorage.setItem(LOCAL_STORAGE_KEY + '_is_authenticated', 'false');
+    sessionStorage.removeItem(LOCAL_STORAGE_KEY + '_auth_session');
+    try {
+      localStorage.removeItem(LOCAL_STORAGE_KEY + '_is_authenticated');
+    } catch {}
     notify('info', 'سیستم قفل شد', 'برای دسترسی مجدد، لطفاً نام کاربری و رمز عبور خود را وارد نمایید.');
   };
 
@@ -3890,6 +3899,7 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       companySettings,
       users,
       currentUser,
+      productCategories,
       products,
       warehouses,
       stocks,
@@ -3898,7 +3908,9 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       invoices,
       transactions,
       transfers,
+      consignmentMovements,
       expenseCategories,
+      expenseDefinitions,
       expenses,
       incomeCategories,
       incomes,
@@ -3921,6 +3933,7 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         if (data.companySettings) {
           setCompanySettings(data.companySettings);
         }
+        if (data.productCategories) setProductCategories(data.productCategories);
         setProducts(data.products || []);
         setWarehouses(data.warehouses || []);
         setStocks(data.stocks || []);
@@ -3929,7 +3942,9 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         setInvoices(data.invoices || []);
         setTransactions(data.transactions || []);
         setTransfers(data.transfers || []);
+        if (data.consignmentMovements) setConsignmentMovements(data.consignmentMovements);
         if (data.expenseCategories) setExpenseCategories(data.expenseCategories);
+        if (data.expenseDefinitions) setExpenseDefinitions(data.expenseDefinitions);
         if (data.expenses) setExpenses(data.expenses);
         if (data.incomeCategories) setIncomeCategories(data.incomeCategories);
         if (data.incomes) setIncomes(data.incomes);

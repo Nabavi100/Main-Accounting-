@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-export type AppTheme = 'light' | 'dark' | 'gold' | 'executive' | 'classic' | 'vibrant';
+export type AppTheme = 'light' | 'dark' | 'gold' | 'executive' | 'classic' | 'vibrant' | 'sky-glass';
 export type SidebarStyle = 'modern-list' | 'colored-cards' | 'compact';
 
 interface ThemeContextType {
@@ -27,7 +27,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       saved === 'gold' ||
       saved === 'executive' ||
       saved === 'classic' ||
-      saved === 'vibrant'
+      saved === 'vibrant' ||
+      saved === 'sky-glass'
     ) {
       return saved;
     }
@@ -52,13 +53,15 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     localStorage.setItem(SIDEBAR_STORAGE_KEY, newStyle);
   };
 
-  const isDark = theme === 'dark' || theme === 'gold' || theme === 'executive';
+  const isDark = theme === 'dark' || theme === 'gold' || theme === 'executive' || theme === 'sky-glass';
   const isGold = theme === 'gold';
 
   const toggleDarkMode = () => {
     if (theme === 'dark') {
       setTheme('light');
     } else if (theme === 'light') {
+      setTheme('sky-glass');
+    } else if (theme === 'sky-glass') {
       setTheme('gold');
     } else {
       setTheme('dark');
@@ -77,18 +80,21 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       'theme-executive',
       'theme-classic',
       'theme-vibrant',
+      'theme-sky-glass',
       'dark',
       'gold',
       'sidebar-mode-list',
       'sidebar-mode-cards',
       'sidebar-mode-compact'
     );
-    docEl.classList.remove('dark', 'gold');
+    docEl.classList.remove('dark', 'gold', 'theme-sky-glass');
 
     // Add current theme classes
     body.classList.add(`theme-${theme}`);
     body.setAttribute('data-theme', theme);
     docEl.setAttribute('data-theme', theme);
+    body.setAttribute('data-sidebar-style', sidebarStyle);
+    docEl.setAttribute('data-sidebar-style', sidebarStyle);
 
     if (theme === 'dark') {
       body.classList.add('dark');
@@ -99,6 +105,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } else if (theme === 'executive') {
       body.classList.add('dark');
       docEl.classList.add('dark');
+    } else if (theme === 'sky-glass') {
+      body.classList.add('dark', 'theme-sky-glass');
+      docEl.classList.add('dark', 'theme-sky-glass');
     }
 
     // Add sidebar style class

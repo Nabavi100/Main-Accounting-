@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAccounting } from '../context/AccountingContext';
+import { useTheme } from '../context/ThemeContext';
 import {
   PieChart,
   Folder,
@@ -77,7 +78,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenTransferModal,
   onOpenAccessModal,
 }) => {
-  const { companySettings } = useAccounting();
+  const { companySettings, logout } = useAccounting();
+  const { theme, sidebarStyle } = useTheme();
 
   // Helper to find which section a tab belongs to
   const getSectionForTab = (tab: NavTab): string | null => {
@@ -217,43 +219,57 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* ---------------- 2. EXACT ORDER OF MENU ITEMS ---------------- */}
       <nav className="flex-1 px-3 py-3 space-y-1.5 overflow-y-auto custom-scrollbar">
         {/* 1. داشبورد مدیریتی (Pill with soft blue background) */}
-        <button
-          type="button"
-          id="sidebar-btn-dashboard"
-          onClick={() => handleNavigate('dashboard', 'all', null)}
-          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all ${
-            activeTab === 'dashboard'
-              ? 'bg-[#EEF2FF] text-[#2563EB] font-bold shadow-2xs'
-              : 'bg-[#F4F7FE]/80 hover:bg-[#EEF2FF] text-[#2563EB] font-bold'
-          }`}
-        >
-          <div className="flex items-center gap-2.5">
-            <PieChart className="w-4 h-4 text-[#2563EB]" />
-            <span className="text-xs">داشبورد مدیریتی</span>
-          </div>
-        </button>
+        <div className="sidebar-section-container sidebar-card-block sidebar-card-dashboard">
+          <button
+            type="button"
+            id="sidebar-btn-dashboard"
+            onClick={() => handleNavigate('dashboard', 'all', null)}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all ${
+              activeTab === 'dashboard'
+                ? theme === 'sky-glass'
+                  ? 'bg-sky-500/25 text-sky-100 font-black border border-sky-400/60 shadow-[0_0_15px_rgba(56,189,248,0.4)]'
+                  : theme === 'gold'
+                  ? 'bg-amber-500/20 text-amber-300 font-black border border-amber-400/50 shadow-[0_0_12px_rgba(245,158,11,0.25)]'
+                  : 'bg-[#EEF2FF] text-[#2563EB] font-bold shadow-2xs'
+                : 'bg-[#F4F7FE]/80 hover:bg-[#EEF2FF] text-[#2563EB] font-bold'
+            }`}
+          >
+            <div className="flex items-center gap-2.5">
+              <PieChart className="w-4 h-4 text-[#2563EB] dark:text-sky-400" />
+              <span className="text-xs">داشبورد مدیریتی</span>
+            </div>
+          </button>
+        </div>
 
         {/* 2. تعاریف اولیه */}
-        <div className="space-y-0.5">
+        <div className="sidebar-section-container sidebar-card-block sidebar-card-definitions space-y-0.5">
           <button
             type="button"
             id="sidebar-btn-definitions"
             onClick={() => toggleSection('definitions')}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-[#2563EB] font-bold hover:bg-[#F4F7FE] cursor-pointer transition-colors"
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl font-bold cursor-pointer transition-colors ${
+              openSections.definitions || getSectionForTab(activeTab) === 'definitions'
+                ? theme === 'sky-glass'
+                  ? 'bg-sky-950/40 text-sky-200 font-black border border-sky-400/40 shadow-[0_0_12px_rgba(56,189,248,0.25)]'
+                  : theme === 'gold'
+                  ? 'bg-amber-950/40 text-amber-300 font-black border border-amber-500/30'
+                  : 'bg-[#EEF2FF] text-[#2563EB]'
+                : 'text-[#2563EB] hover:bg-[#F4F7FE]'
+            }`}
           >
             <div className="flex items-center gap-2.5">
-              <Folder className="w-4 h-4 text-[#2563EB]" />
+              <Folder className="w-4 h-4 text-[#2563EB] dark:text-amber-400" />
               <span className="text-xs">تعاریف اولیه</span>
             </div>
             {openSections.definitions ? (
-              <ChevronUp className="w-4 h-4 text-[#2563EB]" />
+              <ChevronUp className="w-4 h-4 text-[#2563EB] dark:text-amber-400" />
             ) : (
-              <ChevronDown className="w-4 h-4 text-[#2563EB]" />
+              <ChevronDown className="w-4 h-4 text-[#2563EB] dark:text-amber-400" />
             )}
           </button>
 
           {openSections.definitions && (
-            <div className="mr-5 pr-3 border-r-2 border-dashed border-slate-200 py-1 space-y-1">
+            <div className="sidebar-submenu-wrapper mr-5 pr-3 border-r-2 border-dashed border-slate-200 dark:border-slate-700/60 py-1 space-y-1">
               <button
                 type="button"
                 id="sidebar-sub-definitions-parties"
@@ -367,26 +383,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* 3. گردش صندوق‌ها */}
-        <div className="space-y-0.5">
+        <div className="sidebar-section-container sidebar-card-block sidebar-card-cash space-y-0.5">
           <button
             type="button"
             id="sidebar-btn-cash"
             onClick={() => toggleSection('cashAccounts')}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-[#2563EB] font-bold hover:bg-[#F4F7FE] cursor-pointer transition-colors"
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl font-bold cursor-pointer transition-colors ${
+              openSections.cashAccounts || getSectionForTab(activeTab) === 'cashAccounts'
+                ? theme === 'sky-glass'
+                  ? 'bg-sky-950/40 text-sky-200 font-black border border-sky-400/40 shadow-[0_0_12px_rgba(56,189,248,0.25)]'
+                  : theme === 'gold'
+                  ? 'bg-amber-950/40 text-amber-300 font-black border border-amber-500/30'
+                  : 'bg-[#EEF2FF] text-[#2563EB]'
+                : 'text-[#2563EB] hover:bg-[#F4F7FE]'
+            }`}
           >
             <div className="flex items-center gap-2.5">
-              <Banknote className="w-4 h-4 text-[#2563EB]" />
+              <Banknote className="w-4 h-4 text-[#2563EB] dark:text-emerald-400" />
               <span className="text-xs">گردش صندوق‌ها</span>
             </div>
             {openSections.cashAccounts ? (
-              <ChevronUp className="w-4 h-4 text-[#2563EB]" />
+              <ChevronUp className="w-4 h-4 text-[#2563EB] dark:text-emerald-400" />
             ) : (
-              <ChevronDown className="w-4 h-4 text-[#2563EB]" />
+              <ChevronDown className="w-4 h-4 text-[#2563EB] dark:text-emerald-400" />
             )}
           </button>
 
           {openSections.cashAccounts && (
-            <div className="mr-5 pr-3 border-r-2 border-dashed border-slate-200 py-1 space-y-1">
+            <div className="sidebar-submenu-wrapper mr-5 pr-3 border-r-2 border-dashed border-slate-200 dark:border-slate-700/60 py-1 space-y-1">
               <button
                 type="button"
                 id="sidebar-sub-cash-usd-company"
@@ -428,26 +452,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* 4. بازرگانی و مالی */}
-        <div className="space-y-0.5">
+        <div className="sidebar-section-container sidebar-card-block sidebar-card-trade space-y-0.5">
           <button
             type="button"
             id="sidebar-btn-trade"
             onClick={() => toggleSection('tradeAndFinance')}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-[#2563EB] font-bold hover:bg-[#F4F7FE] cursor-pointer transition-colors"
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl font-bold cursor-pointer transition-colors ${
+              openSections.tradeAndFinance || getSectionForTab(activeTab) === 'tradeAndFinance'
+                ? theme === 'sky-glass'
+                  ? 'bg-sky-950/40 text-sky-200 font-black border border-sky-400/40 shadow-[0_0_12px_rgba(56,189,248,0.25)]'
+                  : theme === 'gold'
+                  ? 'bg-amber-950/40 text-amber-300 font-black border border-amber-500/30'
+                  : 'bg-[#EEF2FF] text-[#2563EB]'
+                : 'text-[#2563EB] hover:bg-[#F4F7FE]'
+            }`}
           >
             <div className="flex items-center gap-2.5">
-              <Truck className="w-4 h-4 text-[#2563EB]" />
+              <Truck className="w-4 h-4 text-[#2563EB] dark:text-indigo-400" />
               <span className="text-xs">بازرگانی و مالی</span>
             </div>
             {openSections.tradeAndFinance ? (
-              <ChevronUp className="w-4 h-4 text-[#2563EB]" />
+              <ChevronUp className="w-4 h-4 text-[#2563EB] dark:text-indigo-400" />
             ) : (
-              <ChevronDown className="w-4 h-4 text-[#2563EB]" />
+              <ChevronDown className="w-4 h-4 text-[#2563EB] dark:text-indigo-400" />
             )}
           </button>
 
           {openSections.tradeAndFinance && (
-            <div className="mr-5 pr-3 border-r-2 border-dashed border-slate-200 py-1 space-y-1">
+            <div className="sidebar-submenu-wrapper mr-5 pr-3 border-r-2 border-dashed border-slate-200 dark:border-slate-700/60 py-1 space-y-1">
               <button
                 type="button"
                 id="sidebar-sub-new-sale"
@@ -573,43 +605,49 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* 5. فرآیند تولید (Single item with factory icon) */}
-        <button
-          type="button"
-          id="sidebar-btn-production"
-          onClick={() => setShowProductionModal(true)}
-          className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-50 cursor-pointer transition-colors"
-        >
-          <div className="flex items-center gap-2.5">
-            <Factory className="w-4 h-4 text-slate-400" />
-            <span className="text-xs font-medium">فرآیند تولید</span>
-          </div>
-        </button>
+        <div className="sidebar-section-container sidebar-card-block sidebar-card-trade">
+          <button
+            type="button"
+            id="sidebar-btn-production"
+            onClick={() => setShowProductionModal(true)}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-slate-500 hover:text-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer transition-colors"
+          >
+            <div className="flex items-center gap-2.5">
+              <Factory className="w-4 h-4 text-slate-400" />
+              <span className="text-xs font-medium">فرآیند تولید</span>
+            </div>
+          </button>
+        </div>
 
         {/* 6. دارایی های ثابت و سهامداران */}
-        <div className="space-y-0.5">
+        <div className="sidebar-section-container sidebar-card-block sidebar-card-assets space-y-0.5">
           <button
             type="button"
             id="sidebar-btn-assets"
             onClick={() => toggleSection('fixedAssets')}
             className={`w-full flex items-center justify-between px-3 py-2 rounded-xl font-bold cursor-pointer transition-colors ${
-              activeTab === 'fixed_assets' || activeTab === 'shareholders'
-                ? 'text-[#2563EB] dark:text-amber-400 bg-[#EEF2FF] dark:bg-amber-950/40 border border-blue-200 dark:border-amber-500/40 shadow-xs btn-active-luxury'
-                : 'text-[#2563EB] hover:bg-[#F4F7FE] dark:hover:bg-slate-800/50'
+              openSections.fixedAssets || getSectionForTab(activeTab) === 'fixedAssets'
+                ? theme === 'sky-glass'
+                  ? 'bg-sky-950/40 text-sky-200 font-black border border-sky-400/40 shadow-[0_0_12px_rgba(56,189,248,0.25)]'
+                  : theme === 'gold'
+                  ? 'bg-amber-950/40 text-amber-300 font-black border border-amber-500/30'
+                  : 'bg-[#EEF2FF] text-[#2563EB]'
+                : 'text-[#2563EB] hover:bg-[#F4F7FE]'
             }`}
           >
             <div className="flex items-center gap-2.5">
-              <Building className="w-4 h-4 text-[#2563EB]" />
+              <Building className="w-4 h-4 text-[#2563EB] dark:text-purple-400" />
               <span className="text-xs">دارایی های ثابت و سهامداران</span>
             </div>
             {openSections.fixedAssets ? (
-              <ChevronUp className="w-4 h-4 text-[#2563EB]" />
+              <ChevronUp className="w-4 h-4 text-[#2563EB] dark:text-purple-400" />
             ) : (
-              <ChevronDown className="w-4 h-4 text-[#2563EB]" />
+              <ChevronDown className="w-4 h-4 text-[#2563EB] dark:text-purple-400" />
             )}
           </button>
 
           {openSections.fixedAssets && (
-            <div className="mr-5 pr-3 border-r-2 border-dashed border-slate-200 py-1 space-y-1">
+            <div className="sidebar-submenu-wrapper mr-5 pr-3 border-r-2 border-dashed border-slate-200 dark:border-slate-700/60 py-1 space-y-1">
               <button
                 type="button"
                 id="sidebar-sub-fixed-assets"
@@ -639,26 +677,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* 7. گزارشات سیستمی */}
-        <div className="space-y-0.5">
+        <div className="sidebar-section-container sidebar-card-block sidebar-card-reports space-y-0.5">
           <button
             type="button"
             id="sidebar-btn-reports"
             onClick={() => toggleSection('systemReports')}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-[#2563EB] font-bold hover:bg-[#F4F7FE] cursor-pointer transition-colors"
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl font-bold cursor-pointer transition-colors ${
+              openSections.systemReports || getSectionForTab(activeTab) === 'systemReports'
+                ? theme === 'sky-glass'
+                  ? 'bg-sky-950/40 text-sky-200 font-black border border-sky-400/40 shadow-[0_0_12px_rgba(56,189,248,0.25)]'
+                  : theme === 'gold'
+                  ? 'bg-amber-950/40 text-amber-300 font-black border border-amber-500/30'
+                  : 'bg-[#EEF2FF] text-[#2563EB]'
+                : 'text-[#2563EB] hover:bg-[#F4F7FE]'
+            }`}
           >
             <div className="flex items-center gap-2.5">
-              <TrendingUp className="w-4 h-4 text-[#2563EB]" />
+              <TrendingUp className="w-4 h-4 text-[#2563EB] dark:text-rose-400" />
               <span className="text-xs">گزارشات سیستمی</span>
             </div>
             {openSections.systemReports ? (
-              <ChevronUp className="w-4 h-4 text-[#2563EB]" />
+              <ChevronUp className="w-4 h-4 text-[#2563EB] dark:text-rose-400" />
             ) : (
-              <ChevronDown className="w-4 h-4 text-[#2563EB]" />
+              <ChevronDown className="w-4 h-4 text-[#2563EB] dark:text-rose-400" />
             )}
           </button>
 
           {openSections.systemReports && (
-            <div className="mr-5 pr-3 border-r-2 border-dashed border-slate-200 py-1 space-y-1">
+            <div className="sidebar-submenu-wrapper mr-5 pr-3 border-r-2 border-dashed border-slate-200 dark:border-slate-700/60 py-1 space-y-1">
               <button
                 type="button"
                 id="sidebar-sub-rep-customers"
@@ -736,26 +782,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* 8. حسابداری و سود و زیان */}
-        <div className="space-y-0.5">
+        <div className="sidebar-section-container sidebar-card-block sidebar-card-reports space-y-0.5">
           <button
             type="button"
             id="sidebar-btn-accounting"
             onClick={() => toggleSection('accountingAndPnL')}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-[#2563EB] font-bold hover:bg-[#F4F7FE] cursor-pointer transition-colors"
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl font-bold cursor-pointer transition-colors ${
+              openSections.accountingAndPnL || getSectionForTab(activeTab) === 'accountingAndPnL'
+                ? theme === 'sky-glass'
+                  ? 'bg-sky-950/40 text-sky-200 font-black border border-sky-400/40 shadow-[0_0_12px_rgba(56,189,248,0.25)]'
+                  : theme === 'gold'
+                  ? 'bg-amber-950/40 text-amber-300 font-black border border-amber-500/30'
+                  : 'bg-[#EEF2FF] text-[#2563EB]'
+                : 'text-[#2563EB] hover:bg-[#F4F7FE]'
+            }`}
           >
             <div className="flex items-center gap-2.5">
-              <CreditCard className="w-4 h-4 text-[#2563EB]" />
+              <CreditCard className="w-4 h-4 text-[#2563EB] dark:text-cyan-400" />
               <span className="text-xs">حسابداری و سود و زیان</span>
             </div>
             {openSections.accountingAndPnL ? (
-              <ChevronUp className="w-4 h-4 text-[#2563EB]" />
+              <ChevronUp className="w-4 h-4 text-[#2563EB] dark:text-cyan-400" />
             ) : (
-              <ChevronDown className="w-4 h-4 text-[#2563EB]" />
+              <ChevronDown className="w-4 h-4 text-[#2563EB] dark:text-cyan-400" />
             )}
           </button>
 
           {openSections.accountingAndPnL && (
-            <div className="mr-5 pr-3 border-r-2 border-dashed border-slate-200 py-1 space-y-1">
+            <div className="sidebar-submenu-wrapper mr-5 pr-3 border-r-2 border-dashed border-slate-200 dark:border-slate-700/60 py-1 space-y-1">
               <button
                 type="button"
                 id="sidebar-sub-pnl"
@@ -793,26 +847,34 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
 
         {/* 9. مدیریت سیستم */}
-        <div className="space-y-0.5">
+        <div className="sidebar-section-container sidebar-card-block sidebar-card-system space-y-0.5">
           <button
             type="button"
             id="sidebar-btn-system"
             onClick={() => toggleSection('systemManagement')}
-            className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-[#2563EB] font-bold hover:bg-[#F4F7FE] cursor-pointer transition-colors"
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl font-bold cursor-pointer transition-colors ${
+              openSections.systemManagement || getSectionForTab(activeTab) === 'systemManagement'
+                ? theme === 'sky-glass'
+                  ? 'bg-sky-950/40 text-sky-200 font-black border border-sky-400/40 shadow-[0_0_12px_rgba(56,189,248,0.25)]'
+                  : theme === 'gold'
+                  ? 'bg-amber-950/40 text-amber-300 font-black border border-amber-500/30'
+                  : 'bg-[#EEF2FF] text-[#2563EB]'
+                : 'text-[#2563EB] hover:bg-[#F4F7FE]'
+            }`}
           >
             <div className="flex items-center gap-2.5">
-              <Users className="w-4 h-4 text-[#2563EB]" />
+              <Users className="w-4 h-4 text-[#2563EB] dark:text-slate-300" />
               <span className="text-xs">مدیریت سیستم</span>
             </div>
             {openSections.systemManagement ? (
-              <ChevronUp className="w-4 h-4 text-[#2563EB]" />
+              <ChevronUp className="w-4 h-4 text-[#2563EB] dark:text-slate-300" />
             ) : (
-              <ChevronDown className="w-4 h-4 text-[#2563EB]" />
+              <ChevronDown className="w-4 h-4 text-[#2563EB] dark:text-slate-300" />
             )}
           </button>
 
           {openSections.systemManagement && (
-            <div className="mr-5 pr-3 border-r-2 border-dashed border-slate-200 py-1 space-y-1">
+            <div className="sidebar-submenu-wrapper mr-5 pr-3 border-r-2 border-dashed border-slate-200 dark:border-slate-700/60 py-1 space-y-1">
               <button
                 type="button"
                 id="sidebar-sub-audit-log"

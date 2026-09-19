@@ -41,6 +41,10 @@ import { AuditLogView } from './components/AuditLogView';
 import { ToastContainer } from './components/ToastContainer';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { LoginScreen } from './components/LoginScreen';
+import { LicenseStatusResult, verifyLicense } from './utils/licenseSecurity';
+import { SecretLicenseModal } from './components/SecretLicenseModal';
+import { LicenseWarningModal } from './components/LicenseWarningModal';
+import { LicenseLockScreen } from './components/LicenseLockScreen';
 
 const MainApp: React.FC = () => {
   const {
@@ -54,6 +58,29 @@ const MainApp: React.FC = () => {
   } = useAccounting();
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
   const [subFilter, setSubFilter] = useState<string>('all');
+
+  // License Security & Expiration Management State
+  const [licenseStatus, setLicenseStatus] = useState<LicenseStatusResult | null>(null);
+  const [isSecretLicenseModalOpen, setIsSecretLicenseModalOpen] = useState(false);
+  const [isWarningModalOpen, setIsWarningModalOpen] = useState(false);
+
+  const refreshLicense = async () => {
+    try {
+      const res = await verifyLicense();
+      setLicenseStatus(res);
+      if (res.shouldShowDailyAlert || res.shouldShowHourlyAlert) {
+        setIsWarningModalOpen(true);
+      }
+    } catch (e) {
+      console.error('License check error:', e);
+    }
+  };
+
+  useEffect(() => {
+    refreshLicense();
+    const interval = setInterval(refreshLicense, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Auto-lock inactivity listener based on company settings
   useEffect(() => {
@@ -164,6 +191,31 @@ const MainApp: React.FC = () => {
       setSelectedInvoiceForDetail(inv);
     }
   };
+
+  // Full Security Lock Screen if license is expired, tampered, or clock rolled back
+  if (
+    licenseStatus &&
+    (!licenseStatus.isValid ||
+      licenseStatus.isExpired ||
+      licenseStatus.isTampered ||
+      licenseStatus.isClockRolledBack)
+  ) {
+    return (
+      <ErrorBoundary>
+        <LicenseLockScreen
+          status={licenseStatus}
+          onActivated={refreshLicense}
+          onOpenSecretModal={() => setIsSecretLicenseModalOpen(true)}
+        />
+        <SecretLicenseModal
+          isOpen={isSecretLicenseModalOpen}
+          onClose={() => setIsSecretLicenseModalOpen(false)}
+          onLicenseUpdated={refreshLicense}
+        />
+        <ToastContainer />
+      </ErrorBoundary>
+    );
+  }
 
   if (!isAuthenticated) {
     return (
@@ -450,6 +502,24 @@ const MainApp: React.FC = () => {
           setTransferFromWarehouseId(undefined);
         }}
         initialFromWarehouseId={transferFromWarehouseId}
+      />
+
+      {/* License Warning Modal (Daily in last week / Hourly on last day) */}
+      {licenseStatus && (
+        <LicenseWarningModal
+          status={licenseStatus}
+          isOpen={isWarningModalOpen}
+          onClose={() => setIsWarningModalOpen(false)}
+          onActivated={refreshLicense}
+          onOpenSecretModal={() => setIsSecretLicenseModalOpen(true)}
+        />
+      )}
+
+      {/* Secret License Management Modal */}
+      <SecretLicenseModal
+        isOpen={isSecretLicenseModalOpen}
+        onClose={() => setIsSecretLicenseModalOpen(false)}
+        onLicenseUpdated={refreshLicense}
       />
     </div>
   );

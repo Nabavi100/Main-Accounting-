@@ -33,6 +33,14 @@ export const ThemeSwitcherDropdown: React.FC = () => {
 
   const themes: { id: AppTheme; name: string; desc: string; color: string; iconBg: string; symbol: string }[] = [
     {
+      id: 'sky-glass',
+      name: 'تم شیشه‌ای آسمانی (Sky Glass)',
+      desc: 'دکمه‌های کاملاً شیشه‌ای بلورین با هاله درخشان آبی آسمانی و افکت کریستالی',
+      color: 'bg-sky-500/30 border-sky-400',
+      iconBg: 'bg-sky-500/20 text-sky-300 border border-sky-400/60 shadow-[0_0_12px_rgba(56,189,248,0.5)]',
+      symbol: '💎',
+    },
+    {
       id: 'light',
       name: 'تم روشن استاندارد (Light)',
       desc: 'کنتراست بالا، زمینه شفاف و استایل تمیز دفاتر حسابداری',
@@ -112,7 +120,9 @@ export const ThemeSwitcherDropdown: React.FC = () => {
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition shadow-xs cursor-pointer ${
-          theme === 'gold'
+          theme === 'sky-glass'
+            ? 'bg-sky-500/20 hover:bg-sky-500/30 border-sky-400/80 text-sky-100 shadow-[0_0_16px_rgba(56,189,248,0.4)] backdrop-blur-md'
+            : theme === 'gold'
             ? 'bg-gradient-to-r from-amber-500/20 to-amber-600/10 border-amber-400/80 text-amber-950 dark:text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.25)]'
             : theme === 'dark' || theme === 'executive'
             ? 'bg-slate-800 border-slate-700 text-slate-100'
@@ -125,6 +135,7 @@ export const ThemeSwitcherDropdown: React.FC = () => {
         title="تغییر تم رنگی برنامه"
       >
         <Palette className={`w-3.5 h-3.5 ${
+          theme === 'sky-glass' ? 'text-sky-300' :
           theme === 'gold' ? 'text-amber-500' :
           theme === 'vibrant' ? 'text-emerald-600' :
           theme === 'executive' ? 'text-indigo-400' :
@@ -138,12 +149,12 @@ export const ThemeSwitcherDropdown: React.FC = () => {
       </button>
 
       {isOpen && (
-        <div className="absolute left-0 mt-2 w-88 max-h-[85vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-3.5 z-50 text-right space-y-4">
+        <div className="absolute left-0 mt-2 w-92 max-h-[85vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 p-3.5 z-50 text-right space-y-4">
           {/* Themes Selection */}
           <div>
             <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800 mb-2.5">
               <span className="text-xs font-black text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                <Sparkles className="w-3.5 h-3.5 text-sky-400" />
                 <span>پالت و تم‌های گرافیکی برنامه</span>
               </span>
             </div>
@@ -160,7 +171,9 @@ export const ThemeSwitcherDropdown: React.FC = () => {
                     }}
                     className={`w-full flex items-center justify-between p-2.5 rounded-xl text-right transition cursor-pointer border ${
                       isSelected
-                        ? t.id === 'gold'
+                        ? t.id === 'sky-glass'
+                          ? 'bg-sky-950/60 border-sky-400 text-sky-100 shadow-[0_0_18px_rgba(56,189,248,0.45)] ring-2 ring-sky-400/40 backdrop-blur-md'
+                          : t.id === 'gold'
                           ? 'bg-gradient-to-r from-amber-50 to-amber-100/60 dark:from-amber-950/40 dark:to-stone-900 border-amber-500 shadow-xs ring-2 ring-amber-400/30'
                           : t.id === 'dark'
                           ? 'bg-slate-800 border-slate-600 text-white shadow-xs ring-2 ring-slate-400/20'
@@ -189,6 +202,7 @@ export const ThemeSwitcherDropdown: React.FC = () => {
                     </div>
                     {isSelected && (
                       <span className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${
+                        t.id === 'sky-glass' ? 'bg-sky-500 text-slate-950 shadow-[0_0_8px_rgba(56,189,248,0.8)]' :
                         t.id === 'gold' ? 'bg-amber-500 text-slate-950' :
                         t.id === 'vibrant' ? 'bg-emerald-600 text-white' :
                         t.id === 'executive' ? 'bg-indigo-600 text-white' :
@@ -207,16 +221,20 @@ export const ThemeSwitcherDropdown: React.FC = () => {
 
           {/* Sidebar Style Selection */}
           <div>
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100 mb-2">
-              <span className="text-xs font-black text-slate-900 flex items-center gap-1.5">
-                <Layout className="w-3.5 h-3.5 text-indigo-600" />
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800 mb-2">
+              <span className="text-xs font-black text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                <Layout className="w-3.5 h-3.5 text-indigo-500" />
                 <span>طرح و استایل منو (Sidebar Style)</span>
+              </span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60">
+                {sidebarStyles.find(s => s.id === sidebarStyle)?.name}
               </span>
             </div>
 
             <div className="space-y-1.5">
               {sidebarStyles.map(s => {
                 const IconComp = s.icon;
+                const isSelected = sidebarStyle === s.id;
                 return (
                   <button
                     key={s.id}
@@ -224,20 +242,27 @@ export const ThemeSwitcherDropdown: React.FC = () => {
                     onClick={() => {
                       setSidebarStyle(s.id);
                     }}
-                    className={`w-full flex items-center justify-between p-2 rounded-xl text-right transition cursor-pointer border ${
-                      sidebarStyle === s.id
-                        ? 'bg-indigo-50 border-indigo-300 text-indigo-900'
-                        : 'border-transparent hover:bg-slate-50 text-slate-700'
+                    className={`w-full flex items-center justify-between p-2.5 rounded-xl text-right transition cursor-pointer border ${
+                      isSelected
+                        ? 'bg-indigo-50 dark:bg-indigo-950/50 border-indigo-400 dark:border-indigo-500 text-indigo-950 dark:text-indigo-100 shadow-xs ring-2 ring-indigo-400/20'
+                        : 'border-slate-200/50 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-700 dark:text-slate-300'
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
-                      <IconComp className="w-3.5 h-3.5 text-slate-500" />
+                      <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${isSelected ? 'bg-indigo-100 dark:bg-indigo-900/60 text-indigo-700 dark:text-indigo-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'}`}>
+                        <IconComp className="w-3.5 h-3.5" />
+                      </div>
                       <div>
-                        <div className="text-xs font-bold">{s.name}</div>
-                        <div className="text-[10px] text-slate-500 font-normal">{s.desc}</div>
+                        <div className="text-xs font-black">{s.name}</div>
+                        <div className="text-[10px] text-slate-500 dark:text-slate-400 font-normal">{s.desc}</div>
                       </div>
                     </div>
-                    {sidebarStyle === s.id && <Check className="w-4 h-4 text-indigo-600" />}
+                    {isSelected && (
+                      <span className="flex items-center gap-1 text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
+                        <span>فعال</span>
+                        <Check className="w-3.5 h-3.5 stroke-[3]" />
+                      </span>
+                    )}
                   </button>
                 );
               })}

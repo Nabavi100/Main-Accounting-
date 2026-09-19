@@ -4,6 +4,7 @@ import { AppUser, UserRole, CompanySettings } from '../types';
 import { CompanyStampSeal } from './CompanyStampSeal';
 import { SignatureAndSealModal } from './SignatureAndSealModal';
 import { GoogleDriveBackupPanel } from './GoogleDriveBackupPanel';
+import { SecretLicenseModal } from './SecretLicenseModal';
 import {
   Shield,
   RotateCcw,
@@ -16,6 +17,7 @@ import {
   EyeOff,
   Download,
   Upload,
+  HardDrive,
   Cloud,
   AlertTriangle,
   CheckCircle2,
@@ -78,6 +80,7 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
   // Company Settings Form State
   const [compForm, setCompForm] = useState<CompanySettings>(companySettings);
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
+  const [isSecretLicenseModalOpen, setIsSecretLicenseModalOpen] = useState(false);
 
   // Security Protection & Lock State for Company Branding / Settings
   const [isCompanyUnlocked, setIsCompanyUnlocked] = useState<boolean>(() => !companySettings.isProtected);
@@ -504,8 +507,8 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <Cloud className="w-4 h-4 text-blue-600" />
-              <span>پشتیبان‌گیری و گوگل درایو</span>
+              <HardDrive className="w-4 h-4 text-blue-600" />
+              <span>پشتیبان‌گیری محلی و گوگل درایو</span>
             </button>
           </div>
         </div>
@@ -623,6 +626,28 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
                         ? 'غیرفعال‌سازی قفل حفاظتی'
                         : 'فعال‌سازی دکمه حفاظتی (رمزدار)'}
                     </span>
+                  </button>
+
+                  {/* Quick Local Offline Backup & Restore Button */}
+                  <button
+                    type="button"
+                    onClick={() => setActiveSubTab('backup')}
+                    className="px-3.5 py-2 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-xs"
+                    title="ذخیره‌سازی دستی بکاپ روی حافظه محلی (Export) و بازیابی از فایل (Import)"
+                  >
+                    <HardDrive className="w-4 h-4 text-blue-600" />
+                    <span>بکاپ و بازیابی محلی آفلاین</span>
+                  </button>
+
+                  {/* Secret License & Expiration Management Button */}
+                  <button
+                    type="button"
+                    onClick={() => setIsSecretLicenseModalOpen(true)}
+                    className="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-amber-300 border border-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-xs"
+                    title="تنظیم لیمیت زمانی، دوره آزمایشی و لایسنس برنامه (فوق‌محرمانه)"
+                  >
+                    <ShieldAlert className="w-4 h-4 text-amber-400" />
+                    <span>تعریف لیمیت و لایسنس برنامه</span>
                   </button>
                 </div>
               </div>
@@ -1868,6 +1893,65 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
                 </table>
               </div>
             </div>
+
+            {/* Offline & Local Data Backup Card in Security Tab */}
+            <div className="bg-gradient-to-r from-blue-50/90 to-indigo-50/90 border border-blue-200/90 rounded-2xl p-5 shadow-xs space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <HardDrive className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-slate-950">
+                      پشتیبان‌گیری دستی روی حافظه محلی کامپیوتر (آفلاین / بدون نیاز به اینترنت)
+                    </h4>
+                    <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                      جهت تضمین کامل امنیت داده‌های مالی و حسابداری، می‌توانید همیشه نسخه پشتیبان کامل (JSON) را در درایو کامپیوتر یا فلش‌مموری ذخیره و در مواقع لزوم بازیابی نمایید.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={handleDownloadBackup}
+                    className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer shadow-xs"
+                    title="دانلود فایل خروجی کامل JSON روی حافظه دستگاه"
+                  >
+                    <Download className="w-4 h-4" />
+                    <span>ذخیره دستی بکاپ (Export JSON)</span>
+                  </button>
+
+                  <label className="px-4 py-2.5 bg-slate-900 hover:bg-slate-950 text-white rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer shadow-xs">
+                    <Upload className="w-4 h-4 text-emerald-400" />
+                    <span>بازیابی از فایل (Import JSON)</span>
+                    <input
+                      type="file"
+                      accept=".json"
+                      onChange={handleImportFile}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {importStatusMessage && (
+                <div
+                  className={`p-3 rounded-xl text-xs font-bold flex items-center gap-2 ${
+                    importStatusMessage.type === 'success'
+                      ? 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                      : 'bg-rose-100 text-rose-900 border border-rose-300'
+                  }`}
+                >
+                  {importStatusMessage.type === 'success' ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+                  ) : (
+                    <AlertTriangle className="w-4 h-4 text-rose-700 shrink-0" />
+                  )}
+                  <span>{importStatusMessage.text}</span>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
@@ -2220,6 +2304,12 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
             stampColor: newSettings.stampColor || prev.stampColor,
           }));
         }}
+      />
+
+      {/* Secret License & Expiration Management Modal */}
+      <SecretLicenseModal
+        isOpen={isSecretLicenseModalOpen}
+        onClose={() => setIsSecretLicenseModalOpen(false)}
       />
     </div>
   </div>

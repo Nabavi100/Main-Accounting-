@@ -355,6 +355,261 @@ body.theme-vibrant .bg-slate-50 {
   background-color: #ecfdf5 !important;
 }
 
+/* ========================================================================= */
+/* SKY GLASS THEME (تم شیشه‌ای آسمانی)                                         */
+/* ========================================================================= */
+body.theme-sky-glass {
+  --bg-app: #060b14;
+  --card-app: rgba(10, 20, 38, 0.72);
+  --border-app: rgba(56, 189, 248, 0.28);
+  --text-main: #f0f9ff;
+  background: radial-gradient(circle at 50% 0%, #0c213d 0%, #081220 50%, #030712 100%) !important;
+  background-attachment: fixed !important;
+  color: #f0f9ff !important;
+}
+
+body.theme-sky-glass header {
+  background: rgba(8, 17, 34, 0.75) !important;
+  backdrop-filter: blur(16px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+  border-color: rgba(56, 189, 248, 0.3) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 25px rgba(56, 189, 248, 0.15) !important;
+}
+
+body.theme-sky-glass aside {
+  background: rgba(6, 14, 28, 0.8) !important;
+  backdrop-filter: blur(16px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+  border-color: rgba(56, 189, 248, 0.25) !important;
+  box-shadow: 4px 0 25px rgba(0, 0, 0, 0.5), inset -1px 0 15px rgba(56, 189, 248, 0.1) !important;
+}
+
+body.theme-sky-glass main {
+  background-color: transparent !important;
+}
+
+body.theme-sky-glass .bg-white {
+  background: rgba(12, 24, 46, 0.7) !important;
+  backdrop-filter: blur(16px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(160%) !important;
+  color: #f0f9ff !important;
+  border-color: rgba(56, 189, 248, 0.25) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), 0 0 15px rgba(56, 189, 248, 0.08) !important;
+}
+
+body.theme-sky-glass .bg-slate-50,
+body.theme-sky-glass .bg-slate-100 {
+  background: rgba(14, 28, 52, 0.5) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+}
+
+body.theme-sky-glass .border-slate-100,
+body.theme-sky-glass .border-slate-200,
+body.theme-sky-glass .border-slate-300 {
+  border-color: rgba(56, 189, 248, 0.25) !important;
+}
+
+body.theme-sky-glass .text-slate-900 {
+  color: #ffffff !important;
+}
+
+body.theme-sky-glass .text-slate-800 {
+  color: #e0f2fe !important;
+}
+
+body.theme-sky-glass .text-slate-700 {
+  color: #bae6fd !important;
+}
+
+body.theme-sky-glass .text-slate-600,
+body.theme-sky-glass .text-slate-500 {
+  color: #7dd3fc !important;
+}
+
+body.theme-sky-glass input,
+body.theme-sky-glass select,
+body.theme-sky-glass textarea {
+  background: rgba(9, 19, 36, 0.65) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  color: #f0f9ff !important;
+  border-color: rgba(56, 189, 248, 0.35) !important;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4), 0 0 10px rgba(56, 189, 248, 0.12) !important;
+}
+
+body.theme-sky-glass input:focus,
+body.theme-sky-glass select:focus,
+body.theme-sky-glass textarea:focus {
+  border-color: #38bdf8 !important;
+  box-shadow: 0 0 20px rgba(56, 189, 248, 0.55), inset 0 0 8px rgba(56, 189, 248, 0.2) !important;
+  outline: none !important;
+}
+
+body.theme-sky-glass table th {
+  background: rgba(14, 30, 56, 0.8) !important;
+  color: #bae6fd !important;
+  border-color: rgba(56, 189, 248, 0.3) !important;
+}
+
+body.theme-sky-glass table td {
+  border-color: rgba(56, 189, 248, 0.18) !important;
+}
+
+/* === GLASSMORPHIC BUTTONS WITH SKY-BLUE HALO === */
+body.theme-sky-glass button:not(.no-glass),
+body.theme-sky-glass [role="button"]:not(.no-glass) {
+  background: rgba(14, 165, 233, 0.14) !important;
+  backdrop-filter: blur(12px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(180%) !important;
+  border: 1px solid rgba(56, 189, 248, 0.55) !important;
+  color: #e0f2fe !important;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.35), inset 0 1px 1.5px rgba(255, 255, 255, 0.3) !important;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+body.theme-sky-glass button:not(.no-glass):hover,
+body.theme-sky-glass [role="button"]:not(.no-glass):hover {
+  background: rgba(14, 165, 233, 0.28) !important;
+  border-color: rgba(125, 211, 252, 0.95) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 25px rgba(56, 189, 248, 0.7), 0 0 45px rgba(14, 165, 233, 0.4), inset 0 1px 3px rgba(255, 255, 255, 0.5) !important;
+  transform: translateY(-1px);
+}
+
+body.theme-sky-glass button:not(.no-glass):active,
+body.theme-sky-glass [role="button"]:not(.no-glass):active {
+  transform: translateY(1px);
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.5), inset 0 2px 4px rgba(0, 0, 0, 0.4) !important;
+}
+
+body.theme-sky-glass button.bg-blue-600,
+body.theme-sky-glass button.bg-\[\#2563EB\],
+body.theme-sky-glass button.bg-blue-700,
+body.theme-sky-glass .btn-primary {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.45) 0%, rgba(2, 132, 199, 0.65) 100%) !important;
+  border: 1.5px solid #38bdf8 !important;
+  box-shadow: 0 0 24px rgba(56, 189, 248, 0.6), inset 0 1px 2px rgba(255, 255, 255, 0.5) !important;
+  color: #ffffff !important;
+}
+
+body.theme-sky-glass [aria-selected="true"],
+body.theme-sky-glass .btn-active-luxury {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.35) 0%, rgba(2, 132, 199, 0.5) 100%) !important;
+  border-color: #38bdf8 !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 22px rgba(56, 189, 248, 0.65), inset 0 0 10px rgba(56, 189, 248, 0.4) !important;
+}
+
+/* ========================================================================= */
+/* SIDEBAR DISPLAY MODES (طرح‌های استایل منو)                                 */
+/* ========================================================================= */
+
+/* 1. Modern List Mode (منوی لیستی مدرن) */
+body.sidebar-mode-list aside nav {
+  padding-left: 0.75rem;
+  padding-right: 0.75rem;
+}
+
+body.sidebar-mode-list .sidebar-section-container {
+  position: relative;
+  margin-bottom: 0.25rem;
+}
+
+body.sidebar-mode-list .sidebar-submenu-wrapper {
+  position: relative;
+  border-right: 2px solid rgba(148, 163, 184, 0.35);
+  margin-right: 1.25rem;
+  padding-right: 0.75rem;
+}
+
+/* 2. Colored Cards Mode (کارت‌های رنگی تفکیک‌شده) */
+body.sidebar-mode-cards aside nav {
+  gap: 0.55rem;
+  display: flex;
+  flex-direction: column;
+}
+
+body.sidebar-mode-cards .sidebar-card-block {
+  border-radius: 0.85rem;
+  border: 1px solid rgba(203, 213, 225, 0.8);
+  padding: 0.25rem;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+body.sidebar-mode-cards .sidebar-card-dashboard {
+  background: #f0f7ff;
+  border-color: #bfdbfe;
+}
+
+body.sidebar-mode-cards .sidebar-card-definitions {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+body.sidebar-mode-cards .sidebar-card-cash {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+body.sidebar-mode-cards .sidebar-card-trade {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+}
+
+body.sidebar-mode-cards .sidebar-card-assets {
+  background: #faf5ff;
+  border-color: #e9d5ff;
+}
+
+body.sidebar-mode-cards .sidebar-card-reports {
+  background: #fff1f2;
+  border-color: #fecdd3;
+}
+
+body.sidebar-mode-cards .sidebar-card-system {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+/* Dark / Glass / Executive adaptations for Colored Cards */
+body.dark.sidebar-mode-cards .sidebar-card-dashboard { background: rgba(30, 58, 138, 0.25); border-color: rgba(59, 130, 246, 0.4); }
+body.dark.sidebar-mode-cards .sidebar-card-definitions { background: rgba(120, 53, 15, 0.25); border-color: rgba(245, 158, 11, 0.4); }
+body.dark.sidebar-mode-cards .sidebar-card-cash { background: rgba(6, 78, 59, 0.25); border-color: rgba(16, 185, 129, 0.4); }
+body.dark.sidebar-mode-cards .sidebar-card-trade { background: rgba(49, 46, 129, 0.25); border-color: rgba(99, 102, 241, 0.4); }
+body.dark.sidebar-mode-cards .sidebar-card-assets { background: rgba(88, 28, 135, 0.25); border-color: rgba(168, 85, 247, 0.4); }
+body.dark.sidebar-mode-cards .sidebar-card-reports { background: rgba(136, 19, 55, 0.25); border-color: rgba(244, 63, 94, 0.4); }
+body.dark.sidebar-mode-cards .sidebar-card-system { background: rgba(30, 41, 59, 0.4); border-color: rgba(71, 85, 105, 0.5); }
+
+/* 3. Compact Mode (منوی فشرده حسابداری) */
+body.sidebar-mode-compact aside {
+  width: 15.5rem !important;
+}
+
+body.sidebar-mode-compact aside nav {
+  padding: 0.35rem 0.5rem !important;
+  gap: 0.15rem !important;
+}
+
+body.sidebar-mode-compact aside button {
+  padding-top: 0.35rem !important;
+  padding-bottom: 0.35rem !important;
+  font-size: 0.72rem !important;
+  border-radius: 0.5rem !important;
+}
+
+body.sidebar-mode-compact aside svg {
+  width: 0.875rem !important;
+  height: 0.875rem !important;
+}
+
+body.sidebar-mode-compact .sidebar-submenu-wrapper {
+  margin-right: 0.75rem !important;
+  padding-right: 0.5rem !important;
+  gap: 0.1rem !important;
+}
+
 /* Luxury active indicators across buttons and tabs */
 body.theme-gold [aria-selected="true"],
 body.theme-gold .btn-active-luxury,
@@ -387,11 +642,21 @@ body.gold .btn-active-luxury {
 @media print {
   @page {
     size: A4 portrait;
-    margin: 4mm 5mm 4mm 5mm;
+    margin: 6mm 8mm 6mm 8mm; /* Standard safe accounting document margin preventing edge cutoff */
+  }
+
+  @page :left {
+    margin: 6mm 8mm 6mm 8mm;
+  }
+
+  @page :right {
+    margin: 6mm 8mm 6mm 8mm;
   }
 
   *, *::before, *::after {
     box-sizing: border-box !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
   }
 
   html, body {
@@ -439,6 +704,7 @@ body.gold .btn-active-luxury {
     overflow: visible !important;
     height: auto !important;
     max-height: none !important;
+    width: 100% !important;
   }
 
   #root > div {
@@ -447,6 +713,7 @@ body.gold .btn-active-luxury {
     height: auto !important;
     max-height: none !important;
     overflow: visible !important;
+    width: 100% !important;
   }
 
   /* Target fixed print modal and reset it for flat single-page print */
@@ -491,41 +758,104 @@ body.gold .btn-active-luxury {
     height: auto !important;
     max-height: none !important;
     margin: 0 auto !important;
-    padding: 0 0 2mm 0 !important;
+    padding: 0 !important;
     border: none !important;
     box-shadow: none !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
     overflow: visible !important;
     box-sizing: border-box !important;
   }
 
-  /* Ensure all frames and borders render sharply with complete boxes in print */
+  .printable-content {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Precision Frames for Invoice & Warehouse Exit Slip - Perfectly Centered, Zero Truncation */
   .print-frame-box,
   .warehouse-exit-slip-frame,
   .invoice-print-frame {
+    width: 100% !important;
+    max-width: 100% !important;
     box-sizing: border-box !important;
-    border: 2px solid #0f172a !important;
-    border-radius: 10px !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+    border: 1.5pt solid #0f172a !important; /* Standard sharp 1.5pt solid line */
+    border-radius: 8px !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
+    background-color: #ffffff !important;
+  }
+
+  /* High-fidelity Table Border Architecture preventing cutting off at printer margins */
+  table {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-collapse: collapse !important;
+    border-spacing: 0 !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    box-sizing: border-box !important;
+    margin: 0 !important;
+    border: 1.25pt solid #0f172a !important; /* Solid enclosing boundary for full table */
+  }
+
+  /* Prevent containers with overflow-hidden from clipping table outer borders */
+  .overflow-hidden,
+  [class*="overflow-hidden"],
+  div:has(> table) {
+    overflow: visible !important;
+    box-sizing: border-box !important;
+    border-color: #0f172a !important;
+  }
+
+  /* Sharp, high-contrast table cell borders that never fade or break in laser/inkjet printers */
+  table th,
+  table td {
+    border: 1px solid #475569 !important;
+    box-sizing: border-box !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  table thead th {
+    border-bottom: 1.5pt solid #0f172a !important;
+  }
+
+  table tfoot td {
+    border-top: 1.5pt solid #0f172a !important;
+  }
+
+  /* Perforated separator cut line between invoice and warehouse slip */
+  .border-dashed {
+    border-style: dashed !important;
+    border-color: #475569 !important;
+  }
+
+  /* Prevent Grid and Flex child boxes from overflowing horizontal limits */
+  .grid, .flex {
+    box-sizing: border-box !important;
+    max-width: 100% !important;
+  }
+
+  .grid > *, .flex > * {
+    min-width: 0 !important;
+    box-sizing: border-box !important;
   }
 
   .print-only {
     display: block !important;
-  }
-
-  table {
-    border-collapse: collapse !important;
-    page-break-inside: avoid !important;
-    break-inside: avoid !important;
-  }
-
-  th, td {
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
   }
 }
 
