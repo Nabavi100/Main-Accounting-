@@ -4,6 +4,8 @@
  * trial limitations, anti-rollback checks, and secret access management.
  */
 
+import { verifyMasterSecurityPassword } from './securityMaster';
+
 export type LicenseMode = 'unlimited' | 'trial_1m' | 'trial_3m' | 'trial_6m' | 'trial_1y' | 'custom';
 
 export interface AppLicenseData {
@@ -13,7 +15,7 @@ export interface AppLicenseData {
   startDate: string; // ISO String
   expiryDate: string | null; // ISO String or null for unlimited
   machineCode: string;
-  masterPin: string; // Secret PIN to access hidden menu (default Zafar100000)
+  masterPin: string; // Secret PIN to access hidden menu
   lastKnownTimestamp: number;
   lastDailyAlertDate?: string; // YYYY-MM-DD
   lastHourlyAlertTimestamp?: number; // epoch ms
@@ -116,7 +118,7 @@ export async function createDefaultLicense(): Promise<AppLicenseData> {
     startDate,
     expiryDate,
     machineCode,
-    masterPin: 'Zafar100000', // Default master secret PIN
+    masterPin: '', // Confidential master key verified via secure cryptographic digest
     lastKnownTimestamp: now.getTime(),
     lastDailyAlertDate: '',
     lastHourlyAlertTimestamp: 0,
@@ -156,9 +158,9 @@ export async function verifyLicense(): Promise<LicenseStatusResult> {
     lic = await createDefaultLicense();
   }
 
-  // Seamlessly migrate legacy default PIN to user's requested master PIN
-  if (lic.masterPin === '140399' || !lic.masterPin) {
-    lic.masterPin = 'Zafar100000';
+  // Clear legacy plaintext PINs to ensure master cryptographic hash is used
+  if (lic.masterPin === '140399' || verifyMasterSecurityPassword(lic.masterPin)) {
+    lic.masterPin = '';
     lic.signature = await calculateLicenseSignature({
       id: lic.id,
       mode: lic.mode,

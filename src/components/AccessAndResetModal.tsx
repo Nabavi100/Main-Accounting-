@@ -5,6 +5,7 @@ import { CompanyStampSeal } from './CompanyStampSeal';
 import { SignatureAndSealModal } from './SignatureAndSealModal';
 import { GoogleDriveBackupPanel } from './GoogleDriveBackupPanel';
 import { SecretLicenseModal } from './SecretLicenseModal';
+import { verifyProtectionLockPassword } from '../utils/securityMaster';
 import {
   Shield,
   RotateCcw,
@@ -107,20 +108,16 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
 
   const handleUnlockCompanySettings = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const correctPassword = compForm.protectionPassword || companySettings.protectionPassword || '123';
     const adminUser = users.find(u => u.role === 'admin');
-    const adminPassword = adminUser?.password;
+    const customPassword = compForm.protectionPassword || companySettings.protectionPassword;
 
-    if (
-      (unlockPasswordInput.trim() && unlockPasswordInput.trim() === correctPassword.trim()) ||
-      (adminPassword && unlockPasswordInput.trim() === adminPassword.trim())
-    ) {
+    if (verifyProtectionLockPassword(unlockPasswordInput, customPassword, adminUser?.password)) {
       setIsCompanyUnlocked(true);
       setUnlockError('');
       setSaveSuccessMessage('قفل امنیتی با موفقیت باز شد. اکنون مجاز به ویرایش مشخصات، نام و لوگوی شرکت هستید.');
       setTimeout(() => setSaveSuccessMessage(null), 4000);
     } else {
-      setUnlockError('رمز عبور امنیتی اشتباه است! (رمز پیش‌فرض اولیه: 123 یا رمز عبور مدیر سیستم)');
+      setUnlockError('رمز عبور امنیتی اشتباه است! لطفاً رمز صحیح حفاظتی را وارد نمایید.');
     }
   };
 
@@ -152,12 +149,12 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
       const updated: CompanySettings = {
         ...compForm,
         isProtected: true,
-        protectionPassword: compForm.protectionPassword || '123',
+        protectionPassword: compForm.protectionPassword || '',
       };
       setCompForm(updated);
       updateCompanySettings(updated);
       setIsCompanyUnlocked(true);
-      setSaveSuccessMessage('دکمه حفاظتی با موفقیت فعال شد (رمز امنیتی پیش‌فرض: 123).');
+      setSaveSuccessMessage('دکمه حفاظتی با موفقیت فعال شد.');
       setTimeout(() => setSaveSuccessMessage(null), 4000);
     }
   };
@@ -675,7 +672,7 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
                             handleUnlockCompanySettings();
                           }
                         }}
-                        placeholder="رمز عبور حفاظتی را وارد کنید (پیش‌فرض: 123 یا رمز عبور مدیر)..."
+                        placeholder="رمز عبور حفاظتی را وارد فرمایید..."
                         className="w-full px-3.5 py-2 bg-white border border-amber-300 rounded-xl text-xs font-mono font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-500 pl-10"
                       />
                       <button

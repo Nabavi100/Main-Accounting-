@@ -234,7 +234,7 @@ export interface CompanySettings {
   autoLockMinutes?: number; // زمان قفل خودکار برنامه بر حسب دقیقه در صورت عدم فعالیت (0 = غیرفعال)
   requirePasswordOnOpen?: boolean; // الزام به ورود با رمز عبور در هر بار باز کردن مجدد برنامه
   isProtected?: boolean; // قفل حفاظتی تغییر نام، لوگو و مشخصات شرکت با رمز عبور مدیریت
-  protectionPassword?: string; // رمز عبور حفاظتی برای تغییر نام و لوگوی شرکت (پیش‌فرض: 123)
+  protectionPassword?: string; // رمز عبور حفاظتی برای تغییر نام و لوگوی شرکت
 }
 
 export type InvoiceType = 'buy' | 'sell' | 'return_buy' | 'return_sell';

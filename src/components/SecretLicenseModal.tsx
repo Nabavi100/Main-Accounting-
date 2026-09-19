@@ -24,6 +24,7 @@ import {
   generateActivationCode,
   getMachineFingerprint,
 } from '../utils/licenseSecurity';
+import { verifyLicenseMasterPin } from '../utils/securityMaster';
 
 interface SecretLicenseModalProps {
   isOpen: boolean;
@@ -80,8 +81,7 @@ export const SecretLicenseModal: React.FC<SecretLicenseModalProps> = ({
     if (e) e.preventDefault();
     if (!licenseStatus) return;
 
-    const expectedPin = licenseStatus.license.masterPin || 'Zafar100000';
-    if (pinInput.trim() === expectedPin.trim() || pinInput.trim() === 'Zafar100000') {
+    if (verifyLicenseMasterPin(pinInput, licenseStatus.license.masterPin)) {
       setIsUnlocked(true);
       setPinError('');
     } else {

@@ -49,7 +49,7 @@ export const initialCompanySettings: CompanySettings = {
   autoLockMinutes: 0,
   requirePasswordOnOpen: true,
   isProtected: false,
-  protectionPassword: '123',
+  protectionPassword: '',
 };
 
 export const initialProductCategories: ProductCategory[] = [
