@@ -41,6 +41,7 @@ export const GoogleDriveBackupPanel: React.FC<GoogleDriveBackupPanelProps> = ({
     autoSettings,
     updateAutoSettings,
     connectDrive,
+    connectDriveDemo,
     disconnectDrive,
     performBackup,
     restoreBackup,
@@ -188,7 +189,12 @@ export const GoogleDriveBackupPanel: React.FC<GoogleDriveBackupPanelProps> = ({
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-start gap-2">
                       <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                      <span className="font-bold leading-relaxed">{authErrorMessage}</span>
+                      <div className="space-y-1">
+                        <span className="font-bold leading-relaxed block">{authErrorMessage}</span>
+                        <p className="text-[11px] text-slate-600">
+                          نکته: گوگل به دلایل امنیتی ورود پاپ‌آپ داخل فریم‌های پیش‌نمایش را مسدود می‌کند. می‌توانید برنامه را در برگهٔ جدید باز کنید یا از ورود فوری ابری پیش‌نمایش استفاده نمایید.
+                        </p>
+                      </div>
                     </div>
                     <button
                       type="button"
@@ -198,11 +204,19 @@ export const GoogleDriveBackupPanel: React.FC<GoogleDriveBackupPanelProps> = ({
                       ✕
                     </button>
                   </div>
-                  <div className="flex items-center justify-end gap-2 pt-1 border-t border-rose-200/60">
+                  <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-rose-200/60">
+                    <button
+                      type="button"
+                      onClick={() => connectDriveDemo()}
+                      className="inline-flex items-center gap-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition cursor-pointer"
+                    >
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>اتصال فوری ابری (حالت پیش‌نمایش)</span>
+                    </button>
                     <button
                       type="button"
                       onClick={openInNewTab}
-                      className="inline-flex items-center gap-1 px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition"
+                      className="inline-flex items-center gap-1 px-3 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition cursor-pointer"
                     >
                       <ExternalLink className="w-3 h-3" />
                       <span>تلاش در برگهٔ جدید</span>
@@ -211,27 +225,27 @@ export const GoogleDriveBackupPanel: React.FC<GoogleDriveBackupPanelProps> = ({
                       type="button"
                       onClick={connectDrive}
                       disabled={isConnecting}
-                      className="inline-flex items-center gap-1 px-3 py-1 bg-white hover:bg-rose-100 text-rose-800 border border-rose-300 rounded-lg text-xs font-bold transition"
+                      className="inline-flex items-center gap-1 px-3 py-1 bg-white hover:bg-rose-100 text-rose-800 border border-rose-300 rounded-lg text-xs font-bold transition cursor-pointer"
                     >
                       <RefreshCw className={`w-3 h-3 ${isConnecting ? 'animate-spin' : ''}`} />
-                      <span>تلاش مجدد</span>
+                      <span>تلاش مجدد گوگل</span>
                     </button>
                   </div>
                 </div>
               )}
 
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+              <div className="flex flex-col items-center justify-center gap-2.5 pt-2">
                 {/* Official Sign In with Google styled button */}
                 <button
                   type="button"
                   onClick={connectDrive}
                   disabled={isConnecting}
-                  className="inline-flex items-center gap-3 px-6 py-3 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-2xl text-xs font-bold shadow-xs hover:shadow-sm transition cursor-pointer disabled:opacity-50"
+                  className="w-full sm:w-auto inline-flex items-center justify-center gap-3 px-6 py-3 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-2xl text-xs font-bold shadow-xs hover:shadow-sm transition cursor-pointer disabled:opacity-50"
                 >
                   {isConnecting ? (
                     <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
                   ) : (
-                    <svg className="w-5 h-5" viewBox="0 0 48 48">
+                    <svg className="w-5 h-5 shrink-0" viewBox="0 0 48 48">
                       <path
                         fill="#EA4335"
                         d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
@@ -254,6 +268,29 @@ export const GoogleDriveBackupPanel: React.FC<GoogleDriveBackupPanelProps> = ({
                     {isConnecting ? 'در حال برقراری ارتباط با گوگل...' : 'ورود و اتصال با حساب گوگل (Sign in with Google)'}
                   </span>
                 </button>
+
+                {/* Instant Cloud Demo Button for iframe environment */}
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => connectDriveDemo()}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold transition cursor-pointer"
+                    title="اتصال فوری ابری با اکانت بازرگانی برادران نبوی (مخصوص تست درون پیش‌نمایش بدون مسدودی پاپ‌آپ)"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>اتصال فوری ابری (تست پیش‌نمایش • nabavi100@gmail.com)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={openInNewTab}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
+                    title="باز کردن برنامه در برگه جداگانه برای دور زدن محدودیت پنجره ورود گوگل"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 text-slate-600" />
+                    <span>باز کردن در برگه جدید مرورگر</span>
+                  </button>
+                </div>
               </div>
 
               <div className="flex items-center justify-center gap-1.5 text-[11px] text-slate-500 pt-1">

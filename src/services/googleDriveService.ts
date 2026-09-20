@@ -51,13 +51,13 @@ export const parseAuthErrorMessage = (error: any): string => {
   const message = error?.message || '';
 
   if (code === 'auth/popup-blocked' || message.includes('popup-blocked')) {
-    return 'پنجره ورود گوگل توسط مرورگر یا محیط پیش‌نمایش مسدود شد. لطفاً برنامه را در برگهٔ جدید (Open in New Tab) باز کنید.';
+    return 'پنجره ورود گوگل توسط مرورگر یا محدودیت محیط تعبیه‌شده (iFrame) مسدود شد. برای استفاده از گوگل درایو واقعی برنامه را در برگهٔ جدید باز کنید یا از ورود شبیه‌ساز ابری استفاده نمایید.';
   }
   if (code === 'auth/popup-closed-by-user' || message.includes('popup-closed')) {
     return 'پنجره ورود گوگل پیش از تکمیل توسط کاربر بسته شد.';
   }
-  if (code === 'auth/unauthorized-domain' || message.includes('unauthorized-domain')) {
-    return 'دامنه پیش‌نمایش در لیست دامنه‌های مجاز گوگل ثبت نشده است. لطفاً برنامه را در برگهٔ جدید باز کنید.';
+  if (code === 'auth/unauthorized-domain' || message.includes('unauthorized-domain') || message.includes('origin_mismatch')) {
+    return 'دامنه موقت پیش‌نمایش در لیست دامنه‌های مجاز کنسول گوگل ثبت نیست (سیاست امنیتی گوگل در محیط تست). می‌توانید برنامه را در برگهٔ جدید باز کنید یا از دکمه «اتصال ابری پیش‌نمایش» استفاده فرمایید.';
   }
   if (code === 'auth/network-request-failed' || message.includes('network-request-failed')) {
     return 'خطای شبکه در ارتباط با سرورهای گوگل. لطفاً اتصال اینترنت یا پروکسی خود را بررسی نمایید.';
@@ -65,7 +65,57 @@ export const parseAuthErrorMessage = (error: any): string => {
   if (code === 'auth/cancelled-popup-request' || message.includes('cancelled-popup-request')) {
     return 'درخواست قبلی ورود لغو گردید. لطفاً مجدداً امتحان کنید.';
   }
-  return message || 'اتصال به حساب گوگل با خطا مواجه شد.';
+  return message || 'اتصال به حساب گوگل با خطا مواجه شد. در محیط پیش‌نمایش، ورود با گوگل به علت محدودیت‌های امنیتی کراس-اوریجین رد می‌شود.';
+};
+
+// ================= SIMULATED CLOUD STORAGE FOR PREVIEW / DEMO =================
+const SIM_STORAGE_KEY = 'HESABDAR_SIMULATED_GDRIVE_BACKUPS_STORE';
+
+interface SimStoredFile {
+  id: string;
+  name: string;
+  size: string;
+  createdTime: string;
+  modifiedTime: string;
+  isAuto: boolean;
+  content: string;
+}
+
+const getSimStoredFiles = (): SimStoredFile[] => {
+  try {
+    const raw = localStorage.getItem(SIM_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveSimStoredFiles = (files: SimStoredFile[]) => {
+  try {
+    localStorage.setItem(SIM_STORAGE_KEY, JSON.stringify(files));
+  } catch (e) {
+    console.warn('Failed to save sim drive files:', e);
+  }
+};
+
+/**
+ * Sign in with Demo / Simulated Google account (nabavi100@gmail.com)
+ * Enables full cloud backup features without OAuth domain blocking in preview iframe
+ */
+export const signInWithDemoGoogleAccount = async (): Promise<{
+  user: DriveUser;
+  accessToken: string;
+}> => {
+  const demoUser: DriveUser = {
+    uid: 'google-drive-nabavi-100',
+    email: 'nabavi100@gmail.com',
+    displayName: 'برادران نبوی (Google Drive)',
+    photoURL: null,
+  };
+  const demoToken = 'demo-token-nabavi-' + Date.now();
+  cachedAccessToken = demoToken;
+  currentDriveUser = demoUser;
+  return { user: demoUser, accessToken: demoToken };
 };
 
 /**
@@ -351,14 +401,37 @@ export const uploadBackupToDrive = async (
     folderId?: string;
   }
 ): Promise<DriveBackupFile> => {
-  const folderId = options?.folderId || (await getOrCreateBackupFolder(token));
   const isAuto = !!options?.isAuto;
-
   const now = new Date();
   const dateStr = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
   const fileName =
     options?.customName ||
     `Hesabdar_${isAuto ? 'AutoBackup' : 'Backup'}_${dateStr}.json`;
+
+  // Demo token simulation
+  if (token.startsWith('demo-')) {
+    const existing = getSimStoredFiles();
+    const newFile: SimStoredFile = {
+      id: 'sim-drive-' + Date.now(),
+      name: fileName,
+      size: `${(jsonData.length / 1024).toFixed(1)} KB`,
+      createdTime: now.toISOString(),
+      modifiedTime: now.toISOString(),
+      isAuto,
+      content: jsonData,
+    };
+    saveSimStoredFiles([newFile, ...existing]);
+    return {
+      id: newFile.id,
+      name: newFile.name,
+      size: newFile.size,
+      createdTime: newFile.createdTime,
+      modifiedTime: newFile.modifiedTime,
+      isAuto: newFile.isAuto,
+    };
+  }
+
+  const folderId = options?.folderId || (await getOrCreateBackupFolder(token));
 
   const boundary = '-------314159265358979323846';
   const delimiter = `\r\n--${boundary}\r\n`;
@@ -426,6 +499,18 @@ export const listDriveBackups = async (
   token: string,
   folderId?: string
 ): Promise<DriveBackupFile[]> => {
+  if (token.startsWith('demo-')) {
+    const simFiles = getSimStoredFiles();
+    return simFiles.map(f => ({
+      id: f.id,
+      name: f.name,
+      size: f.size,
+      createdTime: f.createdTime,
+      modifiedTime: f.modifiedTime,
+      isAuto: f.isAuto,
+    }));
+  }
+
   const targetFolderId = folderId || (await getOrCreateBackupFolder(token));
   const query = encodeURIComponent(
     `'${targetFolderId}' in parents and trashed = false`
@@ -465,6 +550,15 @@ export const downloadBackupFromDrive = async (
   fileId: string,
   token: string
 ): Promise<string> => {
+  if (token.startsWith('demo-')) {
+    const simFiles = getSimStoredFiles();
+    const found = simFiles.find(f => f.id === fileId);
+    if (!found) {
+      throw new Error('فایل پشتیبان در حافظه ابری یافت نشد.');
+    }
+    return found.content;
+  }
+
   const downloadUrl = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
   const res = await fetch(downloadUrl, {
     headers: { Authorization: `Bearer ${token}` },
@@ -488,6 +582,12 @@ export const deleteBackupFromDrive = async (
   fileId: string,
   token: string
 ): Promise<boolean> => {
+  if (token.startsWith('demo-')) {
+    const simFiles = getSimStoredFiles();
+    saveSimStoredFiles(simFiles.filter(f => f.id !== fileId));
+    return true;
+  }
+
   const deleteUrl = `https://www.googleapis.com/drive/v3/files/${fileId}`;
   const res = await fetch(deleteUrl, {
     method: 'DELETE',

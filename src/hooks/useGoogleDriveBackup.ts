@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   signInWithGoogleDrive,
+  signInWithDemoGoogleAccount,
   signOutGoogleDrive,
   getDriveAccessToken,
   getCurrentDriveUser,
@@ -31,6 +32,7 @@ export interface UseGoogleDriveBackupReturn {
   autoSettings: AutoBackupSettings;
   updateAutoSettings: (newSettings: Partial<AutoBackupSettings>) => void;
   connectDrive: () => Promise<boolean>;
+  connectDriveDemo: () => Promise<boolean>;
   disconnectDrive: () => Promise<void>;
   performBackup: (isAuto?: boolean) => Promise<boolean>;
   restoreBackup: (fileId: string) => Promise<boolean>;
@@ -242,6 +244,36 @@ export const useGoogleDriveBackup = (): UseGoogleDriveBackupReturn => {
     }
   }, [notify, performBackup]);
 
+  // Connect to Google Drive (Demo / Simulated mode for preview iframe)
+  const connectDriveDemo = useCallback(async (): Promise<boolean> => {
+    setIsConnecting(true);
+    setAuthErrorMessage(null);
+    try {
+      const res = await signInWithDemoGoogleAccount();
+      if (res) {
+        setUser(res.user);
+        setAuthErrorMessage(null);
+        notify('success', 'اتصال شبیه‌ساز ابری با موفقیت فعال شد', `خوش آمدید، ${res.user.displayName}`);
+        const list = await listDriveBackups(res.accessToken);
+        setBackups(list);
+
+        const currentSettings = getAutoBackupSettings();
+        if (currentSettings.enabled && !currentSettings.lastBackupTime) {
+          setTimeout(() => {
+            performBackup(true);
+          }, 1000);
+        }
+        return true;
+      }
+      return false;
+    } catch (err: any) {
+      console.error('Demo connect error:', err);
+      return false;
+    } finally {
+      setIsConnecting(false);
+    }
+  }, [notify, performBackup]);
+
   // Disconnect from Google Drive
   const disconnectDrive = useCallback(async () => {
     try {
@@ -309,6 +341,7 @@ export const useGoogleDriveBackup = (): UseGoogleDriveBackupReturn => {
     autoSettings,
     updateAutoSettings,
     connectDrive,
+    connectDriveDemo,
     disconnectDrive,
     performBackup,
     restoreBackup,

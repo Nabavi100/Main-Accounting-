@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAccounting } from '../context/AccountingContext';
-import { Party, Product, Invoice, FinancialTransaction, Unit, Currency } from '../types';
+import { Party, Product, Invoice, FinancialTransaction, ExpenseItem, Unit, Currency } from '../types';
 import { formatNumber, formatCurrency, getPersianDate, calculateBagsAndTons, isDateInRange } from '../utils/formatters';
 import { PartyCardexModal } from './PartyCardexModal';
 import { ProductCardexModal } from './ProductCardexModal';
@@ -1364,6 +1364,9 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       amount: number;
       currency: Currency;
       type: 'sales' | 'purchases' | 'payments' | 'expenses' | 'exchange';
+      relatedInvoice?: Invoice;
+      relatedTransaction?: FinancialTransaction;
+      relatedExpense?: ExpenseItem;
     }[] = [];
 
     // Sales Invoices -> Journal Vouchers
@@ -1381,6 +1384,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         amount: inv.totalAmount,
         currency: inv.currency,
         type: 'sales',
+        relatedInvoice: inv,
       });
     });
 
@@ -1399,6 +1403,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         amount: inv.totalAmount,
         currency: inv.currency,
         type: 'purchases',
+        relatedInvoice: inv,
       });
     });
 
@@ -1416,6 +1421,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           amount: tx.amount,
           currency: tx.currency,
           type: 'payments',
+          relatedTransaction: tx,
         });
       } else if (tx.type === 'make_payment') {
         list.push({
@@ -1429,6 +1435,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           amount: tx.amount,
           currency: tx.currency,
           type: 'payments',
+          relatedTransaction: tx,
         });
       } else if (tx.type === 'currency_exchange') {
         list.push({
@@ -1442,6 +1449,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           amount: tx.amount,
           currency: tx.currency,
           type: 'exchange',
+          relatedTransaction: tx,
         });
       }
     });
@@ -1459,6 +1467,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
         amount: exp.amount,
         currency: exp.currency,
         type: 'expenses',
+        relatedExpense: exp,
       });
     });
 
@@ -1514,6 +1523,267 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       setTimeout(() => setImportStatus(null), 4000);
     };
     reader.readAsText(file);
+  };
+
+  // Helper to render complete printable double-entry accounting journal voucher with transactions and goods
+  const renderJournalVoucherPrintContent = (j: typeof journalEntries[0]) => {
+    const inv = j.relatedInvoice;
+    const exp = j.relatedExpense;
+    const tx = j.relatedTransaction;
+
+    return (
+      <div className="space-y-6 text-slate-800 font-vazir text-right" dir="rtl">
+        {/* 1. Top Header Box */}
+        <div className="border-b-2 border-slate-900 pb-4 text-center">
+          <h2 className="text-xl font-black text-slate-900">سند دوبل حسابداری (دفتر روزنامه)</h2>
+          <p className="text-xs text-slate-500 mt-1">شرکت بازرگانی برادران نبوی • سیستم یکپارچه حسابداری و مدیریت گدام</p>
+        </div>
+
+        {/* 2. Voucher Metadata Info */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs">
+          <div>
+            <span className="text-slate-500 block font-bold">شماره سند روزنامه:</span>
+            <strong className="text-slate-900 font-black font-mono text-sm">{j.voucherNo}</strong>
+          </div>
+          <div>
+            <span className="text-slate-500 block font-bold">تاریخ ثبت سند:</span>
+            <strong className="text-slate-900 font-black font-mono">{j.date}</strong>
+          </div>
+          <div>
+            <span className="text-slate-500 block font-bold">دسته‌بندی عملیات:</span>
+            <strong className="text-slate-900 font-black">
+              {j.type === 'sales' ? 'فاکتور فروش کالا' :
+               j.type === 'purchases' ? 'فاکتور خرید کالا' :
+               j.type === 'payments' ? 'دریافت / پرداخت نقدی' :
+               j.type === 'expenses' ? 'سند مصارف و هزینه' : 'صرافی و تبدیل ارز'}
+            </strong>
+          </div>
+          <div>
+            <span className="text-slate-500 block font-bold">مبلغ کل سند:</span>
+            <strong className="text-slate-900 font-black font-mono text-sm text-emerald-700">
+              {formatCurrency(j.amount, j.currency)}
+            </strong>
+          </div>
+          <div className="col-span-2">
+            <span className="text-slate-500 block font-bold">عنوان سند:</span>
+            <span className="text-slate-900 font-bold">{j.title}</span>
+          </div>
+          <div className="col-span-2">
+            <span className="text-slate-500 block font-bold">شرح و بابت:</span>
+            <span className="text-slate-700">{j.description}</span>
+          </div>
+        </div>
+
+        {/* 3. Double Entry Accounting Articles (آرتیکل‌های حسابداری دوبل) */}
+        <div className="space-y-2">
+          <h3 className="text-xs font-black text-slate-900">آرتیکل‌های ثبت دوبل حسابداری (بدهکار / بستانکار)</h3>
+          <table className="w-full border-collapse border border-slate-300 text-xs text-right">
+            <thead>
+              <tr className="bg-slate-100 text-slate-700 font-bold">
+                <th className="border border-slate-300 p-2.5 w-12 text-center">ردیف</th>
+                <th className="border border-slate-300 p-2.5">کد و شرح حسابداری معین / کل</th>
+                <th className="border border-slate-300 p-2.5 text-center">بابت</th>
+                <th className="border border-slate-300 p-2.5 text-rose-700 text-left font-mono">بدهکار (Debit)</th>
+                <th className="border border-slate-300 p-2.5 text-blue-700 text-left font-mono">بستانکار (Credit)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="border border-slate-300 p-2 text-center font-mono font-bold">۱</td>
+                <td className="border border-slate-300 p-2 font-black text-rose-800">{j.debitTitle}</td>
+                <td className="border border-slate-300 p-2 text-slate-600 text-xs">ثبت بدهکار طبق سند {j.voucherNo}</td>
+                <td className="border border-slate-300 p-2 font-mono font-black text-rose-700 text-left bg-rose-50/40">
+                  {formatCurrency(j.amount, j.currency)}
+                </td>
+                <td className="border border-slate-300 p-2 text-center font-mono text-slate-300">-</td>
+              </tr>
+              <tr>
+                <td className="border border-slate-300 p-2 text-center font-mono font-bold">۲</td>
+                <td className="border border-slate-300 p-2 font-black text-blue-800">{j.creditTitle}</td>
+                <td className="border border-slate-300 p-2 text-slate-600 text-xs">ثبت بستانکار طبق سند {j.voucherNo}</td>
+                <td className="border border-slate-300 p-2 text-center font-mono text-slate-300">-</td>
+                <td className="border border-slate-300 p-2 font-mono font-black text-blue-700 text-left bg-blue-50/40">
+                  {formatCurrency(j.amount, j.currency)}
+                </td>
+              </tr>
+            </tbody>
+            <tfoot>
+              <tr className="bg-slate-50 font-black text-xs">
+                <td colSpan={3} className="border border-slate-300 p-2 text-left">جمع تراز سند حسابداری (Balance):</td>
+                <td className="border border-slate-300 p-2 text-rose-700 text-left font-mono">{formatCurrency(j.amount, j.currency)}</td>
+                <td className="border border-slate-300 p-2 text-blue-700 text-left font-mono">{formatCurrency(j.amount, j.currency)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        {/* 4. DETAILS OF TRANSACTIONS & GOODS / ریز معاملات و اقلام پیوست */}
+        {inv && (
+          <div className="space-y-2 pt-3 border-t border-slate-200">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-black text-slate-900">
+                جدول ریز اقلام کالاها و معاملات فاکتور ({inv.type === 'sell' ? 'فروش' : 'خرید'})
+              </h3>
+              <span className="text-[11px] font-bold text-slate-600">
+                طرف حساب: <strong className="text-slate-900">{inv.partyName}</strong> • شماره فاکتور: <strong className="font-mono">{inv.invoiceNumber}</strong>
+              </span>
+            </div>
+
+            <table className="w-full border-collapse border border-slate-300 text-xs text-right">
+              <thead>
+                <tr className="bg-slate-100 text-slate-700 font-bold">
+                  <th className="border border-slate-300 p-2 text-center w-10">ردیف</th>
+                  <th className="border border-slate-300 p-2">نام کالا / شرح معامله</th>
+                  <th className="border border-slate-300 p-2 text-center">تعداد / مقدار</th>
+                  <th className="border border-slate-300 p-2 text-center">واحد</th>
+                  <th className="border border-slate-300 p-2 text-left font-mono">قیمت واحد ({inv.currency})</th>
+                  <th className="border border-slate-300 p-2 text-left font-mono">جمع کل ({inv.currency})</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inv.items && inv.items.length > 0 ? (
+                  inv.items.map((it, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50">
+                      <td className="border border-slate-300 p-2 text-center font-mono">{idx + 1}</td>
+                      <td className="border border-slate-300 p-2 font-bold text-slate-800">{it.productName}</td>
+                      <td className="border border-slate-300 p-2 text-center font-mono font-bold">{formatNumber(it.quantity)}</td>
+                      <td className="border border-slate-300 p-2 text-center">{it.unit || 'عدد'}</td>
+                      <td className="border border-slate-300 p-2 text-left font-mono">{formatNumber(it.unitPrice)}</td>
+                      <td className="border border-slate-300 p-2 text-left font-mono font-black text-slate-900">{formatNumber(it.totalPrice)}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="border border-slate-300 p-3 text-center text-slate-500">
+                      هیچ قلم کالایی در این فاکتور ثبت نشده است.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+              <tfoot>
+                <tr className="bg-slate-50 font-bold text-xs">
+                  <td colSpan={4} className="border border-slate-300 p-2 text-left">مجموع ناخالص فاکتور:</td>
+                  <td colSpan={2} className="border border-slate-300 p-2 text-left font-mono font-black">
+                    {formatCurrency(inv.totalAmount + (inv.discount || 0), inv.currency)}
+                  </td>
+                </tr>
+                {(inv.discount || 0) > 0 && (
+                  <tr className="bg-slate-50 text-xs text-rose-700">
+                    <td colSpan={4} className="border border-slate-300 p-2 text-left">تخفیف ویژه اعمال شده:</td>
+                    <td colSpan={2} className="border border-slate-300 p-2 text-left font-mono font-bold">
+                      -{formatCurrency(inv.discount, inv.currency)}
+                    </td>
+                  </tr>
+                )}
+                <tr className="bg-emerald-50 text-xs font-black text-emerald-900">
+                  <td colSpan={4} className="border border-slate-300 p-2 text-left">مبلغ پرداختی نقد / تسویه شده:</td>
+                  <td colSpan={2} className="border border-slate-300 p-2 text-left font-mono">
+                    {formatCurrency(inv.paidAmount, inv.currency)}
+                  </td>
+                </tr>
+                {inv.balanceAmount > 0 && (
+                  <tr className="bg-amber-50 text-xs font-black text-amber-900">
+                    <td colSpan={4} className="border border-slate-300 p-2 text-left">مانده نسیه / الباقی طلب:</td>
+                    <td colSpan={2} className="border border-slate-300 p-2 text-left font-mono">
+                      {formatCurrency(inv.balanceAmount, inv.currency)}
+                    </td>
+                  </tr>
+                )}
+              </tfoot>
+            </table>
+          </div>
+        )}
+
+        {tx && (
+          <div className="space-y-2 pt-3 border-t border-slate-200">
+            <h3 className="text-xs font-black text-slate-900">ریز جزئیات تراکنش مالی و تسویه معامله</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs">
+              <div>
+                <span className="text-slate-500 block font-bold">طرف حساب:</span>
+                <strong className="text-slate-900 font-bold">{tx.partyName || 'طرف حساب متفرقه'}</strong>
+              </div>
+              <div>
+                <span className="text-slate-500 block font-bold">صندوق / حساب مالی:</span>
+                <strong className="text-slate-900 font-bold">{tx.cashRegisterName || 'صندوق اصلی شرکت'}</strong>
+              </div>
+              <div>
+                <span className="text-slate-500 block font-bold">نوع معامله مالی:</span>
+                <strong className="text-slate-900 font-bold">
+                  {tx.type === 'receive_payment' ? 'دریافت وجه (تسویه بدهی مشتری)' :
+                   tx.type === 'make_payment' ? 'پرداخت وجه (تسویه حساب طلبکار)' : 'تبدیل و خرید/فروش ارز'}
+                </strong>
+              </div>
+              {tx.exchangeRate && tx.exchangeRate !== 1 && (
+                <div>
+                  <span className="text-slate-500 block font-bold">نرخ تبادله ارز:</span>
+                  <strong className="text-slate-900 font-mono">{tx.exchangeRate}</strong>
+                </div>
+              )}
+              <div className="col-span-2">
+                <span className="text-slate-500 block font-bold">شرح و بابت:</span>
+                <span className="text-slate-800">{tx.notes || 'تسویه حساب حسابداری'}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {exp && (
+          <div className="space-y-2 pt-3 border-t border-slate-200">
+            <h3 className="text-xs font-black text-slate-900">ریز جزئیات سند مصارف و هزینه‌ها</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs">
+              <div>
+                <span className="text-slate-500 block font-bold">عنوان هزینه:</span>
+                <strong className="text-slate-900 font-bold">{exp.title}</strong>
+              </div>
+              <div>
+                <span className="text-slate-500 block font-bold">سرفصل دسته‌بندی:</span>
+                <strong className="text-slate-900 font-bold">{exp.categoryName || 'مصارف جاری شرکت'}</strong>
+              </div>
+              <div>
+                <span className="text-slate-500 block font-bold">دریافت‌کننده وجه:</span>
+                <strong className="text-slate-900 font-bold">{exp.recipient || 'متفرقه'}</strong>
+              </div>
+              <div>
+                <span className="text-slate-500 block font-bold">صندوق پرداخت‌کننده:</span>
+                <strong className="text-slate-900 font-bold">{exp.cashRegisterName || 'صندوق نقد'}</strong>
+              </div>
+              <div className="col-span-2">
+                <span className="text-slate-500 block font-bold">شرح تفصیلی:</span>
+                <span className="text-slate-800">{exp.notes || 'هزینه‌های تجارتی شرکت'}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 5. Official Signatures */}
+        <div className="grid grid-cols-4 gap-3 pt-10 border-t border-slate-200 text-center text-xs">
+          <div>
+            <span className="text-slate-500 block mb-8 font-bold">تنظیم‌کننده سند</span>
+            <div className="border-t border-dashed border-slate-400 pt-1 text-slate-800 font-black">
+              امور حسابداری
+            </div>
+          </div>
+          <div>
+            <span className="text-slate-500 block mb-8 font-bold">حسابدار مسئول</span>
+            <div className="border-t border-dashed border-slate-400 pt-1 text-slate-800 font-black">
+              تایید دفاتر
+            </div>
+          </div>
+          <div>
+            <span className="text-slate-500 block mb-8 font-bold">مدیر امور مالی</span>
+            <div className="border-t border-dashed border-slate-400 pt-1 text-slate-800 font-black">
+              مدیریت مالی
+            </div>
+          </div>
+          <div>
+            <span className="text-slate-500 block mb-8 font-bold">امضای مدیریت عامله</span>
+            <div className="border-t border-dashed border-slate-400 pt-1 text-slate-800 font-black">
+              برادران نبوی
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -3834,6 +4104,30 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                     صرافی
                   </button>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    openPrintModal({
+                      type: 'financial_report',
+                      title: 'دفتر روزنامه حسابداری (General Journal)',
+                      subtitle: `دفتر ثبت کلیه اسناد و رویدادهای مالی • تعداد کل اسناد: ${filteredJournalEntries.length} • تاریخ صدور: ${getPersianDate()}`,
+                      tableHeaders: ['شماره سند', 'تاریخ', 'عنوان سند و بابت معامله', 'حساب بدهکار (Debit)', 'حساب بستانکار (Credit)', 'مبلغ سند'],
+                      tableRows: filteredJournalEntries.map(j => [
+                        j.voucherNo,
+                        j.date,
+                        `${j.title} - ${j.description}`,
+                        j.debitTitle,
+                        j.creditTitle,
+                        formatCurrency(j.amount, j.currency),
+                      ]),
+                    });
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer shrink-0"
+                >
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>چاپ کل روزنامچه</span>
+                </button>
               </div>
             </div>
 
@@ -3855,7 +4149,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                       <th className="px-5 py-3.5">حساب بدهکار (Debit)</th>
                       <th className="px-5 py-3.5">حساب بستانکار (Credit)</th>
                       <th className="px-5 py-3.5 text-left">مبلغ سند</th>
-                      <th className="px-5 py-3.5 text-center">چاپ سند</th>
+                      <th className="px-5 py-3.5 text-center">چاپ سند و فاکتور</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -3875,58 +4169,60 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                           {formatCurrency(j.amount, j.currency)}
                         </td>
                         <td className="px-5 py-3.5 text-center">
-                          <button
-                            onClick={() => {
-                              openPrintModal(
-                                `سند دوبل حسابداری شماره ${j.voucherNo}`,
-                                <div className="space-y-6 text-slate-800 font-vazir" dir="rtl">
-                                  <div className="border-b pb-4 text-center">
-                                    <h2 className="text-xl font-black text-slate-900">سند حسابداری (دفتر روزنامه)</h2>
-                                    <p className="text-xs text-slate-500 mt-1">سیستم جامع حسابداری عمده‌فروشی بازرگانی</p>
-                                  </div>
-                                  <div className="grid grid-cols-2 gap-4 text-xs bg-slate-50 p-4 rounded-xl">
-                                    <div><strong>شماره سند:</strong> {j.voucherNo}</div>
-                                    <div><strong>تاریخ ثبت:</strong> {j.date}</div>
-                                    <div className="col-span-2"><strong>عنوان سند:</strong> {j.title}</div>
-                                    <div className="col-span-2"><strong>شرح و بابت:</strong> {j.description}</div>
-                                  </div>
-                                  <table className="w-full border-collapse border border-slate-300 text-xs">
-                                    <thead>
-                                      <tr className="bg-slate-100">
-                                        <th className="border p-2">شرح ردیف حسابداری</th>
-                                        <th className="border p-2 text-rose-700">بدهکار (Debit)</th>
-                                        <th className="border p-2 text-blue-700">بستانکار (Credit)</th>
-                                        <th className="border p-2">مبلغ</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      <tr>
-                                        <td className="border p-2 font-bold">{j.debitTitle}</td>
-                                        <td className="border p-2 font-mono font-bold text-rose-600">{formatCurrency(j.amount, j.currency)}</td>
-                                        <td className="border p-2 text-center text-slate-400">-</td>
-                                        <td className="border p-2 font-mono font-bold">{formatCurrency(j.amount, j.currency)}</td>
-                                      </tr>
-                                      <tr>
-                                        <td className="border p-2 font-bold">{j.creditTitle}</td>
-                                        <td className="border p-2 text-center text-slate-400">-</td>
-                                        <td className="border p-2 font-mono font-bold text-blue-600">{formatCurrency(j.amount, j.currency)}</td>
-                                        <td className="border p-2 font-mono font-bold">{formatCurrency(j.amount, j.currency)}</td>
-                                      </tr>
-                                    </tbody>
-                                  </table>
-                                  <div className="grid grid-cols-3 gap-4 pt-12 text-center text-xs">
-                                    <div>امضای ثبت‌کننده: ....................</div>
-                                    <div>امضای حسابدار: ....................</div>
-                                    <div>امضای مدیر مالی: ....................</div>
-                                  </div>
-                                </div>
-                              );
-                            }}
-                            className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition flex items-center gap-1 mx-auto cursor-pointer"
-                          >
-                            <Printer className="w-3.5 h-3.5" />
-                            <span>چاپ سند</span>
-                          </button>
+                          <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                            {/* 1. Print Official Commercial Invoice if available */}
+                            {j.relatedInvoice && (
+                              <button
+                                type="button"
+                                title="چاپ فاکتور رسمی معامله با لیست کامل کالاها، قیمت، تخفیف و مشخصات"
+                                onClick={() => {
+                                  openPrintModal({
+                                    type: 'invoice',
+                                    invoice: j.relatedInvoice,
+                                  });
+                                }}
+                                className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer shadow-2xs"
+                              >
+                                <Printer className="w-3 h-3" />
+                                <span>فاکتور رسمی</span>
+                              </button>
+                            )}
+
+                            {/* 2. Print Financial Payment Receipt if available */}
+                            {j.relatedTransaction && (
+                              <button
+                                type="button"
+                                title="چاپ رسید تسویه و تراکنش مالی"
+                                onClick={() => {
+                                  openPrintModal({
+                                    type: 'payment_receipt',
+                                    transaction: j.relatedTransaction,
+                                  });
+                                }}
+                                className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer shadow-2xs"
+                              >
+                                <Printer className="w-3 h-3" />
+                                <span>رسید معامله</span>
+                              </button>
+                            )}
+
+                            {/* 3. Print Complete Double Entry Accounting Voucher (with itemized breakdown) */}
+                            <button
+                              type="button"
+                              title="چاپ سند دوبل حسابداری با ثبت دفاتر، آرتیکل‌ها و ریز معاملات"
+                              onClick={() => {
+                                openPrintModal({
+                                  type: 'custom',
+                                  title: `سند حسابداری ${j.voucherNo}`,
+                                  customContent: renderJournalVoucherPrintContent(j),
+                                });
+                              }}
+                              className="px-2 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer shadow-2xs"
+                            >
+                              <FileText className="w-3 h-3" />
+                              <span>سند حسابداری</span>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}

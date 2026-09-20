@@ -484,7 +484,8 @@ export type PrintableDocumentType =
   | 'transaction'
   | 'receipt'
   | 'payment'
-  | 'general';
+  | 'general'
+  | 'custom';
 
 export interface ConsignmentMovement {
   id: string;

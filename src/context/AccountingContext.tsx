@@ -3630,8 +3630,35 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const openPrintModal = (docOrType: any, maybeData?: any) => {
     if (!docOrType) return;
 
-    // 1. If called with 2 arguments: openPrintModal('invoice', invoice) or openPrintModal('receipt', tx)
+    // 0. If docOrType itself is a React element
+    if (React.isValidElement(docOrType) || (docOrType && (docOrType as any).$$typeof)) {
+      setActivePrintDoc({
+        type: 'custom',
+        customContent: docOrType,
+      });
+      return;
+    }
+
+    // 1. If called with 2 arguments:
+    // Case A: (titleString, jsxElement) or (titleString, { customContent })
     if (typeof docOrType === 'string') {
+      if (React.isValidElement(maybeData) || (maybeData && (maybeData as any).$$typeof)) {
+        setActivePrintDoc({
+          type: 'custom',
+          title: docOrType,
+          customContent: maybeData,
+        });
+        return;
+      }
+      if (maybeData && maybeData.customContent) {
+        setActivePrintDoc({
+          type: 'custom',
+          title: docOrType,
+          ...maybeData,
+        });
+        return;
+      }
+
       const typeStr = docOrType.toLowerCase();
       if (typeStr === 'invoice' || typeStr === 'buy' || typeStr === 'sell') {
         setActivePrintDoc({
@@ -3670,6 +3697,7 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       }
       setActivePrintDoc({
         type: typeStr as any,
+        title: docOrType,
         ...(maybeData || {}),
       });
       return;

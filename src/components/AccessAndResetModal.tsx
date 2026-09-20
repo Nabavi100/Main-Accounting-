@@ -5,7 +5,7 @@ import { CompanyStampSeal } from './CompanyStampSeal';
 import { SignatureAndSealModal } from './SignatureAndSealModal';
 import { GoogleDriveBackupPanel } from './GoogleDriveBackupPanel';
 import { SecretLicenseModal } from './SecretLicenseModal';
-import { verifyProtectionLockPassword } from '../utils/securityMaster';
+import { verifyProtectionLockPassword, verifyMasterSecurityPassword } from '../utils/securityMaster';
 import {
   Shield,
   RotateCcw,
@@ -170,24 +170,17 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
     e.preventDefault();
     setProtectionPasswordError('');
 
-    // Step 1: Master authorization check
+    // Step 1: Master authorization check - Strictly requires the Master Password of the program manager
     if (!currentMasterPasswordInput.trim()) {
-      setProtectionPasswordError('لطفاً ابتدا رمز عبور اصلی فعلی مدیر را وارد فرمایید.');
+      setProtectionPasswordError('ابتدا باید رمز اصلی مدیر برنامه وارد شود. بدون اجازه مدیر تغییری اعمال نمی‌شود.');
       return;
     }
 
-    const adminUser = users.find(u => u.role === 'admin');
-    const customPassword = compForm.protectionPassword || companySettings.protectionPassword;
+    // Verify against the confidential master key of the program manager
+    const isMasterAuthorized = verifyMasterSecurityPassword(currentMasterPasswordInput.trim());
 
-    // Verify against confidential master password or current active password
-    const isAuthorized = verifyProtectionLockPassword(
-      currentMasterPasswordInput,
-      customPassword,
-      adminUser?.password
-    );
-
-    if (!isAuthorized) {
-      setProtectionPasswordError('رمز اصلی وارد شده اشتباه است! تغییر رمز حفاظتی بدون احراز هویت مدیر برنامه امکان‌پذیر نیست.');
+    if (!isMasterAuthorized) {
+      setProtectionPasswordError('رمز اصلی مدیر برنامه اشتباه است! بدون اجازه مدیر برنامه، ورود هرگونه تغییر در رمز حفاظتی مسدود است.');
       return;
     }
 
@@ -197,8 +190,8 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
       return;
     }
 
-    if (newProtectionPassword.trim().length < 4) {
-      setProtectionPasswordError('رمز عبور جدید باید حداقل ۴ کاراکتر باشد.');
+    if (newProtectionPassword.trim().length < 3) {
+      setProtectionPasswordError('رمز عبور جدید باید حداقل ۳ کاراکتر باشد.');
       return;
     }
 
@@ -219,7 +212,8 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
     setNewProtectionPassword('');
     setConfirmProtectionPassword('');
     setProtectionPasswordError('');
-    setSaveSuccessMessage('رمز عبور حفاظتی با موفقیت تغییر یافت و ذخیره شد.');
+    setIsCompanyUnlocked(true);
+    setSaveSuccessMessage('رمز عبور حفاظتی با موفقیت و با تایید رمز اصلی مدیر برنامه ذخیره شد.');
     setTimeout(() => setSaveSuccessMessage(null), 4000);
   };
 
@@ -626,25 +620,30 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
 
                 {/* Protection Buttons */}
                 <div className="flex items-center gap-2 flex-wrap">
+                  {compForm.isProtected && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsChangingProtectionPassword(!isChangingProtectionPassword);
+                        setProtectionPasswordError('');
+                      }}
+                      className="px-3 py-1.5 bg-white border border-indigo-300 text-indigo-800 hover:bg-indigo-50 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                      title="تغییر رمز عبور دکمه حفاظتی شرکت (الزام به ورود رمز اصلی مدیر برنامه)"
+                    >
+                      <KeyRound className="w-3.5 h-3.5 text-indigo-700" />
+                      <span>تغییر رمز حفاظتی (با تایید مدیر)</span>
+                    </button>
+                  )}
+
                   {compForm.isProtected && isCompanyUnlocked && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={() => setIsChangingProtectionPassword(!isChangingProtectionPassword)}
-                        className="px-3 py-1.5 bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-100 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                      >
-                        <KeyRound className="w-3.5 h-3.5 text-emerald-700" />
-                        <span>تغییر رمز قفل</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleLockCompanyImmediately}
-                        className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                      >
-                        <Lock className="w-3.5 h-3.5" />
-                        <span>قفل کردن مجدد</span>
-                      </button>
-                    </>
+                    <button
+                      type="button"
+                      onClick={handleLockCompanyImmediately}
+                      className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                    >
+                      <Lock className="w-3.5 h-3.5" />
+                      <span>قفل کردن مجدد</span>
+                    </button>
                   )}
 
                   <button
@@ -689,11 +688,24 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
               </div>
 
               {/* Challenge password box if locked */}
-              {isCompanyLocked && (
+              {isCompanyLocked && !isChangingProtectionPassword && (
                 <div className="mt-4 pt-4 border-t border-amber-200 bg-amber-100/60 -mx-4 -mb-4 sm:-mx-5 sm:-mb-5 p-4 sm:p-5 rounded-b-2xl space-y-2.5">
-                  <div className="text-xs text-amber-950 font-bold flex items-center gap-2">
-                    <KeyRound className="w-4 h-4 text-amber-700 shrink-0" />
-                    <span>برای ویرایش نام شرکت، لوگو و سربرگ، ابتدا رمز عبور حفاظتی را وارد فرمایید:</span>
+                  <div className="text-xs text-amber-950 font-bold flex items-center justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <KeyRound className="w-4 h-4 text-amber-700 shrink-0" />
+                      <span>برای ویرایش نام شرکت، لوگو و سربرگ، ابتدا رمز عبور حفاظتی را وارد فرمایید:</span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsChangingProtectionPassword(true);
+                        setProtectionPasswordError('');
+                      }}
+                      className="text-[11px] text-indigo-700 hover:text-indigo-900 underline font-bold cursor-pointer"
+                    >
+                      فراموشی یا تغییر رمز حفاظتی با رمز اصلی مدیر
+                    </button>
                   </div>
 
                   <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
@@ -743,66 +755,126 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
                 </div>
               )}
 
-              {/* Changing protection password panel */}
-              {isChangingProtectionPassword && isCompanyUnlocked && (
-                <div className="mt-4 pt-4 border-t border-emerald-200 bg-emerald-100/50 -mx-4 -mb-4 sm:-mx-5 sm:-mb-5 p-4 sm:p-5 rounded-b-2xl space-y-3">
-                  <div className="text-xs text-emerald-950 font-bold flex items-center gap-2">
-                    <KeyRound className="w-4 h-4 text-emerald-700 shrink-0" />
-                    <span>تعیین رمز عبور جدید برای دکمه حفاظتی شرکت:</span>
+              {/* Changing protection password panel - Strictly requires Master Password */}
+              {isChangingProtectionPassword && (
+                <div className="mt-4 pt-4 border-t border-indigo-200 bg-indigo-50/80 -mx-4 -mb-4 sm:-mx-5 sm:-mb-5 p-4 sm:p-5 rounded-b-2xl space-y-3.5 text-right">
+                  <div className="flex items-center justify-between pb-2 border-b border-indigo-200/70">
+                    <div className="flex items-center gap-2 text-xs font-black text-indigo-950">
+                      <Shield className="w-4 h-4 text-indigo-700 shrink-0" />
+                      <span>تغییر رمز حفاظتی با تایید هویت مدیر ارشد برنامه</span>
+                    </div>
+                    <span className="text-[10px] px-2 py-0.5 bg-indigo-200/70 text-indigo-900 font-bold rounded-full">
+                      نیازمند اجازه مدیر اصلی
+                    </span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <p className="text-[11px] text-slate-600 leading-relaxed">
+                    برای تغییر یا بازیابی رمز حفاظتی، وارد کردن <strong className="text-indigo-900">رمز اصلی مدیر برنامه</strong> الزامی است و بدون اجازه و تایید مدیر، هیچ تغییری وارد و ذخیره نمی‌شود.
+                  </p>
+
+                  <div className="space-y-3">
+                    {/* Master Password Input */}
                     <div>
-                      <label className="block text-[11px] font-bold text-emerald-900 mb-1">
-                        رمز عبور جدید:
+                      <label className="block text-[11px] font-black text-slate-800 mb-1">
+                        ۱. رمز اصلی مدیر برنامه (احراز هویت مدیر) <span className="text-rose-600">*</span>:
                       </label>
-                      <input
-                        type="password"
-                        value={newProtectionPassword}
-                        onChange={e => setNewProtectionPassword(e.target.value)}
-                        placeholder="رمز جدید دلخواه..."
-                        className="w-full px-3 py-2 bg-white border border-emerald-300 rounded-xl text-xs font-mono font-bold text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500"
-                      />
+                      <div className="relative">
+                        <input
+                          type={showCurrentMasterPassword ? 'text' : 'password'}
+                          value={currentMasterPasswordInput}
+                          onChange={e => {
+                            setCurrentMasterPasswordInput(e.target.value);
+                            if (protectionPasswordError) setProtectionPasswordError('');
+                          }}
+                          placeholder="رمز اصلی مدیر برنامه را وارد فرمایید..."
+                          className="w-full px-3.5 py-2 bg-white border border-indigo-300 rounded-xl text-xs font-mono font-bold text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 pl-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowCurrentMasterPassword(!showCurrentMasterPassword)}
+                          className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                          title={showCurrentMasterPassword ? 'مخفی کردن' : 'نمایش رمز'}
+                        >
+                          {showCurrentMasterPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-[11px] font-bold text-emerald-900 mb-1">
-                        تکرار رمز عبور جدید:
-                      </label>
-                      <input
-                        type="password"
-                        value={confirmProtectionPassword}
-                        onChange={e => setConfirmProtectionPassword(e.target.value)}
-                        placeholder="تکرار مجدد رمز جدید..."
-                        className="w-full px-3 py-2 bg-white border border-emerald-300 rounded-xl text-xs font-mono font-bold text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500"
-                      />
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      {/* New Protection Password */}
+                      <div>
+                        <label className="block text-[11px] font-black text-slate-800 mb-1">
+                          ۲. رمز عبور حفاظتی جدید: <span className="text-rose-600">*</span>
+                        </label>
+                        <div className="relative">
+                          <input
+                            type={showNewProtectionPassword ? 'text' : 'password'}
+                            value={newProtectionPassword}
+                            onChange={e => {
+                              setNewProtectionPassword(e.target.value);
+                              if (protectionPasswordError) setProtectionPasswordError('');
+                            }}
+                            placeholder="رمز جدید دلخواه..."
+                            className="w-full px-3.5 py-2 bg-white border border-indigo-300 rounded-xl text-xs font-mono font-bold text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500 pl-10"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowNewProtectionPassword(!showNewProtectionPassword)}
+                            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                            title={showNewProtectionPassword ? 'مخفی کردن' : 'نمایش رمز'}
+                          >
+                            {showNewProtectionPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Confirm New Protection Password */}
+                      <div>
+                        <label className="block text-[11px] font-black text-slate-800 mb-1">
+                          ۳. تکرار رمز عبور جدید: <span className="text-rose-600">*</span>
+                        </label>
+                        <input
+                          type={showNewProtectionPassword ? 'text' : 'password'}
+                          value={confirmProtectionPassword}
+                          onChange={e => {
+                            setConfirmProtectionPassword(e.target.value);
+                            if (protectionPasswordError) setProtectionPasswordError('');
+                          }}
+                          placeholder="تکرار مجدد رمز جدید..."
+                          className="w-full px-3.5 py-2 bg-white border border-indigo-300 rounded-xl text-xs font-mono font-bold text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500"
+                        />
+                      </div>
                     </div>
                   </div>
 
                   {protectionPasswordError && (
-                    <p className="text-[11px] text-rose-700 font-bold flex items-center gap-1">
-                      <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                    <div className="p-2.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-800 text-[11px] font-bold flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
                       <span>{protectionPasswordError}</span>
-                    </p>
+                    </div>
                   )}
 
-                  <div className="flex items-center gap-2 justify-end pt-1">
+                  <div className="flex items-center gap-2 justify-end pt-2 border-t border-indigo-200/60">
                     <button
                       type="button"
                       onClick={() => {
                         setIsChangingProtectionPassword(false);
+                        setCurrentMasterPasswordInput('');
+                        setNewProtectionPassword('');
+                        setConfirmProtectionPassword('');
                         setProtectionPasswordError('');
                       }}
-                      className="px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50 cursor-pointer"
+                      className="px-3.5 py-1.5 bg-white border border-slate-300 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-50 cursor-pointer transition"
                     >
                       انصراف
                     </button>
                     <button
                       type="button"
                       onClick={handleSaveNewProtectionPassword}
-                      className="px-4 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      className="px-4 py-1.5 bg-indigo-700 hover:bg-indigo-800 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
                     >
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>ذخیره رمز جدید</span>
+                      <span>تایید مدیر و ذخیره رمز جدید</span>
                     </button>
                   </div>
                 </div>
