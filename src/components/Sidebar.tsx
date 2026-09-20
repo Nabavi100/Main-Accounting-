@@ -22,6 +22,7 @@ import {
   Coins,
   Receipt,
   LogOut,
+  BookOpen,
 } from 'lucide-react';
 import { CompanySealLogo } from './CompanySealLogo';
 
@@ -218,8 +219,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* ---------------- 2. EXACT ORDER OF MENU ITEMS ---------------- */}
       <nav className="flex-1 px-3 py-3 space-y-1.5 overflow-y-auto custom-scrollbar">
-        {/* 1. داشبورد مدیریتی (Pill with soft blue background) */}
-        <div className="sidebar-section-container sidebar-card-block sidebar-card-dashboard">
+        {/* 1. داشبورد مدیریتی و روزنامچه */}
+        <div className="sidebar-section-container sidebar-card-block sidebar-card-dashboard space-y-1">
           <button
             type="button"
             id="sidebar-btn-dashboard"
@@ -227,7 +228,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all ${
               activeTab === 'dashboard'
                 ? theme === 'sky-glass'
-                  ? 'bg-sky-500/25 text-sky-100 font-black border border-sky-400/60 shadow-[0_0_15px_rgba(56,189,248,0.4)]'
+                  ? 'bg-sky-500/20 text-sky-950 font-black border border-sky-400/60 shadow-[0_0_15px_rgba(56,189,248,0.25)]'
                   : theme === 'gold'
                   ? 'bg-amber-500/20 text-amber-300 font-black border border-amber-400/50 shadow-[0_0_12px_rgba(245,158,11,0.25)]'
                   : 'bg-[#EEF2FF] text-[#2563EB] font-bold shadow-2xs'
@@ -238,6 +239,35 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <PieChart className="w-4 h-4 text-[#2563EB] dark:text-sky-400" />
               <span className="text-xs">داشبورد مدیریتی</span>
             </div>
+          </button>
+
+          {/* دکمه روزنامچه (دفتر روزنامه و جورنال حسابداری) در زیر گزینه یا منوی داشبورد */}
+          <button
+            type="button"
+            id="sidebar-btn-journal"
+            onClick={() => handleNavigate('reports', 'journal', 'systemReports')}
+            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer transition-all ${
+              activeTab === 'reports' && subFilter === 'journal'
+                ? theme === 'sky-glass'
+                  ? 'bg-emerald-500/20 text-emerald-950 font-black border border-emerald-400/60 shadow-[0_0_12px_rgba(16,185,129,0.3)]'
+                  : theme === 'gold'
+                  ? 'bg-amber-500/20 text-amber-300 font-black border border-amber-400/50'
+                  : 'bg-emerald-100 text-emerald-800 font-black shadow-2xs border border-emerald-300'
+                : theme === 'sky-glass'
+                ? 'bg-white/70 hover:bg-emerald-50/70 text-slate-800 hover:text-emerald-800 font-bold border border-sky-200/60'
+                : theme === 'gold'
+                ? 'bg-amber-950/20 hover:bg-amber-950/40 text-amber-200 font-medium border border-amber-800/40'
+                : 'bg-emerald-50/70 hover:bg-emerald-100/80 text-emerald-800 font-bold border border-emerald-200/70'
+            }`}
+            title="دفتر روزنامچه و جورنال حسابداری (اسناد دوبل، بدهکار و بستانکار)"
+          >
+            <div className="flex items-center gap-2.5">
+              <BookOpen className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <span className="text-xs font-bold">روزنامچه (دفتر روزنامه)</span>
+            </div>
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-bold">
+              Journal
+            </span>
           </button>
         </div>
 
@@ -250,7 +280,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className={`w-full flex items-center justify-between px-3 py-2 rounded-xl font-bold cursor-pointer transition-colors ${
               openSections.definitions || getSectionForTab(activeTab) === 'definitions'
                 ? theme === 'sky-glass'
-                  ? 'bg-sky-950/40 text-sky-200 font-black border border-sky-400/40 shadow-[0_0_12px_rgba(56,189,248,0.25)]'
+                  ? 'bg-sky-50 text-sky-950 font-black border border-sky-300/80 shadow-[0_0_12px_rgba(56,189,248,0.2)]'
                   : theme === 'gold'
                   ? 'bg-amber-950/40 text-amber-300 font-black border border-amber-500/30'
                   : 'bg-[#EEF2FF] text-[#2563EB]'
@@ -391,7 +421,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className={`w-full flex items-center justify-between px-3 py-2 rounded-xl font-bold cursor-pointer transition-colors ${
               openSections.cashAccounts || getSectionForTab(activeTab) === 'cashAccounts'
                 ? theme === 'sky-glass'
-                  ? 'bg-sky-950/40 text-sky-200 font-black border border-sky-400/40 shadow-[0_0_12px_rgba(56,189,248,0.25)]'
+                  ? 'bg-sky-50 text-sky-950 font-black border border-sky-300/80 shadow-[0_0_12px_rgba(56,189,248,0.2)]'
                   : theme === 'gold'
                   ? 'bg-amber-950/40 text-amber-300 font-black border border-amber-500/30'
                   : 'bg-[#EEF2FF] text-[#2563EB]'
@@ -460,7 +490,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className={`w-full flex items-center justify-between px-3 py-2 rounded-xl font-bold cursor-pointer transition-colors ${
               openSections.tradeAndFinance || getSectionForTab(activeTab) === 'tradeAndFinance'
                 ? theme === 'sky-glass'
-                  ? 'bg-sky-950/40 text-sky-200 font-black border border-sky-400/40 shadow-[0_0_12px_rgba(56,189,248,0.25)]'
+                  ? 'bg-sky-50 text-sky-950 font-black border border-sky-300/80 shadow-[0_0_12px_rgba(56,189,248,0.2)]'
                   : theme === 'gold'
                   ? 'bg-amber-950/40 text-amber-300 font-black border border-amber-500/30'
                   : 'bg-[#EEF2FF] text-[#2563EB]'
@@ -628,7 +658,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className={`w-full flex items-center justify-between px-3 py-2 rounded-xl font-bold cursor-pointer transition-colors ${
               openSections.fixedAssets || getSectionForTab(activeTab) === 'fixedAssets'
                 ? theme === 'sky-glass'
-                  ? 'bg-sky-950/40 text-sky-200 font-black border border-sky-400/40 shadow-[0_0_12px_rgba(56,189,248,0.25)]'
+                  ? 'bg-sky-50 text-sky-950 font-black border border-sky-300/80 shadow-[0_0_12px_rgba(56,189,248,0.2)]'
                   : theme === 'gold'
                   ? 'bg-amber-950/40 text-amber-300 font-black border border-amber-500/30'
                   : 'bg-[#EEF2FF] text-[#2563EB]'
@@ -685,7 +715,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className={`w-full flex items-center justify-between px-3 py-2 rounded-xl font-bold cursor-pointer transition-colors ${
               openSections.systemReports || getSectionForTab(activeTab) === 'systemReports'
                 ? theme === 'sky-glass'
-                  ? 'bg-sky-950/40 text-sky-200 font-black border border-sky-400/40 shadow-[0_0_12px_rgba(56,189,248,0.25)]'
+                  ? 'bg-sky-50 text-sky-950 font-black border border-sky-300/80 shadow-[0_0_12px_rgba(56,189,248,0.2)]'
                   : theme === 'gold'
                   ? 'bg-amber-950/40 text-amber-300 font-black border border-amber-500/30'
                   : 'bg-[#EEF2FF] text-[#2563EB]'
@@ -790,7 +820,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className={`w-full flex items-center justify-between px-3 py-2 rounded-xl font-bold cursor-pointer transition-colors ${
               openSections.accountingAndPnL || getSectionForTab(activeTab) === 'accountingAndPnL'
                 ? theme === 'sky-glass'
-                  ? 'bg-sky-950/40 text-sky-200 font-black border border-sky-400/40 shadow-[0_0_12px_rgba(56,189,248,0.25)]'
+                  ? 'bg-sky-50 text-sky-950 font-black border border-sky-300/80 shadow-[0_0_12px_rgba(56,189,248,0.2)]'
                   : theme === 'gold'
                   ? 'bg-amber-950/40 text-amber-300 font-black border border-amber-500/30'
                   : 'bg-[#EEF2FF] text-[#2563EB]'
@@ -855,7 +885,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className={`w-full flex items-center justify-between px-3 py-2 rounded-xl font-bold cursor-pointer transition-colors ${
               openSections.systemManagement || getSectionForTab(activeTab) === 'systemManagement'
                 ? theme === 'sky-glass'
-                  ? 'bg-sky-950/40 text-sky-200 font-black border border-sky-400/40 shadow-[0_0_12px_rgba(56,189,248,0.25)]'
+                  ? 'bg-sky-50 text-sky-950 font-black border border-sky-300/80 shadow-[0_0_12px_rgba(56,189,248,0.2)]'
                   : theme === 'gold'
                   ? 'bg-amber-950/40 text-amber-300 font-black border border-amber-500/30'
                   : 'bg-[#EEF2FF] text-[#2563EB]'

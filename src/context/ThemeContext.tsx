@@ -53,7 +53,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     localStorage.setItem(SIDEBAR_STORAGE_KEY, newStyle);
   };
 
-  const isDark = theme === 'dark' || theme === 'gold' || theme === 'executive' || theme === 'sky-glass';
+  const isDark = theme === 'dark' || theme === 'gold' || theme === 'executive';
   const isGold = theme === 'gold';
 
   const toggleDarkMode = () => {
@@ -106,8 +106,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       body.classList.add('dark');
       docEl.classList.add('dark');
     } else if (theme === 'sky-glass') {
-      body.classList.add('dark', 'theme-sky-glass');
-      docEl.classList.add('dark', 'theme-sky-glass');
+      body.classList.add('theme-sky-glass');
+      docEl.classList.add('theme-sky-glass');
     }
 
     // Add sidebar style class

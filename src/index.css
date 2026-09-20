@@ -358,30 +358,32 @@ body.theme-vibrant .bg-slate-50 {
 /* ========================================================================= */
 /* SKY GLASS THEME (تم شیشه‌ای آسمانی)                                         */
 /* ========================================================================= */
+/* SKY-GLASS THEME (تم شیشه‌ای بلورین روشن با هاله آبی آسمانی)               */
+/* ========================================================================= */
 body.theme-sky-glass {
-  --bg-app: #060b14;
-  --card-app: rgba(10, 20, 38, 0.72);
-  --border-app: rgba(56, 189, 248, 0.28);
-  --text-main: #f0f9ff;
-  background: radial-gradient(circle at 50% 0%, #0c213d 0%, #081220 50%, #030712 100%) !important;
+  --bg-app: #f0f9ff;
+  --card-app: rgba(255, 255, 255, 0.84);
+  --border-app: rgba(56, 189, 248, 0.35);
+  --text-main: #0f172a;
+  background: radial-gradient(circle at 50% 0%, #f0f9ff 0%, #e0f2fe 45%, #f8fafc 100%) !important;
   background-attachment: fixed !important;
-  color: #f0f9ff !important;
+  color: #0f172a !important;
 }
 
 body.theme-sky-glass header {
-  background: rgba(8, 17, 34, 0.75) !important;
-  backdrop-filter: blur(16px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
-  border-color: rgba(56, 189, 248, 0.3) !important;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 25px rgba(56, 189, 248, 0.15) !important;
+  background: rgba(255, 255, 255, 0.85) !important;
+  backdrop-filter: blur(16px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(190%) !important;
+  border-color: rgba(56, 189, 248, 0.35) !important;
+  box-shadow: 0 4px 20px rgba(14, 165, 233, 0.08), 0 0 20px rgba(56, 189, 248, 0.12) !important;
 }
 
 body.theme-sky-glass aside {
-  background: rgba(6, 14, 28, 0.8) !important;
+  background: rgba(255, 255, 255, 0.88) !important;
   backdrop-filter: blur(16px) saturate(180%) !important;
   -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
-  border-color: rgba(56, 189, 248, 0.25) !important;
-  box-shadow: 4px 0 25px rgba(0, 0, 0, 0.5), inset -1px 0 15px rgba(56, 189, 248, 0.1) !important;
+  border-color: rgba(56, 189, 248, 0.3) !important;
+  box-shadow: 4px 0 25px rgba(14, 165, 233, 0.06), inset -1px 0 15px rgba(56, 189, 248, 0.08) !important;
 }
 
 body.theme-sky-glass main {
@@ -389,66 +391,66 @@ body.theme-sky-glass main {
 }
 
 body.theme-sky-glass .bg-white {
-  background: rgba(12, 24, 46, 0.7) !important;
-  backdrop-filter: blur(16px) saturate(160%) !important;
-  -webkit-backdrop-filter: blur(16px) saturate(160%) !important;
-  color: #f0f9ff !important;
-  border-color: rgba(56, 189, 248, 0.25) !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35), 0 0 15px rgba(56, 189, 248, 0.08) !important;
+  background: rgba(255, 255, 255, 0.86) !important;
+  backdrop-filter: blur(16px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+  color: #0f172a !important;
+  border-color: rgba(56, 189, 248, 0.3) !important;
+  box-shadow: 0 6px 25px rgba(14, 165, 233, 0.07), 0 0 16px rgba(56, 189, 248, 0.08) !important;
 }
 
 body.theme-sky-glass .bg-slate-50,
 body.theme-sky-glass .bg-slate-100 {
-  background: rgba(14, 28, 52, 0.5) !important;
-  backdrop-filter: blur(12px) !important;
-  -webkit-backdrop-filter: blur(12px) !important;
+  background: rgba(240, 249, 255, 0.65) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
 }
 
 body.theme-sky-glass .border-slate-100,
 body.theme-sky-glass .border-slate-200,
 body.theme-sky-glass .border-slate-300 {
-  border-color: rgba(56, 189, 248, 0.25) !important;
+  border-color: rgba(56, 189, 248, 0.28) !important;
 }
 
 body.theme-sky-glass .text-slate-900 {
-  color: #ffffff !important;
+  color: #0f172a !important;
 }
 
 body.theme-sky-glass .text-slate-800 {
-  color: #e0f2fe !important;
+  color: #1e293b !important;
 }
 
 body.theme-sky-glass .text-slate-700 {
-  color: #bae6fd !important;
+  color: #334155 !important;
 }
 
 body.theme-sky-glass .text-slate-600,
 body.theme-sky-glass .text-slate-500 {
-  color: #7dd3fc !important;
+  color: #475569 !important;
 }
 
 body.theme-sky-glass input,
 body.theme-sky-glass select,
 body.theme-sky-glass textarea {
-  background: rgba(9, 19, 36, 0.65) !important;
-  backdrop-filter: blur(12px) !important;
-  -webkit-backdrop-filter: blur(12px) !important;
-  color: #f0f9ff !important;
-  border-color: rgba(56, 189, 248, 0.35) !important;
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4), 0 0 10px rgba(56, 189, 248, 0.12) !important;
+  background: rgba(255, 255, 255, 0.92) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  color: #0f172a !important;
+  border-color: rgba(56, 189, 248, 0.4) !important;
+  box-shadow: inset 0 1px 3px rgba(14, 165, 233, 0.05), 0 0 8px rgba(56, 189, 248, 0.08) !important;
 }
 
 body.theme-sky-glass input:focus,
 body.theme-sky-glass select:focus,
 body.theme-sky-glass textarea:focus {
-  border-color: #38bdf8 !important;
-  box-shadow: 0 0 20px rgba(56, 189, 248, 0.55), inset 0 0 8px rgba(56, 189, 248, 0.2) !important;
+  border-color: #0284c7 !important;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.4), inset 0 0 4px rgba(56, 189, 248, 0.12) !important;
   outline: none !important;
 }
 
 body.theme-sky-glass table th {
-  background: rgba(14, 30, 56, 0.8) !important;
-  color: #bae6fd !important;
+  background: rgba(224, 242, 254, 0.85) !important;
+  color: #0369a1 !important;
   border-color: rgba(56, 189, 248, 0.3) !important;
 }
 
@@ -456,49 +458,49 @@ body.theme-sky-glass table td {
   border-color: rgba(56, 189, 248, 0.18) !important;
 }
 
-/* === GLASSMORPHIC BUTTONS WITH SKY-BLUE HALO === */
+/* === GLASSMORPHIC BUTTONS WITH SKY-BLUE HALO (LIGHT CRYSTAL) === */
 body.theme-sky-glass button:not(.no-glass),
 body.theme-sky-glass [role="button"]:not(.no-glass) {
-  background: rgba(14, 165, 233, 0.14) !important;
+  background: rgba(240, 249, 255, 0.75) !important;
   backdrop-filter: blur(12px) saturate(180%) !important;
   -webkit-backdrop-filter: blur(12px) saturate(180%) !important;
-  border: 1px solid rgba(56, 189, 248, 0.55) !important;
-  color: #e0f2fe !important;
-  box-shadow: 0 0 16px rgba(56, 189, 248, 0.35), inset 0 1px 1.5px rgba(255, 255, 255, 0.3) !important;
+  border: 1px solid rgba(56, 189, 248, 0.5) !important;
+  color: #0369a1 !important;
+  box-shadow: 0 2px 10px rgba(14, 165, 233, 0.1), 0 0 12px rgba(56, 189, 248, 0.15) !important;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
 body.theme-sky-glass button:not(.no-glass):hover,
 body.theme-sky-glass [role="button"]:not(.no-glass):hover {
-  background: rgba(14, 165, 233, 0.28) !important;
-  border-color: rgba(125, 211, 252, 0.95) !important;
-  color: #ffffff !important;
-  box-shadow: 0 0 25px rgba(56, 189, 248, 0.7), 0 0 45px rgba(14, 165, 233, 0.4), inset 0 1px 3px rgba(255, 255, 255, 0.5) !important;
+  background: rgba(224, 242, 254, 0.95) !important;
+  border-color: #0284c7 !important;
+  color: #0c4a6e !important;
+  box-shadow: 0 4px 18px rgba(14, 165, 233, 0.2), 0 0 22px rgba(56, 189, 248, 0.3) !important;
   transform: translateY(-1px);
 }
 
 body.theme-sky-glass button:not(.no-glass):active,
 body.theme-sky-glass [role="button"]:not(.no-glass):active {
   transform: translateY(1px);
-  box-shadow: 0 0 16px rgba(56, 189, 248, 0.5), inset 0 2px 4px rgba(0, 0, 0, 0.4) !important;
+  box-shadow: 0 1px 6px rgba(14, 165, 233, 0.2), inset 0 1px 3px rgba(14, 165, 233, 0.15) !important;
 }
 
 body.theme-sky-glass button.bg-blue-600,
 body.theme-sky-glass button.bg-\[\#2563EB\],
 body.theme-sky-glass button.bg-blue-700,
 body.theme-sky-glass .btn-primary {
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.45) 0%, rgba(2, 132, 199, 0.65) 100%) !important;
-  border: 1.5px solid #38bdf8 !important;
-  box-shadow: 0 0 24px rgba(56, 189, 248, 0.6), inset 0 1px 2px rgba(255, 255, 255, 0.5) !important;
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%) !important;
+  border: 1px solid #0284c7 !important;
+  box-shadow: 0 4px 18px rgba(14, 165, 233, 0.3), inset 0 1px 2px rgba(255, 255, 255, 0.4) !important;
   color: #ffffff !important;
 }
 
 body.theme-sky-glass [aria-selected="true"],
 body.theme-sky-glass .btn-active-luxury {
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.35) 0%, rgba(2, 132, 199, 0.5) 100%) !important;
-  border-color: #38bdf8 !important;
-  color: #ffffff !important;
-  box-shadow: 0 0 22px rgba(56, 189, 248, 0.65), inset 0 0 10px rgba(56, 189, 248, 0.4) !important;
+  background: linear-gradient(135deg, rgba(2, 132, 199, 0.2) 0%, rgba(14, 165, 233, 0.28) 100%) !important;
+  border-color: #0284c7 !important;
+  color: #0284c7 !important;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.35), inset 0 0 8px rgba(56, 189, 248, 0.15) !important;
 }
 
 /* ========================================================================= */

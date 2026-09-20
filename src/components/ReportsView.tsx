@@ -2019,7 +2019,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                               title="کلیک برای ورود به صفحه و پرونده مالی این شخص"
                             >
                               <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-700 flex items-center justify-center font-bold text-xs shrink-0 group-hover/name:bg-indigo-600 group-hover/name:text-white transition">
-                                {p.name[0]}
+                                {p.name ? p.name[0] : '؟'}
                               </div>
                               <div>
                                 <span className="font-black text-slate-900 block group-hover/name:text-indigo-600 group-hover/name:underline transition">
@@ -4028,13 +4028,15 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       )}
 
       {/* PARTY CARDEX MODAL */}
-      <PartyCardexModal
-        party={selectedPartyForCardex}
-        isOpen={!!selectedPartyForCardex}
-        onClose={() => setSelectedPartyForCardex(null)}
-        onViewInvoice={onViewInvoice}
-        onOpenPaymentModal={onOpenPaymentModal}
-      />
+      {selectedPartyForCardex && (
+        <PartyCardexModal
+          party={selectedPartyForCardex}
+          isOpen={!!selectedPartyForCardex}
+          onClose={() => setSelectedPartyForCardex(null)}
+          onViewInvoice={onViewInvoice}
+          onOpenPaymentModal={onOpenPaymentModal}
+        />
+      )}
 
       {/* PRODUCT CARDEX MODAL */}
       <ProductCardexModal

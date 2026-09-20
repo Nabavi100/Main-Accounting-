@@ -346,7 +346,7 @@ export const PartyCardexModal: React.FC<PartyCardexModalProps> = ({
 
   // Active entries depending on active tab
   const currentEntries = activeTab === 'all'
-    ? allEntries
+    ? (allEntries || [])
     : (entriesByCurrency[activeTab] || []);
 
   // Filter current entries by type, date, search
@@ -360,52 +360,49 @@ export const PartyCardexModal: React.FC<PartyCardexModalProps> = ({
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      return (
-        e.documentNumber.toLowerCase().includes(q) ||
-        e.description.toLowerCase().includes(q) ||
-        e.typeLabel.toLowerCase().includes(q)
-      );
+      const docNum = String(e.documentNumber || '').toLowerCase();
+      const desc = String(e.description || '').toLowerCase();
+      const tLabel = String(e.typeLabel || '').toLowerCase();
+      return docNum.includes(q) || desc.includes(q) || tLabel.includes(q);
     }
     return true;
   });
 
-  // Calculate stats for the active view
-  const activeStats = useMemo(() => {
-    let totalDebit = 0;
-    let totalCredit = 0;
-    let exchangeCount = 0;
-    let exchangeSum = 0;
+  // Calculate stats for the active view (plain object calculation without hooks to strictly respect React Rules of Hooks)
+  let totalDebit = 0;
+  let totalCredit = 0;
+  let exchangeCount = 0;
+  let exchangeSum = 0;
 
-    filteredEntries.forEach(e => {
-      totalDebit += e.debit;
-      totalCredit += e.credit;
-      if (e.isExchange) {
-        exchangeCount += 1;
-        exchangeSum += (e.debit > 0 ? e.debit : e.credit);
-      }
-    });
-
-    let currentBalance = 0;
-    if (activeTab === 'AFN') {
-      currentBalance = party.balanceAFN || 0;
-    } else if (activeTab === 'USD') {
-      currentBalance = party.balanceUSD || 0;
-    } else if (activeTab !== 'all') {
-      // For any other specific currency, use the final running balance from the entries
-      const entries = entriesByCurrency[activeTab] || [];
-      const last = entries[entries.length - 1];
-      currentBalance = last ? -(last.runningBalance || 0) : 0;
+  filteredEntries.forEach(e => {
+    totalDebit += (e.debit || 0);
+    totalCredit += (e.credit || 0);
+    if (e.isExchange) {
+      exchangeCount += 1;
+      exchangeSum += (e.debit > 0 ? e.debit : (e.credit || 0));
     }
+  });
 
-    return {
-      totalDebit,
-      totalCredit,
-      currentBalance,
-      recordCount: filteredEntries.length,
-      exchangeCount,
-      exchangeSum,
-    };
-  }, [filteredEntries, activeTab, party, entriesByCurrency]);
+  let currentBalance = 0;
+  if (activeTab === 'AFN') {
+    currentBalance = party.balanceAFN || 0;
+  } else if (activeTab === 'USD') {
+    currentBalance = party.balanceUSD || 0;
+  } else if (activeTab !== 'all') {
+    // For any other specific currency, use the final running balance from the entries
+    const entries = entriesByCurrency[activeTab] || [];
+    const last = entries[entries.length - 1];
+    currentBalance = last ? -(last.runningBalance || 0) : 0;
+  }
+
+  const activeStats = {
+    totalDebit,
+    totalCredit,
+    currentBalance,
+    recordCount: filteredEntries.length,
+    exchangeCount,
+    exchangeSum,
+  };
 
   const handlePrintStatement = () => {
     const filteredInvs = partyInvoices.filter(i => isDateInRange(i.date, fromDate, toDate));

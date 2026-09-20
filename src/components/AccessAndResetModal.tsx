@@ -89,9 +89,12 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
   const [unlockError, setUnlockError] = useState('');
   const [showUnlockPassword, setShowUnlockPassword] = useState(false);
   const [isChangingProtectionPassword, setIsChangingProtectionPassword] = useState(false);
+  const [currentMasterPasswordInput, setCurrentMasterPasswordInput] = useState('');
   const [newProtectionPassword, setNewProtectionPassword] = useState('');
   const [confirmProtectionPassword, setConfirmProtectionPassword] = useState('');
   const [protectionPasswordError, setProtectionPasswordError] = useState('');
+  const [showCurrentMasterPassword, setShowCurrentMasterPassword] = useState(false);
+  const [showNewProtectionPassword, setShowNewProtectionPassword] = useState(false);
 
   // When modal is opened or protection status changes, lock accordingly
   useEffect(() => {
@@ -126,6 +129,10 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
     setUnlockPasswordInput('');
     setUnlockError('');
     setIsChangingProtectionPassword(false);
+    setCurrentMasterPasswordInput('');
+    setNewProtectionPassword('');
+    setConfirmProtectionPassword('');
+    setProtectionPasswordError('');
     setSaveSuccessMessage('مشخصات شرکت مجدداً با رمز عبور قفل گردید.');
     setTimeout(() => setSaveSuccessMessage(null), 3000);
   };
@@ -161,14 +168,45 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
 
   const handleSaveNewProtectionPassword = (e: React.FormEvent) => {
     e.preventDefault();
+    setProtectionPasswordError('');
+
+    // Step 1: Master authorization check
+    if (!currentMasterPasswordInput.trim()) {
+      setProtectionPasswordError('لطفاً ابتدا رمز عبور اصلی فعلی مدیر را وارد فرمایید.');
+      return;
+    }
+
+    const adminUser = users.find(u => u.role === 'admin');
+    const customPassword = compForm.protectionPassword || companySettings.protectionPassword;
+
+    // Verify against confidential master password or current active password
+    const isAuthorized = verifyProtectionLockPassword(
+      currentMasterPasswordInput,
+      customPassword,
+      adminUser?.password
+    );
+
+    if (!isAuthorized) {
+      setProtectionPasswordError('رمز اصلی وارد شده اشتباه است! تغییر رمز حفاظتی بدون احراز هویت مدیر برنامه امکان‌پذیر نیست.');
+      return;
+    }
+
+    // Step 2: New password validation
     if (!newProtectionPassword.trim()) {
       setProtectionPasswordError('لطفاً رمز عبور جدید را وارد فرمایید.');
       return;
     }
+
+    if (newProtectionPassword.trim().length < 4) {
+      setProtectionPasswordError('رمز عبور جدید باید حداقل ۴ کاراکتر باشد.');
+      return;
+    }
+
     if (newProtectionPassword !== confirmProtectionPassword) {
       setProtectionPasswordError('تکرار رمز عبور جدید با آن همخوانی ندارد.');
       return;
     }
+
     const updated: CompanySettings = {
       ...compForm,
       isProtected: true,
@@ -177,10 +215,11 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
     setCompForm(updated);
     updateCompanySettings(updated);
     setIsChangingProtectionPassword(false);
+    setCurrentMasterPasswordInput('');
     setNewProtectionPassword('');
     setConfirmProtectionPassword('');
     setProtectionPasswordError('');
-    setSaveSuccessMessage('رمز عبور حفاظتی جدید با موفقیت ذخیره شد.');
+    setSaveSuccessMessage('رمز عبور حفاظتی با موفقیت تغییر یافت و ذخیره شد.');
     setTimeout(() => setSaveSuccessMessage(null), 4000);
   };
 

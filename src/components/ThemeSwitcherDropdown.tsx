@@ -34,10 +34,10 @@ export const ThemeSwitcherDropdown: React.FC = () => {
   const themes: { id: AppTheme; name: string; desc: string; color: string; iconBg: string; symbol: string }[] = [
     {
       id: 'sky-glass',
-      name: 'تم شیشه‌ای آسمانی (Sky Glass)',
-      desc: 'دکمه‌های کاملاً شیشه‌ای بلورین با هاله درخشان آبی آسمانی و افکت کریستالی',
-      color: 'bg-sky-500/30 border-sky-400',
-      iconBg: 'bg-sky-500/20 text-sky-300 border border-sky-400/60 shadow-[0_0_12px_rgba(56,189,248,0.5)]',
+      name: 'تم شیشه‌ای بلورین (Sky Glass)',
+      desc: 'تم روشن بلورین و شیشه‌ای با هاله آسمانی، دکمه‌های کریستالی و زمینه پرنور شفاف',
+      color: 'bg-sky-100 border-sky-400',
+      iconBg: 'bg-sky-100 text-sky-700 border border-sky-300 shadow-[0_0_12px_rgba(56,189,248,0.3)]',
       symbol: '💎',
     },
     {
@@ -121,7 +121,7 @@ export const ThemeSwitcherDropdown: React.FC = () => {
         onClick={() => setIsOpen(!isOpen)}
         className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition shadow-xs cursor-pointer ${
           theme === 'sky-glass'
-            ? 'bg-sky-500/20 hover:bg-sky-500/30 border-sky-400/80 text-sky-100 shadow-[0_0_16px_rgba(56,189,248,0.4)] backdrop-blur-md'
+            ? 'bg-sky-50 hover:bg-sky-100 border-sky-300 text-sky-900 shadow-[0_0_12px_rgba(56,189,248,0.25)] backdrop-blur-md'
             : theme === 'gold'
             ? 'bg-gradient-to-r from-amber-500/20 to-amber-600/10 border-amber-400/80 text-amber-950 dark:text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.25)]'
             : theme === 'dark' || theme === 'executive'
@@ -135,7 +135,7 @@ export const ThemeSwitcherDropdown: React.FC = () => {
         title="تغییر تم رنگی برنامه"
       >
         <Palette className={`w-3.5 h-3.5 ${
-          theme === 'sky-glass' ? 'text-sky-300' :
+          theme === 'sky-glass' ? 'text-sky-600' :
           theme === 'gold' ? 'text-amber-500' :
           theme === 'vibrant' ? 'text-emerald-600' :
           theme === 'executive' ? 'text-indigo-400' :
@@ -172,7 +172,7 @@ export const ThemeSwitcherDropdown: React.FC = () => {
                     className={`w-full flex items-center justify-between p-2.5 rounded-xl text-right transition cursor-pointer border ${
                       isSelected
                         ? t.id === 'sky-glass'
-                          ? 'bg-sky-950/60 border-sky-400 text-sky-100 shadow-[0_0_18px_rgba(56,189,248,0.45)] ring-2 ring-sky-400/40 backdrop-blur-md'
+                          ? 'bg-sky-50 border-sky-400 text-sky-950 shadow-[0_0_18px_rgba(56,189,248,0.3)] ring-2 ring-sky-400/40 backdrop-blur-md'
                           : t.id === 'gold'
                           ? 'bg-gradient-to-r from-amber-50 to-amber-100/60 dark:from-amber-950/40 dark:to-stone-900 border-amber-500 shadow-xs ring-2 ring-amber-400/30'
                           : t.id === 'dark'
