@@ -38,6 +38,7 @@ import { PaymentsListView } from './components/PaymentsListView';
 import { TradeOperationsHubView } from './components/TradeOperationsHubView';
 import { ReceiptPaymentHubView } from './components/ReceiptPaymentHubView';
 import { AuditLogView } from './components/AuditLogView';
+import { ComprehensiveJournalView } from './components/ComprehensiveJournalView';
 import { ToastContainer } from './components/ToastContainer';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { LoginScreen } from './components/LoginScreen';
@@ -263,6 +264,14 @@ const MainApp: React.FC = () => {
                 onOpenTransferModal={handleOpenTransferModal}
                 onViewInvoice={handleViewInvoice}
                 onSelectCashAccount={handleSelectCashAccount}
+              />
+            )}
+
+            {/* Comprehensive Journal / روزنامچه جامع رویدادها و تراکنش‌ها */}
+            {activeTab === 'journal' && (
+              <ComprehensiveJournalView
+                onViewInvoice={handleViewInvoice}
+                onOpenPaymentModal={handleOpenPaymentModal}
               />
             )}
 

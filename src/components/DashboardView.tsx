@@ -370,19 +370,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <span>ثبت عاید و هزینه</span>
             </button>
 
-            {/* 5. Emerald Button: روزنامچه (دفتر روزنامه و جورنال حسابداری) */}
+            {/* 5. Blue Button: روزنامچه جامع رویدادها و تراکنش‌ها */}
             <button
               type="button"
               id="dashboard-btn-journal-quick"
               onClick={() => {
-                setActiveTab('reports');
-                setSubFilter('journal');
+                setActiveTab('journal');
+                setSubFilter('all');
               }}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-[#0D9488] hover:bg-[#0F766E] text-white text-xs font-bold rounded-xl transition shadow-2xs cursor-pointer active:scale-95 group"
-              title="مشاهده دفتر روزنامچه و جورنال اسناد دوبل و تراکنش‌ها (Journal)"
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-bold rounded-xl transition shadow-2xs cursor-pointer active:scale-95 group"
+              title="مشاهده روزنامچه جامع رویدادها و تراکنش‌ها"
             >
               <BookOpen className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
-              <span>روزنامچه (جورنال)</span>
+              <span>روزنامچه جامع</span>
             </button>
           </div>
         </div>

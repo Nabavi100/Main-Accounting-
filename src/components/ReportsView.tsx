@@ -7,6 +7,7 @@ import { ProductCardexModal } from './ProductCardexModal';
 import { FixedAssetsView } from './FixedAssetsView';
 import { ShareholdersView } from './ShareholdersView';
 import { GoogleDriveBackupPanel } from './GoogleDriveBackupPanel';
+import { ComprehensiveJournalView } from './ComprehensiveJournalView';
 import {
   FileBarChart,
   Users,
@@ -1351,6 +1352,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   // -------------------------------------------------------------
   const [journalSearchQuery, setJournalSearchQuery] = useState('');
   const [journalTypeFilter, setJournalTypeFilter] = useState<'all' | 'sales' | 'purchases' | 'payments' | 'expenses' | 'exchange'>('all');
+  const [journalDisplayMode, setJournalDisplayMode] = useState<'comprehensive' | 'double_entry'>('comprehensive');
 
   const journalEntries = useMemo(() => {
     const list: {
@@ -4043,8 +4045,39 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       {/* 8. SECTION: JOURNAL ENTRIES / اسناد حسابداری و دفتر روزنامه */}
       {/* ========================================================================= */}
       {activeSection === 'journal' && (
-        <div className="space-y-6">
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between bg-slate-100 p-1 rounded-2xl w-fit">
+            <button
+              type="button"
+              onClick={() => setJournalDisplayMode('comprehensive')}
+              className={`px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer ${
+                journalDisplayMode === 'comprehensive'
+                  ? 'bg-blue-600 text-white shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              روزنامچه جامع رویدادها و تراکنش‌ها (طرح شیک و زنده)
+            </button>
+            <button
+              type="button"
+              onClick={() => setJournalDisplayMode('double_entry')}
+              className={`px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer ${
+                journalDisplayMode === 'double_entry'
+                  ? 'bg-purple-600 text-white shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              اسناد دوبل حسابداری (دفتر روزنامه معین)
+            </button>
+          </div>
+
+          {journalDisplayMode === 'comprehensive' ? (
+            <ComprehensiveJournalView
+              onViewInvoice={onViewInvoice}
+              onOpenPaymentModal={onOpenPaymentModal}
+            />
+          ) : (
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
             <div className="p-4 bg-slate-50/80 border-b border-slate-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <FileText className="w-4 h-4 text-purple-600" />
@@ -4249,6 +4282,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               </div>
             )}
           </div>
+          )}
         </div>
       )}
 

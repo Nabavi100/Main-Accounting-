@@ -28,6 +28,7 @@ import { CompanySealLogo } from './CompanySealLogo';
 
 export type NavTab =
   | 'dashboard'
+  | 'journal'
   | 'definitions'
   | 'transactions'
   | 'invoices'
@@ -241,31 +242,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
           </button>
 
-          {/* دکمه روزنامچه (دفتر روزنامه و جورنال حسابداری) در زیر گزینه یا منوی داشبورد */}
+          {/* دکمه روزنامچه جامع رویدادها و تراکنش‌ها در زیر گزینه داشبورد */}
           <button
             type="button"
             id="sidebar-btn-journal"
-            onClick={() => handleNavigate('reports', 'journal', 'systemReports')}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-xl cursor-pointer transition-all ${
-              activeTab === 'reports' && subFilter === 'journal'
+            onClick={() => handleNavigate('journal', 'all', null)}
+            className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all ${
+              activeTab === 'journal' || (activeTab === 'reports' && subFilter === 'journal')
                 ? theme === 'sky-glass'
-                  ? 'bg-emerald-500/20 text-emerald-950 font-black border border-emerald-400/60 shadow-[0_0_12px_rgba(16,185,129,0.3)]'
+                  ? 'bg-blue-500/20 text-blue-950 font-black border border-blue-400/60 shadow-[0_0_12px_rgba(59,130,246,0.3)]'
                   : theme === 'gold'
                   ? 'bg-amber-500/20 text-amber-300 font-black border border-amber-400/50'
-                  : 'bg-emerald-100 text-emerald-800 font-black shadow-2xs border border-emerald-300'
+                  : 'bg-[#EEF2FF] text-[#2563EB] font-black shadow-2xs border border-blue-200'
                 : theme === 'sky-glass'
-                ? 'bg-white/70 hover:bg-emerald-50/70 text-slate-800 hover:text-emerald-800 font-bold border border-sky-200/60'
+                ? 'bg-white/70 hover:bg-blue-50/70 text-slate-800 hover:text-blue-800 font-bold border border-sky-200/60'
                 : theme === 'gold'
                 ? 'bg-amber-950/20 hover:bg-amber-950/40 text-amber-200 font-medium border border-amber-800/40'
-                : 'bg-emerald-50/70 hover:bg-emerald-100/80 text-emerald-800 font-bold border border-emerald-200/70'
+                : 'bg-[#F4F7FE]/80 hover:bg-[#EEF2FF] text-slate-700 hover:text-[#2563EB] font-bold'
             }`}
-            title="دفتر روزنامچه و جورنال حسابداری (اسناد دوبل، بدهکار و بستانکار)"
+            title="روزنامچه جامع رویدادها، تراکنش‌ها و گردش گدام"
           >
             <div className="flex items-center gap-2.5">
-              <BookOpen className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-              <span className="text-xs font-bold">روزنامچه (دفتر روزنامه)</span>
+              <BookOpen className="w-4 h-4 text-[#2563EB] dark:text-blue-400" />
+              <span className="text-xs font-bold">روزنامچه</span>
             </div>
-            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-bold">
+            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 font-bold">
               Journal
             </span>
           </button>
