@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useAccounting } from '../context/AccountingContext';
-import { PrintableDocumentPayload, InvoiceItem, Invoice, FinancialTransaction, StockTransfer } from '../types';
+import { PrintableDocumentPayload, InvoiceItem, Invoice, FinancialTransaction, StockTransfer, ExpenseItem } from '../types';
 import { formatNumber, formatCurrency, getPersianDate, numberToPersianWords } from '../utils/formatters';
 import { PrintPartyStatement } from './print/PrintPartyStatement';
 import { PrintProductCardex } from './print/PrintProductCardex';
@@ -9,6 +9,7 @@ import { PrintConsignmentDeliverySlip } from './print/PrintConsignmentDeliverySl
 import { PrintInventoryReport } from './print/PrintInventoryReport';
 import { PrintCashExchangeVoucher } from './print/PrintCashExchangeVoucher';
 import { PrintInvoiceDocument } from './print/PrintInvoiceDocument';
+import { PrintExpenseVoucher } from './print/PrintExpenseVoucher';
 import { CompanyStampSeal } from './CompanyStampSeal';
 import { SignatureAndSealModal } from './SignatureAndSealModal';
 import {
@@ -48,7 +49,7 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
   const { companySettings, parties, warehouses, products, stocks } = useAccounting();
 
   // Print layout options
-  const [invoiceLayout, setInvoiceLayout] = useState<'combo_a4' | 'invoice_only' | 'warehouse_only' | 'thermal'>('combo_a4');
+  const [invoiceLayout, setInvoiceLayout] = useState<'combo_a4' | 'invoice_only' | 'warehouse_only' | 'invoice_full' | 'thermal'>('combo_a4');
   const [showWatermark, setShowWatermark] = useState<boolean>(false);
   const [watermarkText, setWatermarkText] = useState<'رسمی' | 'پرداخت شد' | 'تحویل شد' | 'تسویه شده'>(
     'رسمی'
@@ -115,9 +116,68 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
     (document.transferNumber ? (document as unknown as StockTransfer) : undefined) ||
     ((document as any).rawRecord && (document as any).rawRecord.transferNumber ? (document as any).rawRecord as StockTransfer : undefined);
 
+  const expData = document.expense ||
+    (document.expenseNumber ? (document as unknown as ExpenseItem) : undefined) ||
+    ((document as any).rawRecord && ((document as any).rawRecord.expenseNumber || (document as any).rawRecord.recipient) ? (document as any).rawRecord as ExpenseItem : undefined);
+
   const customContent = document.customContent;
 
+  const getSuggestedDocumentFileName = (): string => {
+    const todayStr = getPersianDate().replace(/\//g, '_');
+
+    // 1. Party statement (صورتحساب یا حساب کل مشتری)
+    if (document.type === 'party_statement' || document.party) {
+      const pName = document.party?.name || (document as any).partyName || 'طرف_حساب';
+      return `حساب کل محترم ${pName}_${todayStr}`;
+    }
+
+    // 2. Invoice
+    if (invData) {
+      const typeStr = invData.type === 'buy' ? 'فاکتور خرید' : invData.type === 'return_sell' ? 'فاکتور مرجوعی فروش' : invData.type === 'return_buy' ? 'فاکتور مرجوعی خرید' : 'فاکتور فروش';
+      const pName = invData.partyName ? `_${invData.partyName}` : '';
+      const invNum = invData.invoiceNumber ? `_${invData.invoiceNumber}` : '';
+      const dateStr = (invData.date || getPersianDate()).replace(/\//g, '_');
+      return `${typeStr}${pName}${invNum}_${dateStr}`;
+    }
+
+    // 3. Payment or Transaction receipt
+    if (trxData) {
+      const typeStr = trxData.type === 'receive_payment' ? 'رسید دریافت' : trxData.type === 'make_payment' ? 'رسید پرداخت' : trxData.type === 'currency_exchange' ? 'سند تبادله اسعار' : 'رسید مالی';
+      const pName = trxData.partyName ? `_${trxData.partyName}` : '';
+      const txNum = trxData.transactionNumber ? `_${trxData.transactionNumber}` : '';
+      const dateStr = (trxData.date || getPersianDate()).replace(/\//g, '_');
+      return `${typeStr}${pName}${txNum}_${dateStr}`;
+    }
+
+    // 4. Expense
+    if (expData) {
+      const expNum = expData.expenseNumber ? `_${expData.expenseNumber}` : '';
+      const titleStr = expData.title ? `_${expData.title}` : '';
+      const dateStr = (expData.date || getPersianDate()).replace(/\//g, '_');
+      return `سند هزینه${titleStr}${expNum}_${dateStr}`;
+    }
+
+    // 5. Stock transfer
+    if (trfData) {
+      const trfNum = trfData.transferNumber ? `_${trfData.transferNumber}` : '';
+      const dateStr = (trfData.date || getPersianDate()).replace(/\//g, '_');
+      return `سند انتقال انبار${trfNum}_${dateStr}`;
+    }
+
+    // 6. Custom or general report
+    if (document.title) {
+      const cleanTitle = document.title.replace(/[/\\:*?"<>|]/g, '_');
+      return `${cleanTitle}_${todayStr}`;
+    }
+
+    return `سند مالی_${todayStr}`;
+  };
+
   const handlePrint = () => {
+    const filename = getSuggestedDocumentFileName();
+    const originalTitle = window.document.title;
+    window.document.title = filename;
+
     // Reset scroll to top before printing to avoid offset clipping
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = 0;
@@ -125,7 +185,10 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
     window.scrollTo(0, 0);
     setTimeout(() => {
       window.print();
-    }, 50);
+      setTimeout(() => {
+        window.document.title = originalTitle;
+      }, 1500);
+    }, 100);
   };
 
   const handleSavePdf = () => {
@@ -206,10 +269,10 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
                       ? 'bg-blue-600 text-white shadow-xs'
                       : 'text-slate-300 hover:bg-slate-700'
                   }`}
-                  title="فاکتور رسمی ۲/۳ بالا + خط‌چین + حواله گدام ۱/۳ پایین (تک‌برگ A4)"
+                  title="چاپ فاکتور و فرم خروجی انبار در کاغذ A4 - هر کدام یک‌سوم صفحه داخل کادر بدون بیرون‌زدگی"
                 >
                   <Layers className="w-3.5 h-3.5" />
-                  <span>A4 ترکیبی (کامل)</span>
+                  <span>A4 فاکتور + خروجی انبار (۱/۳ + ۱/۳)</span>
                 </button>
 
                 <button
@@ -220,10 +283,10 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
                       ? 'bg-blue-600 text-white shadow-xs'
                       : 'text-slate-300 hover:bg-slate-700'
                   }`}
-                  title="فقط فاکتور رسمی تمام‌صفحه"
+                  title="چاپ تنها خود فاکتور به صورت فشرده یک سوم صفحه A4"
                 >
                   <FileText className="w-3.5 h-3.5" />
-                  <span>فقط فاکتور</span>
+                  <span>تنها فاکتور (۱/۳)</span>
                 </button>
 
                 <button
@@ -234,10 +297,24 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
                       ? 'bg-blue-600 text-white shadow-xs'
                       : 'text-slate-300 hover:bg-slate-700'
                   }`}
-                  title="فقط حواله خروجی گدام و راننده"
+                  title="چاپ تنها فرم خروجی انبار به صورت فشرده یک سوم صفحه A4"
                 >
                   <Truck className="w-3.5 h-3.5" />
-                  <span>فقط حواله انبار</span>
+                  <span>تنها خروجی انبار (۱/۳)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setInvoiceLayout('invoice_full')}
+                  className={`px-2.5 py-1.5 rounded-lg font-bold transition flex items-center gap-1 cursor-pointer ${
+                    invoiceLayout === 'invoice_full'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-slate-300 hover:bg-slate-700'
+                  }`}
+                  title="چاپ فاکتور رسمی به صورت تمام صفحه A4"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>فاکتور تمام‌صفحه</span>
                 </button>
 
                 <button
@@ -448,9 +525,18 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
           )}
 
           {/* 5. CASH TRANSFER / CURRENCY EXCHANGE VOUCHER */}
-          {(document.type === 'cash_transfer_voucher' || document.type === 'currency_exchange' || (trxData && (trxData.isExchange || trxData.type === 'currency_exchange' || trxData.fromCashRegister))) && trxData && (
+          {(document.type === 'cash_transfer_voucher' || (document.type === 'currency_exchange' && !trxData?.partyId) || (trxData && (trxData.type === 'currency_exchange' || trxData.type === 'cash_transfer') && !trxData.partyId)) && trxData && (
             <PrintCashExchangeVoucher
               transaction={trxData}
+              companySettings={companySettings}
+              showSignatures={showSignatures}
+            />
+          )}
+
+          {/* 6. EXPENSE VOUCHER */}
+          {(document.type === 'expense_voucher' || (!invData && !trxData && !trfData && !customContent && expData)) && expData && (
+            <PrintExpenseVoucher
+              expense={expData}
               companySettings={companySettings}
               showSignatures={showSignatures}
             />
@@ -563,7 +649,7 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
           {/* ========================================================================= */}
           {/* 2. PAYMENT & TRANSACTION RECEIPT                                          */}
           {/* ========================================================================= */}
-          {!customContent && !invData && trxData && !trxData.isExchange && trxData.type !== 'currency_exchange' && !trxData.fromCashRegister && document.type !== 'cash_transfer_voucher' && document.type !== 'currency_exchange' && document.type !== 'party_statement' && document.type !== 'product_cardex' && document.type !== 'customer_consignment_cardex' && document.type !== 'products_inventory_report' && (() => {
+          {!customContent && !invData && !expData && trxData && document.type !== 'cash_transfer_voucher' && (document.type !== 'currency_exchange' || !!trxData.partyId) && document.type !== 'party_statement' && document.type !== 'product_cardex' && document.type !== 'customer_consignment_cardex' && document.type !== 'products_inventory_report' && (() => {
             const trx = trxData;
             const isReceive = trx.type === 'receive_payment';
             const themeBorder = isReceive ? 'border-emerald-600' : 'border-rose-600';

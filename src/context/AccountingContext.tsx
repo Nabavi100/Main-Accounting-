@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
 import {
   Product,
   ProductCategory,
@@ -101,7 +101,7 @@ interface AccountingContextType {
   expenses: ExpenseItem[];
   expenseCategories: ExpenseCategory[];
   expenseDefinitions: ExpenseDefinition[];
-  createExpense: (expense: Omit<ExpenseItem, 'id' | 'createdAt' | 'expenseNumber'>) => ExpenseItem;
+  createExpense: (expense: Omit<ExpenseItem, 'id' | 'createdAt' | 'expenseNumber'> & { expenseNumber?: string }) => ExpenseItem;
   updateExpense: (id: string, expense: Partial<ExpenseItem>) => void;
   deleteExpense: (id: string) => void;
   addExpenseCategory: (category: Omit<ExpenseCategory, 'id' | 'createdAt'>) => ExpenseCategory;
@@ -867,6 +867,12 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   // ================= AUTOMATIC SEQUENTIAL DOCUMENT NUMBER GENERATORS =================
+  const issuedInvoiceNumbersRef = useRef<Record<string, number>>({});
+  const issuedTransactionNumbersRef = useRef<Record<string, number>>({});
+  const issuedExpenseNumbersRef = useRef<number>(0);
+  const issuedPartyCodeRef = useRef<number>(0);
+  const issuedTransferNumbersRef = useRef<number>(0);
+
   // 1. Invoices (Sales: INV-001 | Purchases: PUR-001 | Return Sales: SRT-001 | Return Purchases: PRT-001)
   const getNextInvoiceNumber = (type: InvoiceType): string => {
     try {
@@ -897,7 +903,8 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
       });
 
-      const nextVal = maxSequence + 1;
+      const nextVal = Math.max(maxSequence, issuedInvoiceNumbersRef.current[type] || 0) + 1;
+      issuedInvoiceNumbersRef.current[type] = nextVal;
       return `${prefix}-${String(nextVal).padStart(3, '0')}`;
     } catch (err) {
       console.error('Error generating next invoice number:', err);
@@ -937,7 +944,8 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
       });
 
-      const nextVal = maxSequence + 1;
+      const nextVal = Math.max(maxSequence, issuedTransactionNumbersRef.current[type] || 0) + 1;
+      issuedTransactionNumbersRef.current[type] = nextVal;
       return `${prefix}-${String(nextVal).padStart(3, '0')}`;
     } catch (err) {
       console.error('Error generating transaction number:', err);
@@ -993,7 +1001,9 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           }
         }
       });
-      return String(maxVal > 0 ? maxVal + 1 : 101);
+      const nextVal = Math.max(maxVal, issuedPartyCodeRef.current, 100) + 1;
+      issuedPartyCodeRef.current = nextVal;
+      return String(nextVal);
     } catch (err) {
       console.error('Error generating party code:', err);
       return '101';
@@ -1026,7 +1036,8 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
       });
 
-      const nextVal = maxSequence + 1;
+      const nextVal = Math.max(maxSequence, issuedTransferNumbersRef.current || 0) + 1;
+      issuedTransferNumbersRef.current = nextVal;
       return `${prefix}-${String(nextVal).padStart(3, '0')}`;
     } catch (err) {
       console.error('Error generating transfer number:', err);
@@ -1060,7 +1071,8 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         }
       });
 
-      const nextVal = maxSequence + 1;
+      const nextVal = Math.max(maxSequence, issuedExpenseNumbersRef.current || 0) + 1;
+      issuedExpenseNumbersRef.current = nextVal;
       return `${prefix}-${String(nextVal).padStart(3, '0')}`;
     } catch (err) {
       console.error('Error generating expense number:', err);
@@ -2770,16 +2782,35 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setExpenseDefinitions(prev => prev.filter(d => d.id !== id));
   };
 
-  const createExpense = (expData: Omit<ExpenseItem, 'id' | 'createdAt' | 'expenseNumber'>): ExpenseItem => {
+  const createExpense = (expData: Omit<ExpenseItem, 'id' | 'createdAt' | 'expenseNumber'> & { expenseNumber?: string }): ExpenseItem => {
+    const resolvedExpNumber = (expData.expenseNumber || '').trim() || getNextExpenseNumber();
+
+    // Prevent duplicate document creation on repeated submit clicks
+    const existingSameExpense = expenses.find(
+      e => e.expenseNumber && e.expenseNumber.trim() === resolvedExpNumber
+    );
+    if (existingSameExpense) {
+      updateExpense(existingSameExpense.id, {
+        ...expData,
+        expenseNumber: resolvedExpNumber,
+      });
+      return existingSameExpense;
+    }
+
+    const numMatch = resolvedExpNumber.match(/(?:Exp|EXP)?[-_]?(\d+)$/i);
+    if (numMatch) {
+      const val = parseInt(numMatch[1], 10);
+      if (!isNaN(val)) issuedExpenseNumbersRef.current = Math.max(issuedExpenseNumbersRef.current, val);
+    }
+
     const newId = 'exp-' + Date.now();
-    const expNum = getNextExpenseNumber();
     const cat = expenseCategories.find(c => c.id === expData.categoryId);
     const cashAcc = cashAccounts.find(a => a.id === expData.cashRegisterId);
 
     const newExp: ExpenseItem = {
       ...expData,
       id: newId,
-      expenseNumber: expNum,
+      expenseNumber: resolvedExpNumber,
       categoryName: expData.categoryName || cat?.name || 'مصارف عمومی',
       cashRegisterName: cashAcc?.name || (expData.cashRegisterId === 'usd_cash' ? 'صندوق شرکت دالری' : 'صندوق پولی افغانی'),
       createdAt: new Date().toISOString(),
@@ -3154,7 +3185,14 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       const grp = partyGroups.find(g => g.id === partyData.groupId);
       if (grp) resolvedGroupName = grp.name;
     }
-    const resolvedCode = partyData.code && partyData.code.trim() ? partyData.code.trim() : getNextPartyCode();
+    const requestedCode = (partyData.code || '').trim();
+    // Prevent duplicate party codes: if code is empty or already taken by an existing party, auto-advance to next sequential code
+    const isCodeTaken = requestedCode ? parties.some(p => p.code && p.code.trim() === requestedCode) : false;
+    const resolvedCode = requestedCode && !isCodeTaken ? requestedCode : getNextPartyCode();
+    const numVal = parseInt(resolvedCode.replace(/\D/g, ''), 10);
+    if (!isNaN(numVal)) {
+      issuedPartyCodeRef.current = Math.max(issuedPartyCodeRef.current, numVal);
+    }
     const newParty: Party = {
       ...partyData,
       code: resolvedCode,

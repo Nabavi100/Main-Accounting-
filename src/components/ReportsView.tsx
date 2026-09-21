@@ -4206,6 +4206,24 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                               </button>
                             )}
 
+                            {/* 2.5 Print Expense Voucher if available */}
+                            {j.relatedExpense && (
+                              <button
+                                type="button"
+                                title="چاپ سند مصارف و هزینه"
+                                onClick={() => {
+                                  openPrintModal({
+                                    type: 'expense_voucher',
+                                    expense: j.relatedExpense,
+                                  });
+                                }}
+                                className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[11px] font-bold transition flex items-center gap-1 cursor-pointer shadow-2xs"
+                              >
+                                <Printer className="w-3 h-3" />
+                                <span>سند مصارف</span>
+                              </button>
+                            )}
+
                             {/* 3. Print Complete Double Entry Accounting Voucher (with itemized breakdown) */}
                             <button
                               type="button"

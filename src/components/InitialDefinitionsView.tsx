@@ -241,8 +241,9 @@ export const InitialDefinitionsView: React.FC<InitialDefinitionsViewProps> = ({
       handleCancelEdit();
     } else {
       // Create new
-      addParty({
-        code: code.trim() || getNextPartyCode(),
+      const codeToSend = code.trim() || getNextPartyCode();
+      const created = addParty({
+        code: codeToSend,
         name: name.trim(),
         phone: phone.trim(),
         type: 'customer',
@@ -255,10 +256,10 @@ export const InitialDefinitionsView: React.FC<InitialDefinitionsViewProps> = ({
         initialBalanceAFN: finalAfn,
         balanceAFN: finalAfn,
       });
-      setFormSuccess('طرف‌حساب جدید با موفقیت ثبت گردید');
+      setFormSuccess(`طرف‌حساب جدید با کد ${created.code} با موفقیت ثبت گردید`);
       setTimeout(() => setFormSuccess(''), 3000);
 
-      // Reset form
+      // Reset form and immediately fetch next party code
       setName('');
       setPhone('');
       setAddress('');
@@ -363,13 +364,10 @@ export const InitialDefinitionsView: React.FC<InitialDefinitionsViewProps> = ({
                 <th className="border border-slate-300 p-2 text-center">شماره تماس</th>
                 <th className="border border-slate-300 p-2 text-center">مانده دلاری (USD)</th>
                 <th className="border border-slate-300 p-2 text-center">مانده افغانی (AFN)</th>
-                <th className="border border-slate-300 p-2 text-center">معادل کل (دلار)</th>
               </tr>
             </thead>
             <tbody>
               {filteredParties.map((p, idx) => {
-                const totalUsdEquivalent =
-                  (p.balanceUSD || 0) + (p.balanceAFN || 0) / (cashRegister.usdToAfnRate || 65);
                 return (
                   <tr key={p.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
                     <td className="border border-slate-300 p-2 text-center font-bold text-blue-600">
@@ -396,19 +394,6 @@ export const InitialDefinitionsView: React.FC<InitialDefinitionsViewProps> = ({
                         </span>
                       ) : (
                         '-'
-                      )}
-                    </td>
-                    <td className="border border-slate-300 p-2 text-center font-mono font-bold">
-                      {totalUsdEquivalent < -0.01 ? (
-                        <span className="text-red-600">
-                          {formatNumber(Math.abs(totalUsdEquivalent))} بدهکار
-                        </span>
-                      ) : totalUsdEquivalent > 0.01 ? (
-                        <span className="text-emerald-600">
-                          {formatNumber(totalUsdEquivalent)} طلبکار
-                        </span>
-                      ) : (
-                        '0.00'
                       )}
                     </td>
                   </tr>
@@ -1053,14 +1038,13 @@ export const InitialDefinitionsView: React.FC<InitialDefinitionsViewProps> = ({
                       <th className="py-2.5 px-3 text-center min-w-[110px]">شماره تماس</th>
                       <th className="py-2.5 px-3 text-center min-w-[110px]">مانده (USD)</th>
                       <th className="py-2.5 px-3 text-center min-w-[110px]">مانده (AFN)</th>
-                      <th className="py-2.5 px-3 text-center min-w-[120px]">معادل کل (دلار)</th>
                       <th className="py-2.5 px-3 text-center min-w-[130px]">عملیات</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-sans">
                     {filteredParties.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="py-12 text-center text-slate-400">
+                        <td colSpan={7} className="py-12 text-center text-slate-400">
                           هیچ طرف‌حسابی با فیلترهای انتخابی یافت نشد
                         </td>
                       </tr>
@@ -1068,8 +1052,6 @@ export const InitialDefinitionsView: React.FC<InitialDefinitionsViewProps> = ({
                       filteredParties.map(party => {
                         const usdBalance = party.balanceUSD || 0;
                         const afnBalance = party.balanceAFN || 0;
-                        const rate = cashRegister.usdToAfnRate || 65;
-                        const totalUsdEquiv = usdBalance + afnBalance / rate;
 
                         return (
                           <tr
@@ -1155,30 +1137,6 @@ export const InitialDefinitionsView: React.FC<InitialDefinitionsViewProps> = ({
                                 </div>
                               ) : (
                                 <span className="text-slate-400">—</span>
-                              )}
-                            </td>
-
-                            {/* معادل کل (دلار) */}
-                            <td className="py-2.5 px-3 text-center font-mono">
-                              {Math.abs(totalUsdEquiv) > 0.01 ? (
-                                <div>
-                                  <span
-                                    className={`font-bold block ${
-                                      totalUsdEquiv < 0 ? 'text-rose-600' : 'text-emerald-600'
-                                    }`}
-                                  >
-                                    {formatNumber(Math.abs(totalUsdEquiv))}
-                                  </span>
-                                  <span
-                                    className={`text-[9px] font-bold block ${
-                                      totalUsdEquiv < 0 ? 'text-rose-500' : 'text-emerald-500'
-                                    }`}
-                                  >
-                                    {totalUsdEquiv < 0 ? 'بدهکار(دلار)' : 'طلبکار(دلار)'}
-                                  </span>
-                                </div>
-                              ) : (
-                                <span className="text-slate-500 font-bold">0.00</span>
                               )}
                             </td>
 

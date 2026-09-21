@@ -481,6 +481,8 @@ export type PrintableDocumentType =
   | 'journal_voucher'   // سند حسابداری دوبل استاندارد
   | 'financial_report'  // گزارشات مالی و کاردکس صندوق
   | 'consignment_delivery_slip' // سند خروجی و رسید تحویل کالای امانی
+  | 'expense_voucher'   // قبض و سند رسمی مصارف و هزینه‌ها
+  | 'expense'
   | 'transaction'
   | 'receipt'
   | 'payment'
@@ -520,6 +522,7 @@ export interface PrintableDocumentPayload {
   invoice?: Invoice;
   transaction?: FinancialTransaction;
   income?: IncomeItem;
+  expense?: ExpenseItem;
   stockTransfer?: StockTransfer;
   consignmentDelivery?: ConsignmentMovement;
   party?: Party;
