@@ -134,125 +134,129 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
   };
 
   // =========================================================================
-  // 1/3 PAGE INVOICE (تنها خود فاکتور - یک سوم صفحه A4 بدون بیرون‌زدگی)
+  // 2/3 PAGE INVOICE (فاکتور رسمی - دو سوم صفحه A4 بدون بیرون‌زدگی)
   // =========================================================================
-  const renderOneThirdInvoice = () => {
-    const invoiceRows: (InvoiceItem | null)[] = items.length <= 1 ? [items[0] || null, null] : [...items];
+  const renderTwoThirdsInvoice = () => {
+    const rowCount = Math.max(4, items.length);
+    const invoiceRows: (InvoiceItem | null)[] = [];
+    for (let i = 0; i < rowCount; i++) {
+      invoiceRows.push(items[i] || null);
+    }
 
     return (
-      <div className="invoice-print-frame one-third-a4-box border-1.5 border-slate-900 rounded-lg p-2 bg-white box-border w-full shadow-2xs space-y-1.5 text-[9.5px] leading-tight">
+      <div className="invoice-print-frame two-thirds-a4-box border-1.5 border-slate-900 rounded-xl p-2.5 sm:p-3 bg-white box-border w-full shadow-2xs space-y-1.5 text-[9.5px] leading-tight" dir="rtl">
         {/* Header */}
-        <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-1">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-1.5">
+          <div className="flex items-center gap-2.5">
             {companySettings.logoUrl ? (
               <img
                 src={companySettings.logoUrl}
                 alt={companySettings.name}
-                className="w-8 h-8 object-contain rounded bg-white border border-slate-300 p-0.5"
+                className="w-10 h-10 object-contain rounded-lg bg-white border border-slate-300 p-0.5"
               />
             ) : (
-              <div className="w-8 h-8 rounded bg-slate-900 text-white flex items-center justify-center font-black text-xs shadow-xs">
+              <div className="w-10 h-10 rounded-lg bg-slate-900 text-white flex items-center justify-center font-black text-sm shadow-xs">
                 {companySettings.logoIconText || 'نبوی'}
               </div>
             )}
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-xs sm:text-sm font-black text-slate-900 tracking-tight">
+                <h1 className="text-sm sm:text-base font-black text-slate-900 tracking-tight">
                   {companySettings.name || 'شرکت تجارتی برادران نبوی'}
                 </h1>
-                <span className="text-[8px] text-slate-500 font-medium">
+                <span className="text-[8.5px] text-slate-500 font-medium">
                   {companySettings.tagline || 'عرضه عمده سیمان، گچ و مصالح ساختمانی'}
                 </span>
               </div>
-              <div className="flex flex-wrap items-center gap-x-2 text-[8px] text-slate-600 mt-0.5">
+              <div className="flex flex-wrap items-center gap-x-3 text-[8.5px] text-slate-600 mt-0.5">
                 <span className="font-mono flex items-center gap-0.5">
-                  <Phone className="w-2 h-2 text-slate-500" />
-                  <span>{companySettings.phone || '۰۷۹۹۱۱۱۱۱'}</span>
+                  <Phone className="w-2.5 h-2.5 text-slate-500" />
+                  <span>تلفن: {companySettings.phone || '۰۷۹۹۱۱۱۱۱'}</span>
                   {companySettings.phoneSecondary && <span> / {companySettings.phoneSecondary}</span>}
                 </span>
                 {companySettings.address && (
                   <span className="flex items-center gap-0.5">
-                    <MapPin className="w-2 h-2 text-slate-500" />
-                    <span>{companySettings.address}</span>
+                    <MapPin className="w-2.5 h-2.5 text-slate-500" />
+                    <span>آدرس: {companySettings.address}</span>
                   </span>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Meta */}
+          {/* Meta Information */}
           <div className="text-left font-mono shrink-0 flex flex-col items-end">
             <div className="flex items-center gap-1.5">
-              <span className={`text-[9px] font-black px-2 py-0.5 rounded ${themeBadge}`}>
+              <span className={`text-[9.5px] font-black px-2 py-0.5 rounded-lg ${themeBadge}`}>
                 {isReturnSell
                   ? 'فاکتور برگشت از فروش'
                   : isReturnBuy
                   ? 'فاکتور برگشت از خرید'
                   : isSale
-                  ? 'فاکتور رسمی فروش'
-                  : 'فاکتور رسمی خرید'}
+                  ? 'فاکتور رسمی فروش کالا'
+                  : 'فاکتور رسمی خرید کالا'}
               </span>
-              <span className="text-xs font-black text-slate-900">
+              <span className="text-xs sm:text-sm font-black text-slate-900">
                 #{inv.invoiceNumber}
               </span>
             </div>
             <div className="text-[8.5px] text-slate-600 font-sans mt-0.5 flex items-center gap-1.5">
-              <span>تاریخ: <strong className="font-mono">{inv.date}</strong></span>
-              <span>({issueTime})</span>
+              <span>تاریخ: <strong className="font-mono text-slate-900">{inv.date}</strong></span>
+              <span>ساعت: <strong className="font-mono text-slate-900">{issueTime}</strong></span>
               {isFullySettled && (
-                <span className="text-[8px] font-black text-emerald-800 bg-emerald-100 px-1 py-0.2 rounded border border-emerald-300">
-                  تسویه نقدی
+                <span className="text-[8px] font-black text-emerald-800 bg-emerald-100 px-1.5 py-0.2 rounded border border-emerald-300">
+                  ✓ تسویه نقدی
                 </span>
               )}
             </div>
           </div>
         </div>
 
-        {/* Customer & Logistics Bar (Single Sleek Row) */}
-        <div className="grid grid-cols-4 gap-1.5 p-1 rounded bg-slate-50 border border-slate-300 text-[8.5px]">
+        {/* Customer & Transaction Profile Grid */}
+        <div className="grid grid-cols-4 gap-1.5 p-1.5 rounded-lg bg-slate-50 border border-slate-300 text-[9px]">
           <div className="truncate">
-            <span className="text-slate-500 block text-[7.5px] font-bold">طرف حساب:</span>
-            <strong className="text-slate-900 font-bold truncate block">{inv.partyName || 'مشتری متفرقه'}</strong>
+            <span className="text-slate-500 block text-[7.5px] font-bold">طرف حساب / خریدار:</span>
+            <strong className="text-slate-900 font-black text-[10.5px] truncate block">{inv.partyName || 'مشتری متفرقه (نقدی)'}</strong>
           </div>
           <div>
-            <span className="text-slate-500 block text-[7.5px] font-bold">شماره تماس:</span>
+            <span className="text-slate-500 block text-[7.5px] font-bold">شماره تماس مشتری:</span>
             <span className="font-mono font-bold text-slate-800">{partyPhone}</span>
           </div>
           <div>
-            <span className="text-slate-500 block text-[7.5px] font-bold">واحد ارزی و تسویه:</span>
-            <span className="font-bold text-slate-800 truncate block">
+            <span className="text-slate-500 block text-[7.5px] font-bold">واحد ارزی و نحوه تسویه:</span>
+            <span className="font-bold text-slate-900 truncate block">
               {currencyName} ({inv.dealTypeLabel || inv.dealType || 'نقدی'})
             </span>
           </div>
           <div className="truncate">
             <span className="text-slate-500 block text-[7.5px] font-bold">
-              {inv.driverName ? 'موتروان / پلاک:' : 'آدرس / گدام:'}
+              {inv.driverName ? 'موتروان و بارگیری:' : 'گدام و مقصد بار:'}
             </span>
             <span className="text-slate-800 truncate block font-medium">
               {inv.driverName
                 ? `${inv.driverName} ${inv.carPlate ? `(${inv.carPlate})` : ''}`
-                : `${partyAddress} • ${getWarehouseName(inv.warehouseId)}`}
+                : `${getWarehouseName(inv.warehouseId)} • ${partyAddress || 'تحویل درب انبار'}`}
             </span>
           </div>
         </div>
 
-        {/* Table of Items */}
-        <div className="border border-slate-800 rounded overflow-hidden bg-white">
-          <table className="w-full text-right border-collapse text-[8.5px] table-fixed">
+        {/* Table of Items (Proportional to 2/3 page) */}
+        <div className="border border-slate-800 rounded-lg overflow-hidden bg-white">
+          <table className="w-full text-right border-collapse text-[9px] table-fixed">
             <colgroup>
               <col className="w-[4%]" />
-              <col className="w-[32%]" />
+              <col className="w-[33%]" />
               <col className="w-[10%]" />
-              <col className="w-[8%]" />
+              <col className="w-[7%]" />
               <col className="w-[14%]" />
               <col className="w-[11%]" />
               <col className="w-[11%]" />
               <col className="w-[10%]" />
             </colgroup>
             <thead>
-              <tr className={`${themeTableHead} font-bold border-b border-slate-800`}>
+              <tr className={`${themeTableHead} font-bold border-b border-slate-800 h-5.5`}>
                 <th className="py-0.5 px-1 border-l border-slate-300 text-center">#</th>
-                <th className="py-0.5 px-1.5 border-l border-slate-300 text-right">نام جنس و کالا</th>
+                <th className="py-0.5 px-1.5 border-l border-slate-300 text-right">نام جنس و مشخصات کالا</th>
                 <th className="py-0.5 px-1 border-l border-slate-300 text-center">مقدار</th>
                 <th className="py-0.5 px-1 border-l border-slate-300 text-center">واحد</th>
                 <th className="py-0.5 px-1 border-l border-slate-300 text-center">معادل (تن/کیسه)</th>
@@ -265,7 +269,7 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
               {invoiceRows.map((it, idx) => {
                 if (!it) {
                   return (
-                    <tr key={`inv-empty-${idx}`} className="border-b border-slate-200 h-4.5">
+                    <tr key={`inv-empty-${idx}`} className="border-b border-slate-200 h-5.5">
                       <td className="py-0.5 px-1 border-l border-slate-200 text-center font-mono text-slate-300">{idx + 1}</td>
                       <td className="py-0.5 px-1.5 border-l border-slate-200"></td>
                       <td className="py-0.5 px-1 border-l border-slate-200"></td>
@@ -278,14 +282,14 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
                   );
                 }
                 return (
-                  <tr key={`inv-it-${idx}`} className="border-b border-slate-200 hover:bg-slate-50 font-bold h-5">
+                  <tr key={`inv-it-${idx}`} className="border-b border-slate-200 hover:bg-slate-50 font-bold h-6">
                     <td className="py-0.5 px-1 border-l border-slate-200 text-center font-mono text-slate-500">{idx + 1}</td>
-                    <td className="py-0.5 px-1.5 border-l border-slate-200 text-slate-900 font-bold truncate" title={it.productName}>{it.productName}</td>
+                    <td className="py-0.5 px-1.5 border-l border-slate-200 text-slate-900 font-black truncate" title={it.productName}>{it.productName}</td>
                     <td className="py-0.5 px-1 border-l border-slate-200 text-center font-mono font-black text-slate-900">
                       {formatNumber(it.quantity)}
                     </td>
                     <td className="py-0.5 px-1 border-l border-slate-200 text-center text-slate-600">{it.unit || 'عدد'}</td>
-                    <td className="py-0.5 px-1 border-l border-slate-200 text-center font-mono text-slate-600 text-[8px]">
+                    <td className="py-0.5 px-1 border-l border-slate-200 text-center font-mono text-slate-600 text-[8.5px]">
                       {it.tonsCount ? `${formatNumber(it.tonsCount)} تن` : ''}
                       {it.tonsCount && it.bagsCount ? ' / ' : ''}
                       {it.bagsCount ? `${formatNumber(it.bagsCount)} کیسه` : (!it.tonsCount ? '---' : '')}
@@ -293,7 +297,7 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
                     <td className="py-0.5 px-1 border-l border-slate-200 text-center font-mono text-slate-700">
                       {formatNumber(it.unitPrice)}
                     </td>
-                    <td className="py-0.5 px-1 border-l border-slate-200 text-left font-mono font-black text-slate-900">
+                    <td className="py-0.5 px-1 border-l border-slate-200 text-left font-mono font-black text-slate-950">
                       {formatNumber(it.totalPrice)}
                     </td>
                     <td className="py-0.5 px-1 text-center text-slate-600 text-[8px] truncate">
@@ -304,15 +308,15 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
               })}
             </tbody>
             <tfoot>
-              <tr className="bg-slate-100 font-bold text-slate-900 border-t border-slate-800 h-4.5">
+              <tr className="bg-slate-100 font-bold text-slate-900 border-t border-slate-800 h-5.5">
                 <td colSpan={4} className="py-0.5 px-1.5 text-left border-l border-slate-300 font-black">
-                  مجموع تناژ و کیسه:
+                  مجموع تناژ و خریطه (کیسه):
                 </td>
-                <td className="py-0.5 px-1 text-center border-l border-slate-300 font-mono text-slate-900 font-black text-[8px]">
+                <td className="py-0.5 px-1 text-center border-l border-slate-300 font-mono text-slate-950 font-black text-[8.5px]">
                   {formatNumber(totalTons)} تن / {formatNumber(totalBags)} کیسه
                 </td>
-                <td className="py-0.5 px-1 text-center border-l border-slate-300 text-slate-600">جمع:</td>
-                <td className="py-0.5 px-1 text-left border-l border-slate-300 font-mono font-black">
+                <td className="py-0.5 px-1 text-center border-l border-slate-300 text-slate-600">جمع کل:</td>
+                <td className="py-0.5 px-1 text-left border-l border-slate-300 font-mono font-black text-[10px]">
                   {formatNumber(subtotalVal)}
                 </td>
                 <td className="py-0.5 px-1 text-center text-slate-500 font-mono">{inv.currency}</td>
@@ -321,64 +325,102 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
           </table>
         </div>
 
-        {/* Financial Summary & Notes (Single Tight Grid) */}
-        <div className="grid grid-cols-2 gap-1.5 text-[8px] border border-slate-300 rounded p-1 bg-slate-50/50">
-          <div className="flex flex-col justify-between pr-0.5 border-l border-slate-300">
-            <div className="text-blue-950 font-bold leading-tight">
-              <span className="text-slate-500">به حروف: </span>{totalAmountInWords}
+        {/* Financial Breakdown & Terms/Notes (2 Columns) */}
+        <div className="grid grid-cols-2 gap-2 text-[8.5px]">
+          {/* Left Column: Conditions, Notes, & Words */}
+          <div className="flex flex-col justify-between border border-slate-300 rounded-lg p-1.5 bg-slate-50/70 space-y-1">
+            <div>
+              <div className="font-bold text-slate-800 text-[8.5px] mb-0.5 flex items-center gap-1">
+                <FileCheck className="w-3 h-3 text-blue-700" />
+                <span>ملاحظات و شرایط تحویل کالا:</span>
+              </div>
+              <p className="text-slate-600 leading-tight text-[8px]">
+                {inv.notes || 'اجناس فوق به صورت صحیح و سالم تحویل خریدار گردید. ادعای هرگونه نقص پس از بارگیری پذیرفته نمی‌شود.'}
+              </p>
             </div>
-            <div className="text-slate-600 truncate mt-0.5 text-[7.5px]">
-              {inv.notes || 'کالای فوق صحیح و سالم تحویل خریدار گردید.'}
+            <div className="pt-1 border-t border-slate-200">
+              <div className="text-blue-950 font-black text-[8.5px] leading-tight">
+                <span className="text-slate-500 font-medium">مبلغ کل به حروف: </span>
+                {totalAmountInWords}
+              </div>
+              <div className="text-[7.5px] text-slate-500 mt-0.5 flex justify-between">
+                <span>محل بارگیری: {getWarehouseName(inv.warehouseId)}</span>
+                <span>مقصد: {partyAddress || 'درب انبار'}</span>
+              </div>
             </div>
           </div>
 
-          <div className="space-y-0.5 pl-0.5">
-            <div className="flex items-center justify-between text-[9px] font-black text-slate-900 border-b border-slate-300 pb-0.5">
-              <span>مبلغ کل فاکتور:</span>
+          {/* Right Column: Complete Financial Settlement Card */}
+          <div className="border border-slate-800 rounded-lg p-1.5 bg-white space-y-0.5">
+            <div className="flex items-center justify-between text-slate-700 pb-0.5 border-b border-slate-200 text-[8px]">
+              <span>جمع اولیه اقلام:</span>
+              <span className="font-mono font-bold text-slate-900">{formatCurrency(subtotalVal, inv.currency)}</span>
+            </div>
+
+            {discountVal > 0 && (
+              <div className="flex items-center justify-between text-rose-700 pb-0.5 border-b border-slate-200 text-[8px]">
+                <span className="font-bold">تخفیف ویژه:</span>
+                <span className="font-mono font-black">- {formatCurrency(discountVal, inv.currency)}</span>
+              </div>
+            )}
+
+            {shippingVal > 0 && (
+              <div className="flex items-center justify-between text-amber-800 pb-0.5 border-b border-slate-200 text-[8px]">
+                <span>کرایه حمل بار:</span>
+                <span className="font-mono font-bold">+ {formatCurrency(shippingVal, inv.currency)}</span>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between py-0.5 px-1.5 bg-slate-900 text-white rounded font-black text-[9.5px]">
+              <span>مبلغ نهایی قابل پرداخت:</span>
               <span className="font-mono">{formatCurrency(inv.totalAmount, inv.currency)}</span>
             </div>
-            <div className="flex items-center justify-between text-[7.5px] text-slate-700">
-              <span>پرداخت نقدی: <strong className="font-mono text-emerald-700">{formatCurrency(inv.paidAmount || 0, inv.currency)}</strong></span>
-              <span>باقیمانده: <strong className="font-mono text-rose-700">{formatCurrency(remainingBalance, inv.currency)}</strong></span>
+
+            <div className="flex items-center justify-between pt-0.5 text-[8px]">
+              <span className="text-slate-600">پرداخت نقدی: <strong className="font-mono text-emerald-700 font-black">{formatCurrency(inv.paidAmount || 0, inv.currency)}</strong></span>
+              <span className="text-slate-700">مانده فاکتور: <strong className="font-mono text-rose-700 font-black">{formatCurrency(remainingBalance, inv.currency)}</strong></span>
             </div>
+
             {showCustomerBalance && partyInfo && (
-              <div className="flex items-center justify-between text-[7px] text-slate-600 pt-0.5 border-t border-dashed border-slate-300">
-                <span>مانده افغانی: <strong className="font-mono">{(partyInfo.balanceAFN || 0).toLocaleString()} AFN</strong></span>
-                <span>مانده دالری: <strong className="font-mono">${(partyInfo.balanceUSD || 0).toLocaleString()}</strong></span>
+              <div className="flex items-center justify-between text-[7.5px] text-slate-600 pt-0.5 border-t border-dashed border-slate-300">
+                <span>الباقی کل حساب مشتری:</span>
+                <span className="font-mono font-bold">
+                  {(partyInfo.balanceAFN || 0).toLocaleString()} AFN / ${(partyInfo.balanceUSD || 0).toLocaleString()}
+                </span>
               </div>
             )}
           </div>
         </div>
 
-        {/* Signatures */}
+        {/* Signatures & Stamp */}
         {showSignatures && (
-          <div className="grid grid-cols-3 gap-2 pt-0.5 border-t border-slate-300 text-center text-[7.5px]">
-            <div className="flex flex-col justify-between min-h-[34px]">
-              <span className="text-slate-500 text-[7px]">صادرکننده فاکتور</span>
-              <div className="h-4 flex items-center justify-center">
-                {showSignature && renderDigitalSignature(signatureSize ? Math.min(signatureSize, 34) : 28)}
+          <div className="grid grid-cols-3 gap-2 pt-1 border-t border-slate-300 text-center text-[8px]">
+            <div className="flex flex-col justify-between min-h-[38px]">
+              <span className="text-slate-600 font-bold text-[7.5px]">صادرکننده فاکتور</span>
+              <div className="h-5 flex items-center justify-center">
+                {showSignature && renderDigitalSignature(signatureSize ? Math.min(signatureSize, 34) : 30)}
               </div>
-              <div className="border-t border-dashed border-slate-400 pt-0.2 text-slate-800 font-bold text-[7px]">
-                مدیریت فروش
+              <div className="border-t border-dashed border-slate-400 pt-0.5 text-slate-800 font-bold text-[7.5px]">
+                مدیریت فروش و حسابداری
               </div>
             </div>
 
-            <div className="flex flex-col justify-between min-h-[34px]">
-              <span className="text-slate-500 text-[7px]">مهر رسمی شرکت</span>
-              <div className="h-4 flex items-center justify-center">
-                {showStamp && renderDigitalStamp(stampSize ? Math.min(stampSize, 38) : 32)}
+            <div className="flex flex-col justify-between min-h-[38px]">
+              <span className="text-slate-600 font-bold text-[7.5px]">مهر رسمی شرکت</span>
+              <div className="h-5 flex items-center justify-center">
+                {showStamp && renderDigitalStamp(stampSize ? Math.min(stampSize, 40) : 34)}
               </div>
-              <div className="border-t border-dashed border-slate-400 pt-0.2 text-slate-800 font-bold text-[7px]">
+              <div className="border-t border-dashed border-slate-400 pt-0.5 text-slate-800 font-bold text-[7.5px]">
                 {companySettings.name || 'شرکت برادران نبوی'}
               </div>
             </div>
 
-            <div className="flex flex-col justify-between min-h-[34px]">
-              <span className="text-slate-500 text-[7px]">امضای تحویل‌گیرنده کالا</span>
-              <div className="h-4 flex items-center justify-center text-[6.5px] text-slate-300 select-none">
+            <div className="flex flex-col justify-between min-h-[38px]">
+              <span className="text-slate-600 font-bold text-[7.5px]">امضا و اثر انگشت خریدار</span>
+              <div className="h-5 flex items-center justify-center text-[7px] text-slate-300 select-none">
                 (محل امضا یا اثر انگشت)
               </div>
-              <div className="border-t border-dashed border-slate-400 pt-0.2 text-slate-800 font-bold text-[7px]">
+              <div className="border-t border-dashed border-slate-400 pt-0.5 text-slate-800 font-bold text-[7.5px]">
                 {inv.partyName || 'خریدار محترم'}
               </div>
             </div>
@@ -389,22 +431,22 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
   };
 
   // =========================================================================
-  // 1/3 PAGE WAREHOUSE EXIT SLIP (تنها فرم خروجی انبار - یک سوم صفحه A4)
+  // 1/3 PAGE WAREHOUSE EXIT SLIP (فرم خروجی انبار - یک سوم صفحه A4)
   // =========================================================================
   const renderOneThirdWarehouseSlip = () => {
     const whRows: (InvoiceItem | null)[] = items.length <= 1 ? [items[0] || null, null] : [...items];
 
     return (
-      <div className="warehouse-exit-slip-frame one-third-a4-box border-1.5 border-slate-900 rounded-lg p-2 bg-slate-50/40 box-border w-full shadow-2xs space-y-1.5 text-[9.5px] leading-tight">
+      <div className="warehouse-exit-slip-frame one-third-a4-box border-1.5 border-slate-900 rounded-lg p-2 bg-slate-50/40 box-border w-full shadow-2xs space-y-1 text-[8.5px] leading-tight" dir="rtl">
         {/* Warehouse Header */}
         <div className="flex items-center justify-between border-b border-slate-800 pb-1">
           <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded bg-slate-900 text-white flex items-center justify-center font-black shadow-xs">
+            <div className="w-6 h-6 rounded bg-slate-900 text-white flex items-center justify-center font-black shadow-xs">
               <Truck className="w-3.5 h-3.5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-xs font-black text-slate-900">
+                <h2 className="text-[11px] font-black text-slate-900">
                   {isReturn ? 'رسید ورود کالا به گدام (برگشت کالا)' : 'حواله رسمی خروج کالا و تحویل بار از گدام'}
                 </h2>
                 <span className="text-[7.5px] font-bold px-1.5 py-0.2 rounded bg-slate-200 text-slate-800">
@@ -437,30 +479,30 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
         </div>
 
         {/* Recipient & Logistics Strip */}
-        <div className="grid grid-cols-4 gap-1.5 p-1 rounded bg-white border border-slate-300 text-[8.5px]">
+        <div className="grid grid-cols-4 gap-1.5 p-1 rounded bg-white border border-slate-300 text-[8px]">
           <div className="truncate">
-            <span className="text-slate-500 block text-[7.5px] font-bold">تحویل‌گیرنده:</span>
+            <span className="text-slate-500 block text-[7px] font-bold">تحویل‌گیرنده:</span>
             <strong className="text-slate-900 font-bold truncate block">{inv.partyName || 'مشتری متفرقه'}</strong>
           </div>
           <div>
-            <span className="text-slate-500 block text-[7.5px] font-bold">تماس خریدار:</span>
+            <span className="text-slate-500 block text-[7px] font-bold">تماس خریدار:</span>
             <span className="font-mono font-bold text-slate-800">{partyPhone}</span>
           </div>
           <div>
-            <span className="text-slate-500 block text-[7.5px] font-bold">راننده و موتروان:</span>
+            <span className="text-slate-500 block text-[7px] font-bold">راننده و موتروان:</span>
             <span className="font-bold text-slate-800 truncate block">
               {inv.driverName || 'تحویل حضوری'} {inv.carPlate ? `(${inv.carPlate})` : ''}
             </span>
           </div>
           <div className="truncate">
-            <span className="text-slate-500 block text-[7.5px] font-bold">محل تخلیه بار:</span>
+            <span className="text-slate-500 block text-[7px] font-bold">محل تخلیه بار:</span>
             <span className="text-slate-800 truncate block font-medium">{partyAddress || 'تحویل درب انبار'}</span>
           </div>
         </div>
 
         {/* Warehouse Items Table */}
         <div className="border border-slate-800 rounded overflow-hidden bg-white">
-          <table className="w-full text-right border-collapse text-[8.5px] table-fixed">
+          <table className="w-full text-right border-collapse text-[8px] table-fixed">
             <colgroup>
               <col className="w-[4%]" />
               <col className="w-[36%]" />
@@ -471,7 +513,7 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
               <col className="w-[14%]" />
             </colgroup>
             <thead>
-              <tr className="bg-slate-100 text-slate-800 font-bold border-b border-slate-800">
+              <tr className="bg-slate-100 text-slate-800 font-bold border-b border-slate-800 h-4.5">
                 <th className="py-0.5 px-1 border-l border-slate-300 text-center">#</th>
                 <th className="py-0.5 px-1.5 border-l border-slate-300 text-right">نام و مشخصات کالا</th>
                 <th className="py-0.5 px-1 border-l border-slate-300 text-center">مقدار تحویلی</th>
@@ -533,27 +575,27 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
         {/* Warehouse Signatures */}
         {showSignatures && (
           <div className="grid grid-cols-3 gap-2 pt-0.5 border-t border-slate-300 text-center text-[7.5px]">
-            <div className="flex flex-col justify-between min-h-[34px]">
+            <div className="flex flex-col justify-between min-h-[32px]">
               <span className="text-slate-500 text-[7px]">امضای انباردار (تحویل‌دهنده)</span>
-              <div className="h-4 flex items-center justify-center text-[6.5px] text-slate-300 select-none">
+              <div className="h-3.5 flex items-center justify-center text-[6.5px] text-slate-300 select-none">
                 (محل امضای انباردار)
               </div>
               <div className="border-t border-dashed border-slate-400 pt-0.2 text-slate-800 font-bold text-[7px]">
                 مسئول گدام
               </div>
             </div>
-            <div className="flex flex-col justify-between min-h-[34px]">
+            <div className="flex flex-col justify-between min-h-[32px]">
               <span className="text-slate-500 text-[7px]">امضای راننده / موتروان</span>
-              <div className="h-4 flex items-center justify-center text-[6.5px] text-slate-300 select-none">
+              <div className="h-3.5 flex items-center justify-center text-[6.5px] text-slate-300 select-none">
                 (محل امضای راننده)
               </div>
               <div className="border-t border-dashed border-slate-400 pt-0.2 text-slate-800 font-bold text-[7px]">
                 {inv.driverName || 'راننده بار'}
               </div>
             </div>
-            <div className="flex flex-col justify-between min-h-[34px]">
+            <div className="flex flex-col justify-between min-h-[32px]">
               <span className="text-slate-500 text-[7px]">امضای تحویل‌گیرنده کالا</span>
-              <div className="h-4 flex items-center justify-center text-[6.5px] text-slate-300 select-none">
+              <div className="h-3.5 flex items-center justify-center text-[6.5px] text-slate-300 select-none">
                 (محل امضا یا اثر انگشت)
               </div>
               <div className="border-t border-dashed border-slate-400 pt-0.2 text-slate-800 font-bold text-[7px]">
@@ -970,16 +1012,16 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
     return renderFullPageInvoice();
   }
 
-  // OPTION: INVOICE ONLY (تنها خود فاکتور یک سوم صفحه)
+  // OPTION: INVOICE ONLY (تنها فاکتور - دو سوم صفحه A4)
   if (invoiceLayout === 'invoice_only') {
     return (
       <div className="relative z-10 w-full box-border printable-content" dir="rtl">
-        {renderOneThirdInvoice()}
+        {renderTwoThirdsInvoice()}
       </div>
     );
   }
 
-  // OPTION: WAREHOUSE EXIT SLIP ONLY (تنها فرم خروجی انبار یک سوم صفحه)
+  // OPTION: WAREHOUSE EXIT SLIP ONLY (تنها فرم خروجی انبار - یک سوم صفحه A4)
   if (invoiceLayout === 'warehouse_only') {
     return (
       <div className="relative z-10 w-full box-border printable-content" dir="rtl">
@@ -988,24 +1030,24 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
     );
   }
 
-  // DEFAULT OPTION: COMBO A4 (فاکتور ۱/۳ صفحه + خط‌چین برش + فرم خروجی انبار ۱/۳ صفحه)
+  // DEFAULT OPTION: COMBO A4 (فاکتور ۲/۳ صفحه + خط‌چین برش + فرم خروجی انبار ۱/۳ صفحه = کاغذ کامل A4)
   return (
-    <div className="relative z-10 space-y-1.5 print:space-y-1 text-[10px] leading-tight w-full box-border printable-content" dir="rtl">
-      {/* SECTION 1: INVOICE (یک سوم صفحه) */}
-      {renderOneThirdInvoice()}
+    <div className="relative z-10 space-y-1 text-[9.5px] leading-tight w-full box-border printable-content a4-combo-container" dir="rtl">
+      {/* SECTION 1: INVOICE (دو سوم صفحه A4) */}
+      {renderTwoThirdsInvoice()}
 
       {/* SECTION 2: PERFORATED CUT LINE */}
-      <div className="relative my-1 py-0.5 flex items-center justify-center select-none">
+      <div className="relative my-0.5 py-0.5 flex items-center justify-center select-none">
         <div className="absolute inset-0 flex items-center" aria-hidden="true">
           <div className="w-full border-t-2 border-dashed border-slate-400" />
         </div>
-        <div className="relative bg-white px-2.5 flex items-center gap-1.5 text-slate-600 text-[8px] font-bold border border-slate-300 rounded-full shadow-2xs">
+        <div className="relative bg-white px-2.5 flex items-center gap-1.5 text-slate-700 text-[8px] font-bold border border-slate-300 rounded-full shadow-2xs">
           <Scissors className="w-2.5 h-2.5 text-slate-600 -rotate-90" />
-          <span>محل برش • فرم خروجی انبار (مخصوص انباردار و بارگیری)</span>
+          <span>محل برش با قیچی • فرم خروجی انبار (مخصوص انباردار و بارگیری)</span>
         </div>
       </div>
 
-      {/* SECTION 3: WAREHOUSE EXIT SLIP (یک سوم صفحه) */}
+      {/* SECTION 3: WAREHOUSE EXIT SLIP (یک سوم صفحه A4) */}
       {renderOneThirdWarehouseSlip()}
     </div>
   );

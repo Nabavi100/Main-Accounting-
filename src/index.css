@@ -799,15 +799,38 @@ body.gold .btn-active-luxury {
     overflow: hidden !important;
   }
 
-  /* One-Third Page Container Rule (guarantees fitting strictly inside page boundary) */
-  .one-third-a4-box {
-    max-height: 105mm !important;
+  /* Two-Thirds Page Container Rule (2/3 of A4: ~180mm) */
+  .two-thirds-a4-box {
+    max-height: 184mm !important;
     box-sizing: border-box !important;
     width: 100% !important;
     max-width: 100% !important;
     overflow: hidden !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+  }
+
+  /* One-Third Page Container Rule (1/3 of A4: ~95mm) */
+  .one-third-a4-box {
+    max-height: 96mm !important;
+    box-sizing: border-box !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* Full Combo A4 Page Container Rule (fits strictly on 1 sheet of A4 without spillover) */
+  .a4-combo-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 281mm !important;
+    box-sizing: border-box !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
   }
 
   /* High-fidelity Table Border Architecture preventing cutting off at printer margins */

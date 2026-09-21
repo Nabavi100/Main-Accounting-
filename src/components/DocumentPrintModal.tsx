@@ -250,7 +250,7 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
                 )}
               </div>
               <p className="text-[11px] text-slate-300">
-                برگه استاندارد A4 • تنظیم شده جهت جلوگیری از برش خوردن حاشیه‌ها
+                برگه استاندارد A4 • فاکتور ۲/۳ صفحه و خروجی انبار ۱/۳ صفحه جهت تکمیل دقیق برگ A4
               </p>
             </div>
           </div>
@@ -269,10 +269,10 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
                       ? 'bg-blue-600 text-white shadow-xs'
                       : 'text-slate-300 hover:bg-slate-700'
                   }`}
-                  title="چاپ فاکتور و فرم خروجی انبار در کاغذ A4 - هر کدام یک‌سوم صفحه داخل کادر بدون بیرون‌زدگی"
+                  title="چاپ فاکتور و خروجی انبار بر روی یک کاغذ کامل A4 (فاکتور ۲/۳ + خروجی انبار ۱/۳)"
                 >
                   <Layers className="w-3.5 h-3.5" />
-                  <span>A4 فاکتور + خروجی انبار (۱/۳ + ۱/۳)</span>
+                  <span>A4 کامل (فاکتور ۲/۳ + خروجی ۱/۳)</span>
                 </button>
 
                 <button
@@ -283,10 +283,10 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
                       ? 'bg-blue-600 text-white shadow-xs'
                       : 'text-slate-300 hover:bg-slate-700'
                   }`}
-                  title="چاپ تنها خود فاکتور به صورت فشرده یک سوم صفحه A4"
+                  title="چاپ تنها خود فاکتور به اندازه دو سوم (۲/۳) کاغذ استاندارد A4"
                 >
                   <FileText className="w-3.5 h-3.5" />
-                  <span>تنها فاکتور (۱/۳)</span>
+                  <span>تنها فاکتور (۲/۳ A4)</span>
                 </button>
 
                 <button
@@ -297,10 +297,10 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
                       ? 'bg-blue-600 text-white shadow-xs'
                       : 'text-slate-300 hover:bg-slate-700'
                   }`}
-                  title="چاپ تنها فرم خروجی انبار به صورت فشرده یک سوم صفحه A4"
+                  title="چاپ تنها فرم خروجی انبار به اندازه یک سوم (۱/۳) کاغذ استاندارد A4"
                 >
                   <Truck className="w-3.5 h-3.5" />
-                  <span>تنها خروجی انبار (۱/۳)</span>
+                  <span>تنها خروجی انبار (۱/۳ A4)</span>
                 </button>
 
                 <button
