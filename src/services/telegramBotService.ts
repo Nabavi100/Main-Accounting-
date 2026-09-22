@@ -534,6 +534,7 @@ export const sendCustomerTextFile = async (
 
 /**
  * Sends Authentication Request with Telegram's Native Contact Button
+ * Asks the customer for the verified phone number of THIS Telegram account.
  */
 export const sendAuthenticationRequest = async (
   chatId: string,
@@ -543,23 +544,74 @@ export const sendAuthenticationRequest = async (
   const token = settings.botToken?.trim();
   if (!token || !chatId) return false;
 
-  const companyName = companySettings.name || 'شرکت تجارتی برادران نبوی';
+  const companyName = companySettings.name || 'شرکت بازرگانی';
 
   const text = `
-🌸 <b>سلام و عرض احترام، به ربات اختصاصی استعلام حساب «${companyName}» خوش آمدید!</b>
+🌸 <b>سلام و عرض احترام، به ربات هوشمند استعلام حساب «${companyName}» خوش آمدید!</b>
+━━━━━━━━━━━━━━━━━━━━
+🔒 <b>احراز هویت امن و دریافت صورت‌حساب اختصاصی:</b>
+این سامانه مستقیماً به سیستم حسابداری شرکت متصل است. جهت صیانت کامل از حریم خصوصی و امنیت اطلاعات مالی، این ربات طوری برنامه‌ریزی شده است که <b>فقط و فقط شماره حساب و صورت‌حساب شخص خودتان</b> را نمایش می‌دهد.
 
-🔒 <b>احراز هویت و حفظ کامل حریم خصوصی:</b>
-در این سامانه هر مشتری <b>فقط و فقط صورت‌حساب شخصی خود</b> را مشاهده می‌کند و دسترسی به حساب دیگران به هیچ عنوان امکان‌پذیر نیست.
-
-👇 لطفاً جهت تأیید هویت، دکمه <b>«📱 ارسال شماره تماس من جهت احراز هویت»</b> را در پایین لمس نمایید:
-<i>(یا می‌توانید شماره همراه ثبت‌شده خود در سیستم شرکت را به صورت پیام متنی ارسال کنید)</i>
+👇 <b>مرحله اول: لطفاً شماره تلفن همین اکانت تلگرام را با لمس دکمه زیر ارسال فرمایید:</b>
+<i>(جهت تایید، دکمه بزرگ زیر را لمس نموده و اشتراک‌گذاری شماره تلفن خود را تایید کنید)</i>
 `.trim();
 
   const keyboard = {
     keyboard: [
       [
         {
-          text: '📱 ارسال شماره تماس من جهت احراز هویت',
+          text: '📱 اشتراک‌گذاری شماره تلفن همین اکانت تلگرام (تایید هویت)',
+          request_contact: true,
+        },
+      ],
+    ],
+    resize_keyboard: true,
+    one_time_keyboard: true,
+  };
+
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text,
+        parse_mode: 'HTML',
+        reply_markup: keyboard,
+      }),
+    });
+    const data = await res.json();
+    return !!data.ok;
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Sends warning when the shared contact card does NOT belong to the sender's Telegram account
+ * (i.e. user forwarded someone else's contact instead of sharing their own Telegram phone)
+ */
+export const sendContactNotOwnAccount = async (
+  chatId: string,
+  settings: TelegramSettings,
+  companySettings: CompanySettings
+): Promise<boolean> => {
+  const token = settings.botToken?.trim();
+  if (!token || !chatId) return false;
+
+  const text = `
+⚠️ <b>خطای امنیتی: شماره ارسال‌شده متعلق به این اکانت تلگرام نیست!</b>
+━━━━━━━━━━━━━━━━━━━━
+🔒 طبق استانداردهای امنیتی سیستم حسابداری، جهت احراز هویت الزامی است که <b>دقیقاً شماره تلفن همین اکانت تلگرام</b> به اشتراک گذاشته شود و ارسال کارت تماس اشخاص دیگر مجاز نمی‌باشد.
+
+👇 لطفاً مجدداً دکمه زیر را لمس نموده و اشتراک‌گذاری شماره همین تلگرام خود را تایید نمایید:
+`.trim();
+
+  const keyboard = {
+    keyboard: [
+      [
+        {
+          text: '📱 اشتراک‌گذاری شماره تلفن همین اکانت تلگرام (تایید هویت)',
           request_contact: true,
         },
       ],
@@ -599,18 +651,20 @@ export const sendAuthenticationRejected = async (
   if (!token || !chatId) return false;
 
   const companyPhone = companySettings.phone || '';
+  const companyAddress = companySettings.address || '';
   const text = `
-⛔ <b>شماره تماس شما در سیستم مالی شرکت ثبت نشده است!</b>
+⛔ <b>عدم تأیید: شماره حساب یا مشتری در سیستم یافت نشد!</b>
 ━━━━━━━━━━━━━━━━━━━━
-📞 شماره دریافت شده: <code>${phoneInput}</code>
+📞 شماره ارسال‌شده: <code>${phoneInput}</code>
 
 🔒 <b>امنیت و محرمانگی حساب‌ها:</b>
-این سامانه طوری برنامه‌ریزی شده است که فقط به شماره‌های رسمی ثبت‌شده مشتریان پاسخ می‌دهد و هیچ فردی نمی‌تواند حساب دیگران را ببیند.
+این سامانه صرفاً صورت‌حساب اشخاصی را نمایش می‌دهد که شماره تماس‌شان از قبل در سیستم حسابداری شرکت ثبت و تعریف شده باشد. شماره این تلگرام در لیست مشتریان یافت نگردید.
 
-📞 اگر شما از مشتریان شرکت هستید، لطفاً با دفتر یا مدیریت تماس بگیرید تا شماره تماس شما در پرونده مشتری ثبت گردد:
-${companyPhone ? `☎️ شماره تماس شرکت: <code>${companyPhone}</code>` : ''}
+📞 در صورتی که از مشتریان شرکت هستید، لطفاً با دفتر یا مدیریت شرکت تماس حاصل فرمایید تا شماره تماس شما در پرونده حساب‌تان ثبت شود:
+${companyPhone ? `☎️ شماره دفتر: <code>${companyPhone}</code>` : ''}
+${companyAddress ? `📍 آدرس دفتر: ${companyAddress}` : ''}
 ━━━━━━━━━━━━━━━━━━━━
-پس از ثبت شماره توسط حسابدار شرکت، با زدن دکمه /start حساب اختصاصی خود را دریافت خواهید کرد.
+پس از ثبت شماره توسط حسابدار شرکت، با ارسال مجدد شماره از طریق دکمه زیر، حساب از قبل تعریف‌شده خود را فوراً دریافت خواهید کرد:
 `.trim();
 
   try {
@@ -625,7 +679,7 @@ ${companyPhone ? `☎️ شماره تماس شرکت: <code>${companyPhone}</co
           keyboard: [
             [
               {
-                text: '📱 ارسال مجدد شماره تماس جهت احراز هویت',
+                text: '📱 ارسال شماره تلفن همین اکانت تلگرام (تلاش مجدد)',
                 request_contact: true,
               },
             ],
@@ -776,8 +830,26 @@ async function processSingleTelegramUpdate(
     saveTelegramSubscriber(existingSub);
   }
 
-  // 1. Handling CONTACT SHARING (Native "📱 ارسال شماره تماس من جهت احراز هویت")
+  // 1. Handling CONTACT SHARING (Native "📱 اشتراک‌گذاری شماره تلفن همین اکانت تلگرام")
   if (msg.contact) {
+    const contactUserId = msg.contact.user_id;
+    const senderUserId = msg.from?.id;
+
+    // Verify ownership: Contact must belong to THIS Telegram account ("و همان شماره همان تلگرام برای ربات شییر شود")
+    const isOwnTelegramContact = !contactUserId || !senderUserId || contactUserId === senderUserId;
+    if (!isOwnTelegramContact) {
+      const log = addTelegramLog({
+        chatId,
+        senderName,
+        type: 'auth_failed',
+        message: `خطای امنیتی: شماره ارسال‌شده متعلق به این اکانت تلگرام نبود (کارت تماس فرد دیگر به اشتراک گذاشته شده بود).`,
+      });
+      deps.onNewLog?.(log);
+
+      await sendContactNotOwnAccount(chatId, settings, companySettings);
+      return;
+    }
+
     const rawPhone = msg.contact.phone_number || '';
     const partyFound = findPartyByPhone(rawPhone, parties);
 
@@ -802,36 +874,39 @@ async function processSingleTelegramUpdate(
         senderName,
         partyName: partyFound.name,
         type: 'auth_success',
-        message: `احراز هویت موفق: شماره ${rawPhone} به مشتری «${partyFound.name}» وصل شد.`,
+        message: `احراز هویت موفق: شماره ${rawPhone} با موفقیت به مشتری «${partyFound.name}» وصل شد.`,
       });
       deps.onNewLog?.(log);
 
-      // Confirm to customer
+      // Confirm to customer with pre-defined account details and number
       await fetch(`https://api.telegram.org/bot${settings.botToken.trim()}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chat_id: chatId,
           text: `
-✅ <b>احراز هویت با موفقیت تأیید شد!</b>
-جناب <b>${partyFound.name}</b> محترم، هویت شما با شماره تماس <code>${partyFound.phone}</code> در سیستم مالی ثبت شد.
-
-از این پس هر زمان دکمه استارت را بزنید یا دکمه‌های زیر را لمس نمایید، <b>فقط و فقط حساب شخصی خودتان</b> برای شما ارسال خواهد شد.
+✅ <b>شماره تماس و هویت شما با موفقیت تأیید گردید!</b>
+━━━━━━━━━━━━━━━━━━━━
+👤 <b>نام مشتری:</b> ${partyFound.name}
+🔢 <b>شماره / کد حساب در سیستم:</b> <code>${partyFound.code || partyFound.id.slice(0, 6)}</code>
+📞 <b>شماره تلفن تأییدشده:</b> <code>${partyFound.phone || rawPhone}</code>
+━━━━━━━━━━━━━━━━━━━━
+📋 <b>صورت‌حساب و مانده حساب از قبل تعریف‌شده شما در سیستم به شرح زیر آماده و ارسال گردید:</b>
 `.trim(),
           parse_mode: 'HTML',
           reply_markup: getCustomerReplyKeyboard(),
         }),
       });
 
-      // Immediately send their account statement
+      // Immediately send their official pre-defined account statement
       await sendCustomerAccountStatement(chatId, partyFound, invoices, companySettings, settings);
     } else {
-      // REJECTED AUTHENTICATION
+      // REJECTED AUTHENTICATION: Phone not defined in system
       const log = addTelegramLog({
         chatId,
         senderName,
         type: 'auth_failed',
-        message: `رد احراز هویت: شماره ${rawPhone} در لیست مشتریان شرکت ثبت نیست.`,
+        message: `رد احراز هویت: شماره ${rawPhone} در لیست مشتریان از قبل تعریف‌شده شرکت ثبت نیست.`,
       });
       deps.onNewLog?.(log);
 
@@ -962,10 +1037,13 @@ ${compAddr ? `📍 آدرس: ${compAddr}` : ''}
         body: JSON.stringify({
           chat_id: chatId,
           text: `
-✅ <b>احراز هویت شما با موفقیت انجام شد!</b>
-جناب <b>${partyFound.name}</b> محترم، هویت شما با شماره <code>${partyFound.phone}</code> در سیستم مالی ثبت گردید.
-
-از این پس با زدن دکمه استارت، <b>فقط و فقط صورت‌حساب اختصاصی خودتان</b> برای شما ارسال خواهد شد.
+✅ <b>شماره تماس و هویت شما با موفقیت تأیید گردید!</b>
+━━━━━━━━━━━━━━━━━━━━
+👤 <b>نام مشتری:</b> ${partyFound.name}
+🔢 <b>شماره / کد حساب در سیستم:</b> <code>${partyFound.code || partyFound.id.slice(0, 6)}</code>
+📞 <b>شماره تلفن تأییدشده:</b> <code>${partyFound.phone || text}</code>
+━━━━━━━━━━━━━━━━━━━━
+📋 <b>صورت‌حساب و مانده حساب از قبل تعریف‌شده شما در سیستم به شرح زیر آماده و ارسال گردید:</b>
 `.trim(),
           parse_mode: 'HTML',
           reply_markup: getCustomerReplyKeyboard(),

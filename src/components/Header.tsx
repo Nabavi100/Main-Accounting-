@@ -19,7 +19,7 @@ interface HeaderProps {
   activeTab: NavTab;
   onOpenNewInvoice: (type?: 'buy' | 'sell') => void;
   onOpenPaymentModal: (type?: 'receive_payment' | 'make_payment' | 'cash_transfer' | 'currency_exchange') => void;
-  onOpenAccessModal?: (tab?: 'roles' | 'reset' | 'backup' | 'company') => void;
+  onOpenAccessModal?: (tab?: 'roles' | 'reset' | 'backup' | 'company' | 'telegram') => void;
   onOpenTelegramModal?: () => void;
   onToggleSidebar?: () => void;
 }
@@ -148,12 +148,13 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Quick Telegram Bot Pill */}
         <button
           type="button"
-          onClick={onOpenTelegramModal}
+          onClick={() => (onOpenAccessModal ? onOpenAccessModal('telegram') : onOpenTelegramModal?.())}
           className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 bg-white hover:bg-sky-50 text-slate-700 hover:text-[#229ED9] rounded-full border border-slate-200/90 text-xs font-bold transition shadow-2xs cursor-pointer"
-          title="تنظیمات ربات تلگرام و ارسال حسابات مشتریان"
+          title="تنظیمات محرمانه ربات تلگرام و ارسال حسابات مشتریان (محافظت‌شده با رمز مدیر)"
         >
-          <Send className="w-3.5 h-3.5 text-[#229ED9]" />
+          <Send className="w-3.5 h-3.5 text-[#229ED9] -rotate-45" />
           <span className="text-[11px]">ربات تلگرام</span>
+          <Lock className="w-2.5 h-2.5 text-amber-500" />
         </button>
 
         {/* Theme Manager Dropdown */}

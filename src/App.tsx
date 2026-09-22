@@ -172,7 +172,9 @@ const MainApp: React.FC = () => {
   const [selectedInvoiceForDetail, setSelectedInvoiceForDetail] = useState<Invoice | null>(null);
   const [editingInvoiceGlobal, setEditingInvoiceGlobal] = useState<Invoice | null>(null);
   const [isAccessModalOpen, setIsAccessModalOpen] = useState(false);
-  const [accessModalInitialTab, setAccessModalInitialTab] = useState<'roles' | 'reset' | 'backup'>('roles');
+  const [accessModalInitialTab, setAccessModalInitialTab] = useState<
+    'roles' | 'reset' | 'backup' | 'company' | 'telegram'
+  >('roles');
 
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [paymentModalType, setPaymentModalType] = useState<
@@ -227,7 +229,9 @@ const MainApp: React.FC = () => {
     setIsTransferModalOpen(true);
   };
 
-  const handleOpenAccessModal = (tab: 'roles' | 'reset' | 'backup' = 'roles') => {
+  const handleOpenAccessModal = (
+    tab: 'roles' | 'reset' | 'backup' | 'company' | 'telegram' = 'roles'
+  ) => {
     setAccessModalInitialTab(tab);
     setIsAccessModalOpen(true);
   };

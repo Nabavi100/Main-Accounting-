@@ -5,6 +5,7 @@ import { CompanyStampSeal } from './CompanyStampSeal';
 import { SignatureAndSealModal } from './SignatureAndSealModal';
 import { GoogleDriveBackupPanel } from './GoogleDriveBackupPanel';
 import { SecretLicenseModal } from './SecretLicenseModal';
+import { TelegramBotModal } from './TelegramBotModal';
 import { verifyProtectionLockPassword, verifyMasterSecurityPassword } from '../utils/securityMaster';
 import {
   Shield,
@@ -41,12 +42,31 @@ import {
   Calendar,
   Stamp,
   PenTool,
+  Send,
+  Bot,
+  Activity,
+  ExternalLink,
+  RefreshCw,
 } from 'lucide-react';
+import {
+  TelegramSettings,
+  TelegramSubscriber,
+  TelegramLogEntry,
+  getTelegramSettings,
+  saveTelegramSettings,
+  testTelegramBotConnection,
+  getSubscribersList,
+  getTelegramLogs,
+  clearTelegramLogs,
+  isTelegramListenerRunning,
+} from '../services/telegramBotService';
+import { verifyLicenseMasterPin } from '../utils/securityMaster';
+import { verifyLicense } from '../utils/licenseSecurity';
 
 interface AccessAndResetModalProps {
   isOpen: boolean;
   onClose: () => void;
-  initialTab?: 'company' | 'roles' | 'reset' | 'backup';
+  initialTab?: 'company' | 'roles' | 'reset' | 'backup' | 'telegram';
 }
 
 export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
@@ -76,7 +96,26 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
     logout,
   } = useAccounting();
 
-  const [activeSubTab, setActiveSubTab] = useState<'company' | 'roles' | 'reset' | 'backup'>(initialTab);
+  const [activeSubTab, setActiveSubTab] = useState<'company' | 'roles' | 'reset' | 'backup' | 'telegram'>(initialTab);
+
+  // Telegram Bot Secret Settings State
+  const [isTelegramModalOpen, setIsTelegramModalOpen] = useState(false);
+  const [isTgTabUnlocked, setIsTgTabUnlocked] = useState(false);
+  const [tgPinInput, setTgPinInput] = useState('');
+  const [tgPinError, setTgPinError] = useState('');
+  const [showTgPin, setShowTgPin] = useState(false);
+  const [tgSettings, setTgSettings] = useState<TelegramSettings>(getTelegramSettings());
+  const [tgTesting, setTgTesting] = useState(false);
+  const [tgTestResult, setTgTestResult] = useState<{
+    success?: boolean;
+    botName?: string;
+    username?: string;
+    error?: string;
+  } | null>(null);
+  const [tgSavedSuccess, setTgSavedSuccess] = useState(false);
+  const [tgSubscribers, setTgSubscribers] = useState<TelegramSubscriber[]>([]);
+  const [tgLogs, setTgLogs] = useState<TelegramLogEntry[]>([]);
+  const [configuredMasterPin, setConfiguredMasterPin] = useState<string | undefined>();
 
   // Company Settings Form State
   const [compForm, setCompForm] = useState<CompanySettings>(companySettings);
@@ -106,6 +145,23 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
       setIsCompanyUnlocked(true);
     }
   }, [isOpen, companySettings.isProtected]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setTgSettings(getTelegramSettings());
+      setTgSubscribers(getSubscribersList());
+      setTgLogs(getTelegramLogs());
+      setTgPinInput('');
+      setTgPinError('');
+      setTgTestResult(null);
+      setTgSavedSuccess(false);
+      verifyLicense()
+        .then(res => {
+          setConfiguredMasterPin(res.license?.masterPin);
+        })
+        .catch(() => {});
+    }
+  }, [isOpen]);
 
   const isCompanyLocked = Boolean(compForm.isProtected && !isCompanyUnlocked);
 
@@ -449,6 +505,45 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
     reader.readAsText(file);
   };
 
+  const handleUnlockTgTab = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!tgPinInput.trim()) {
+      setTgPinError('لطفاً رمز عبور مدیر را وارد نمایید.');
+      return;
+    }
+    const isValid = verifyLicenseMasterPin(tgPinInput.trim(), configuredMasterPin);
+    if (isValid) {
+      setIsTgTabUnlocked(true);
+      setTgPinError('');
+      setTgPinInput('');
+    } else {
+      setTgPinError('رمز عبور وارد شده نادرست می‌باشد.');
+    }
+  };
+
+  const handleTestTgConnection = async () => {
+    if (!tgSettings.botToken?.trim()) {
+      setTgTestResult({ error: 'لطفاً ابتدا توکن ربات تلگرام را وارد فرمایید.' });
+      return;
+    }
+    setTgTesting(true);
+    setTgTestResult(null);
+    try {
+      const res = await testTelegramBotConnection(tgSettings.botToken.trim());
+      setTgTestResult(res);
+    } catch (err: any) {
+      setTgTestResult({ error: err.message || 'خطا در برقراری ارتباط با سرور تلگرام' });
+    } finally {
+      setTgTesting(false);
+    }
+  };
+
+  const handleSaveTgSettings = () => {
+    saveTelegramSettings(tgSettings);
+    setTgSavedSuccess(true);
+    setTimeout(() => setTgSavedSuccess(false), 3000);
+  };
+
   return (
     <div
       id="access-modal-backdrop"
@@ -539,6 +634,20 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
             >
               <HardDrive className="w-4 h-4 text-blue-600" />
               <span>پشتیبان‌گیری محلی و گوگل درایو</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveSubTab('telegram')}
+              className={`flex-1 min-w-[150px] flex items-center justify-center gap-2 py-2.5 rounded-xl transition cursor-pointer ${
+                activeSubTab === 'telegram'
+                  ? 'bg-slate-900 text-sky-300 shadow-xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Send className="w-4 h-4 text-sky-500 -rotate-45" />
+              <span>تنظیمات محرمانه تلگرام</span>
+              <Lock className="w-3 h-3 text-amber-500" />
             </button>
           </div>
         </div>
@@ -683,6 +792,17 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
                   >
                     <ShieldAlert className="w-4 h-4 text-amber-400" />
                     <span>تعریف لیمیت و لایسنس برنامه</span>
+                  </button>
+
+                  {/* Secret Telegram Bot Management Button */}
+                  <button
+                    type="button"
+                    onClick={() => setActiveSubTab('telegram')}
+                    className="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-sky-300 border border-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-xs"
+                    title="تنظیمات محرمانه ربات تلگرام و ارسال حسابات مشتریان (محافظت‌شده با رمز مدیر)"
+                  >
+                    <Send className="w-4 h-4 text-sky-400 -rotate-45" />
+                    <span>تنظیمات محرمانه ربات تلگرام</span>
                   </button>
                 </div>
               </div>
@@ -2186,6 +2306,479 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
             />
           </div>
         )}
+
+        {/* ================= TAB 4: CONFIDENTIAL TELEGRAM BOT SETTINGS ================= */}
+        {activeSubTab === 'telegram' && (
+          <div className="space-y-5 animate-in fade-in duration-200">
+            {!isTgTabUnlocked ? (
+              /* Security Lock Gate for Telegram Confidential Settings */
+              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 text-center max-w-lg mx-auto shadow-2xl space-y-5 my-6">
+                <div className="w-16 h-16 bg-slate-800 text-sky-400 border border-slate-700 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
+                  <ShieldAlert className="w-8 h-8 text-amber-400 animate-pulse" />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-center gap-2 text-sky-400 font-bold text-xs">
+                    <Send className="w-3.5 h-3.5 -rotate-45" />
+                    <span>بخش فوق‌محرمانه سیستم</span>
+                  </div>
+                  <h3 className="text-base sm:text-lg font-black text-white">
+                    تنظیمات محرمانه ربات تلگرام
+                  </h3>
+                  <p className="text-xs text-slate-300 leading-relaxed max-w-md mx-auto">
+                    این بخش حاوی توکن محرمانه ربات تلگرام، لاگ‌های ارتباطی و اطلاعات استعلام حساب مشتریان می‌باشد.
+                    جهت جلوگیری از دسترسی کارمندان و افراد غیرمجاز، لطفاً رمز عبور مدیر برنامه را وارد فرمایید:
+                  </p>
+                </div>
+
+                <form onSubmit={handleUnlockTgTab} className="space-y-4 max-w-xs mx-auto">
+                  <div className="relative">
+                    <input
+                      type={showTgPin ? 'text' : 'password'}
+                      dir="ltr"
+                      value={tgPinInput}
+                      onChange={e => {
+                        setTgPinInput(e.target.value);
+                        setTgPinError('');
+                      }}
+                      placeholder="رمز عبور مدیر را بنویسید..."
+                      className="w-full px-4 py-3 bg-slate-950 border border-slate-700 focus:border-sky-500 rounded-2xl text-center text-sm font-mono font-bold text-white outline-none transition placeholder:text-slate-500"
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowTgPin(!showTgPin)}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition cursor-pointer"
+                    >
+                      {showTgPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+
+                  {tgPinError && (
+                    <div className="p-2.5 bg-rose-950/70 border border-rose-800 rounded-xl text-xs text-rose-300 font-bold flex items-center justify-center gap-2">
+                      <AlertTriangle className="w-4 h-4 shrink-0" />
+                      <span>{tgPinError}</span>
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    className="w-full py-3 bg-sky-600 hover:bg-sky-500 text-white font-black text-xs rounded-2xl transition shadow-lg shadow-sky-900/30 flex items-center justify-center gap-2 cursor-pointer active:scale-98"
+                  >
+                    <Unlock className="w-4 h-4" />
+                    <span>تأیید و ورود به تنظیمات تلگرام</span>
+                  </button>
+
+                  <div className="text-[11px] text-slate-400 pt-1 flex items-center justify-center gap-1">
+                    <KeyRound className="w-3 h-3 text-amber-400" />
+                    <span>رمز پیش‌فرض مدیر برنامه: </span>
+                    <code className="bg-slate-800 text-amber-300 px-1.5 py-0.5 rounded font-mono font-bold">
+                      nabavi2026
+                    </code>
+                  </div>
+                </form>
+              </div>
+            ) : (
+              /* Unlocked Confidential Telegram Panel */
+              <div className="space-y-5">
+                {/* Header Status Bar */}
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 text-white flex flex-wrap items-center justify-between gap-4 shadow-md">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-sky-500/20 text-sky-400 rounded-xl flex items-center justify-center border border-sky-500/30 shrink-0">
+                      <Send className="w-5 h-5 -rotate-45" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-black text-white">
+                          میز کار محرمانه ربات تلگرام حسابداری
+                        </h3>
+                        <span className="px-2 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-full text-[10px] font-bold flex items-center gap-1">
+                          <Lock className="w-2.5 h-2.5" />
+                          <span>رمزدار (محرمانه)</span>
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-300 mt-0.5">
+                        استعلام خودکار صورت‌حساب تفکیک‌شده مشتریان بر اساس شماره تماس تلگرام
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Listener Status Badge */}
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 rounded-xl border border-slate-700 text-xs font-bold">
+                      <span
+                        className={`w-2 h-2 rounded-full ${
+                          isTelegramListenerRunning() && tgSettings.botToken
+                            ? 'bg-emerald-400 animate-pulse'
+                            : 'bg-slate-500'
+                        }`}
+                      />
+                      <span className="text-slate-300 text-[11px]">
+                        {isTelegramListenerRunning() && tgSettings.botToken
+                          ? 'ربات فعال و آماده دریافت'
+                          : 'ربات خاموش یا منتظر توکن'}
+                      </span>
+                    </div>
+
+                    {/* Open Full Dedicated Window */}
+                    <button
+                      type="button"
+                      onClick={() => setIsTelegramModalOpen(true)}
+                      className="px-3.5 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      title="مشاهده میز کار جامع با لیست کامل مشتریان، ارسال پیام تست و لاگ‌های زنده"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>میز کار پیشرفته تلگرام</span>
+                    </button>
+
+                    {/* Lock Tab Button */}
+                    <button
+                      type="button"
+                      onClick={() => setIsTgTabUnlocked(false)}
+                      className="px-3 py-1.5 bg-slate-800 hover:bg-rose-900/60 text-slate-300 hover:text-rose-200 border border-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-1 cursor-pointer"
+                      title="قفل مجدد این بخش محرمانه"
+                    >
+                      <Lock className="w-3.5 h-3.5 text-rose-400" />
+                      <span>قفل مجدد</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Save feedback banner */}
+                {tgSavedSuccess && (
+                  <div className="p-3 bg-emerald-50 border border-emerald-300 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-2 shadow-xs animate-in fade-in">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>تنظیمات ربات تلگرام با موفقیت ذخیره گردید. شنود پیام‌های ربات فعال است.</span>
+                  </div>
+                )}
+
+                {/* Main Settings Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Card 1: Bot Token & Test */}
+                  <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                      <div className="flex items-center gap-2 text-slate-900 font-bold text-xs sm:text-sm">
+                        <KeyRound className="w-4 h-4 text-sky-600" />
+                        <span>توکن اختصاصی ربات تلگرام (API Token)</span>
+                      </div>
+                      <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-bold">
+                        محرمانه
+                      </span>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-slate-700 block">
+                        توکن دریافتی از BotFather@ تلگرام:
+                      </label>
+                      <input
+                        type="password"
+                        dir="ltr"
+                        value={tgSettings.botToken}
+                        onChange={e => setTgSettings({ ...tgSettings, botToken: e.target.value.trim() })}
+                        placeholder="مثال: 123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ"
+                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 focus:border-sky-500 rounded-xl text-xs font-mono text-slate-900 outline-none transition"
+                      />
+                      <p className="text-[11px] text-slate-500 leading-relaxed">
+                        برای ساخت ربات رایگان در تلگرام به ربات رسمی <strong>BotFather@</strong> پیام داده و دستور{' '}
+                        <code>/newbot</code> را ارسال کنید.
+                      </p>
+                    </div>
+
+                    <div className="pt-2 flex items-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={handleTestTgConnection}
+                        disabled={tgTesting || !tgSettings.botToken?.trim()}
+                        className="px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-300 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-xs disabled:cursor-not-allowed"
+                      >
+                        {tgTesting ? (
+                          <>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin text-sky-400" />
+                            <span>در حال تست اتصال...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Activity className="w-3.5 h-3.5 text-sky-400" />
+                            <span>تست زنده اتصال به تلگرام</span>
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleSaveTgSettings}
+                        className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-xs"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>ذخیره تنظیمات</span>
+                      </button>
+                    </div>
+
+                    {/* Test result feedback */}
+                    {tgTestResult && (
+                      <div
+                        className={`p-3 rounded-xl text-xs font-bold flex items-start gap-2 ${
+                          tgTestResult.success
+                            ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
+                            : 'bg-rose-50 border border-rose-200 text-rose-800'
+                        }`}
+                      >
+                        {tgTestResult.success ? (
+                          <>
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                            <div>
+                              <p className="font-black">اتصال موفقیت‌آمیز بود!</p>
+                              <p className="text-[11px] font-normal mt-0.5">
+                                نام ربات: <strong>{tgTestResult.botName}</strong> (
+                                <span dir="ltr">@{tgTestResult.username}</span>)
+                              </p>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                            <div>
+                              <p className="font-black">خطا در اتصال به ربات:</p>
+                              <p className="text-[11px] font-normal mt-0.5">{tgTestResult.error}</p>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Card 2: Messages & Automatic Features Settings */}
+                  <div className="bg-white border border-slate-200 rounded-2xl p-4 sm:p-5 shadow-xs space-y-4">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                      <div className="flex items-center gap-2 text-slate-900 font-bold text-xs sm:text-sm">
+                        <Bot className="w-4 h-4 text-sky-600" />
+                        <span>تنظیمات پاسخگویی خودکار و ارسال</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <label className="flex items-center justify-between cursor-pointer gap-2 p-2.5 bg-slate-50 hover:bg-slate-100/80 rounded-xl border border-slate-200 transition">
+                        <div className="space-y-0.5">
+                          <span className="text-xs font-bold text-slate-900 block">
+                            شنود خودکار و پاسخ فوری به استعلام‌ها (Polling)
+                          </span>
+                          <span className="text-[11px] text-slate-500 block">
+                            دریافت درخواست استعلام حساب و ارسال خودکار صورت‌حساب به مشتری
+                          </span>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={tgSettings.autoListenerEnabled}
+                          onChange={e =>
+                            setTgSettings({
+                              ...tgSettings,
+                              autoListenerEnabled: e.target.checked,
+                            })
+                          }
+                          className="w-4 h-4 text-sky-600 rounded cursor-pointer accent-sky-600 shrink-0"
+                        />
+                      </label>
+
+                      <label className="flex items-center justify-between cursor-pointer gap-2 p-2.5 bg-slate-50 hover:bg-slate-100/80 rounded-xl border border-slate-200 transition">
+                        <div className="space-y-0.5">
+                          <span className="text-xs font-bold text-slate-900 block">
+                            ارسال خودکار فاکتور به مشتری هنگام ثبت فاکتور جدید
+                          </span>
+                          <span className="text-[11px] text-slate-500 block">
+                            بلافاصله پس از ذخیره فاکتور فروش برای مشتری متصل ارسال گردد
+                          </span>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={tgSettings.autoSendOnSave}
+                          onChange={e =>
+                            setTgSettings({
+                              ...tgSettings,
+                              autoSendOnSave: e.target.checked,
+                            })
+                          }
+                          className="w-4 h-4 text-sky-600 rounded cursor-pointer accent-sky-600 shrink-0"
+                        />
+                      </label>
+
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <label className="flex items-center gap-2 p-2 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer text-xs">
+                          <input
+                            type="checkbox"
+                            checked={tgSettings.sendPhoto}
+                            onChange={e =>
+                              setTgSettings({
+                                ...tgSettings,
+                                sendPhoto: e.target.checked,
+                              })
+                            }
+                            className="w-4 h-4 text-sky-600 rounded accent-sky-600"
+                          />
+                          <span className="text-slate-800 font-bold">ارسال عکس برگه</span>
+                        </label>
+
+                        <label className="flex items-center gap-2 p-2 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer text-xs">
+                          <input
+                            type="checkbox"
+                            checked={tgSettings.sendText}
+                            onChange={e =>
+                              setTgSettings({
+                                ...tgSettings,
+                                sendText: e.target.checked,
+                              })
+                            }
+                            className="w-4 h-4 text-sky-600 rounded accent-sky-600"
+                          />
+                          <span className="text-slate-800 font-bold">ارسال متن خلاصه</span>
+                        </label>
+                      </div>
+
+                      <div className="space-y-1 pt-1">
+                        <label className="text-[11.5px] font-bold text-slate-700 block">
+                          شناسه چت تلگرام مدیر (جهت دریافت کپی اعلان‌ها - اختیاری):
+                        </label>
+                        <input
+                          type="text"
+                          dir="ltr"
+                          value={tgSettings.defaultChatId}
+                          onChange={e => setTgSettings({ ...tgSettings, defaultChatId: e.target.value })}
+                          placeholder="مثال: 987654321"
+                          className="w-full px-3 py-2 bg-slate-50 border border-slate-300 focus:border-sky-500 rounded-xl text-xs font-mono text-slate-900 outline-none transition"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Privacy & Account Segregation Guarantee Banner */}
+                <div className="bg-sky-50 border border-sky-200 rounded-2xl p-4 sm:p-5 shadow-xs space-y-2">
+                  <div className="flex items-center gap-2 text-sky-900 font-black text-xs sm:text-sm">
+                    <ShieldCheck className="w-5 h-5 text-sky-600 shrink-0" />
+                    <span>تضمین عدم تداخل حساب‌ها و حفظ امنیت ۱۰۰٪ مشتریان</span>
+                  </div>
+                  <ul className="text-xs text-sky-950 space-y-1.5 leading-relaxed pr-2 list-disc list-inside">
+                    <li>
+                      <strong>احراز هویت اجباری با شماره:</strong> مشتری با ارسال دستور <code>/start</code>، ملزم به اشتراک‌گذاری شماره موبایل خود تلگرام می‌شود.
+                    </li>
+                    <li>
+                      <strong>کنترل مالکیت کارت مخاطب:</strong> ربات تأیید می‌کند که شماره کارت ارسالی حتماً متعلق به اکانت خود ارسال‌کننده باشد تا امکان جعل شماره وجود نداشته باشد.
+                    </li>
+                    <li>
+                      <strong>تفکیک مطلق حساب‌ها:</strong> سیستم شماره مشتری را در دیتابیس اشخاص جستجو نموده و <u>فقط و فقط صورت‌حساب شخص مربوطه</u> را بازمی‌گرداند. حتی اگر صدها مشتری به طور همزمان به ربات متصل شوند، هیچ مشتری دیگری به بدهی، طلب یا فاکتورهای دیگران دسترسی نخواهد داشت.
+                    </li>
+                  </ul>
+                </div>
+
+                {/* Subscribers & Log Summary */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Connected Customers */}
+                  <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                      <div className="flex items-center gap-2 font-bold text-xs text-slate-800">
+                        <Users className="w-4 h-4 text-sky-600" />
+                        <span>مشتریان متصل شده به ربات ({tgSubscribers.length} نفر)</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setTgSubscribers(getSubscribersList())}
+                        className="text-[11px] text-sky-600 hover:text-sky-700 font-bold cursor-pointer"
+                      >
+                        بروزرسانی
+                      </button>
+                    </div>
+
+                    {tgSubscribers.length === 0 ? (
+                      <p className="text-xs text-slate-400 text-center py-6">
+                        هنوز هیچ مشتری به ربات متصل نشده است.
+                      </p>
+                    ) : (
+                      <div className="space-y-2 max-h-56 overflow-y-auto custom-scrollbar">
+                        {tgSubscribers.map(sub => (
+                          <div
+                            key={sub.chatId}
+                            className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between text-xs"
+                          >
+                            <div>
+                              <p className="font-bold text-slate-900">{sub.partyName}</p>
+                              <p className="text-[11px] text-slate-500 font-mono" dir="ltr">
+                                {sub.phone}
+                              </p>
+                            </div>
+                            <span className="text-[10px] bg-sky-100 text-sky-800 px-2 py-0.5 rounded-full font-bold">
+                              متصل
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Recent Logs Preview */}
+                  <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                      <div className="flex items-center gap-2 font-bold text-xs text-slate-800">
+                        <Activity className="w-4 h-4 text-amber-600" />
+                        <span>رویدادها و لاگ‌های اخیر تلگرام</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setTgLogs(getTelegramLogs())}
+                        className="text-[11px] text-sky-600 hover:text-sky-700 font-bold cursor-pointer"
+                      >
+                        بروزرسانی
+                      </button>
+                    </div>
+
+                    {tgLogs.length === 0 ? (
+                      <p className="text-xs text-slate-400 text-center py-6">
+                        هنوز هیچ لاگ رویدادی ثبت نشده است.
+                      </p>
+                    ) : (
+                      <div className="space-y-2 max-h-56 overflow-y-auto custom-scrollbar">
+                        {tgLogs.slice(0, 6).map(log => (
+                          <div
+                            key={log.id}
+                            className="p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-0.5"
+                          >
+                            <div className="flex items-center justify-between text-[10px] text-slate-500 font-mono">
+                              <span>{new Date(log.timestamp).toLocaleTimeString('fa-IR')}</span>
+                              <span
+                                className={`px-1.5 py-0.2 rounded font-bold ${
+                                  log.type === 'auth_success' || log.type === 'inquiry'
+                                    ? 'bg-emerald-100 text-emerald-800'
+                                    : log.type === 'auth_failed' || log.type === 'error'
+                                    ? 'bg-rose-100 text-rose-800'
+                                    : 'bg-slate-200 text-slate-700'
+                                }`}
+                              >
+                                {log.type}
+                              </span>
+                            </div>
+                            <p className="text-slate-800 text-[11px] leading-tight font-medium">
+                              {log.message}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Telegram Bot Modal launched from confidential section with initiallyUnlocked */}
+        <TelegramBotModal
+          isOpen={isTelegramModalOpen}
+          onClose={() => {
+            setIsTelegramModalOpen(false);
+            setTgSettings(getTelegramSettings());
+            setTgSubscribers(getSubscribersList());
+            setTgLogs(getTelegramLogs());
+          }}
+          initiallyUnlocked={true}
+        />
 
         {/* ================= CONFIRMATION MODAL OVERLAY ================= */}
         {confirmResetType && (

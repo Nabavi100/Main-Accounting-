@@ -19,6 +19,10 @@ import {
   Trash2,
   ExternalLink,
   Lock,
+  Eye,
+  EyeOff,
+  KeyRound,
+  ShieldAlert,
 } from 'lucide-react';
 import {
   TelegramSettings,
@@ -35,19 +39,30 @@ import {
   isTelegramListenerRunning,
 } from '../services/telegramBotService';
 import { useAccounting } from '../context/AccountingContext';
+import { verifyLicenseMasterPin } from '../utils/securityMaster';
+import { verifyLicense } from '../utils/licenseSecurity';
 
 interface TelegramBotModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSettingsSaved?: (settings: TelegramSettings) => void;
+  initiallyUnlocked?: boolean;
 }
 
 export const TelegramBotModal: React.FC<TelegramBotModalProps> = ({
   isOpen,
   onClose,
   onSettingsSaved,
+  initiallyUnlocked = false,
 }) => {
   const { parties, invoices, companySettings, notify } = useAccounting();
+
+  // Security Authentication Gate
+  const [isUnlocked, setIsUnlocked] = useState(initiallyUnlocked);
+  const [pinInput, setPinInput] = useState('');
+  const [pinError, setPinError] = useState('');
+  const [showPin, setShowPin] = useState(false);
+  const [configuredMasterPin, setConfiguredMasterPin] = useState<string | undefined>();
 
   const [activeTab, setActiveTab] = useState<'settings' | 'customers' | 'logs' | 'guide'>('settings');
   const [settings, setSettings] = useState<TelegramSettings>(getTelegramSettings());
@@ -79,10 +94,32 @@ export const TelegramBotModal: React.FC<TelegramBotModalProps> = ({
       setTestResult(null);
       setSavedSuccess(false);
       setTestMsgStatus(null);
+      setPinInput('');
+      setPinError('');
+      if (!initiallyUnlocked) {
+        setIsUnlocked(false);
+      } else {
+        setIsUnlocked(true);
+      }
+      verifyLicense()
+        .then(res => {
+          setConfiguredMasterPin(res.license?.masterPin);
+        })
+        .catch(() => {});
     }
-  }, [isOpen]);
+  }, [isOpen, initiallyUnlocked]);
 
   if (!isOpen) return null;
+
+  const handleVerifyMasterPin = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (verifyLicenseMasterPin(pinInput, configuredMasterPin)) {
+      setIsUnlocked(true);
+      setPinError('');
+    } else {
+      setPinError('رمز عبور فوق‌محرمانه اشتباه است! فقط مدیر سیستم مجاز به ورود است.');
+    }
+  };
 
   const handleTestConnection = async () => {
     if (!settings.botToken) {
@@ -225,47 +262,151 @@ export const TelegramBotModal: React.FC<TelegramBotModalProps> = ({
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-sky-500/10 text-sky-600 flex items-center justify-center font-black">
-              <Send className="w-5 h-5 -rotate-45" />
+            <div
+              className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black ${
+                isUnlocked
+                  ? 'bg-sky-500/10 text-sky-600'
+                  : 'bg-amber-500/10 text-amber-600 border border-amber-300/40'
+              }`}
+            >
+              {isUnlocked ? <Send className="w-5 h-5 -rotate-45" /> : <Lock className="w-5 h-5" />}
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-base font-black text-slate-900">
-                  ربات تلگرام و استعلام اختصاصی حساب مشتریان
+                  تنظیمات محرمانه ربات تلگرام
                 </h2>
-                {settings.botToken && (
-                  <span
-                    className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                      isListenerRunning
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : 'bg-amber-100 text-amber-800'
-                    }`}
-                  >
-                    <span
-                      className={`w-1.5 h-1.5 rounded-full ${
-                        isListenerRunning ? 'bg-emerald-600 animate-pulse' : 'bg-amber-600'
-                      }`}
-                    />
-                    {isListenerRunning ? 'شنود فعال و آماده پاسخ' : 'در انتظار اتصال'}
+                {isUnlocked ? (
+                  <>
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                      <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                      <span>احراز هویت شده</span>
+                    </span>
+                    {settings.botToken && (
+                      <span
+                        className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          isListenerRunning
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-amber-100 text-amber-800'
+                        }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            isListenerRunning ? 'bg-emerald-600 animate-pulse' : 'bg-amber-600'
+                          }`}
+                        />
+                        {isListenerRunning ? 'شنود فعال و آنلاین' : 'در انتظار اتصال'}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                    <ShieldAlert className="w-3 h-3 text-amber-600" />
+                    <span>محافظت‌شده با رمز مدیر</span>
                   </span>
                 )}
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                تطبیق شماره مشتری و ارسال خودکار «جمله حساب» فقط برای همان مشتری
+                {isUnlocked
+                  ? 'استعلام حساب اختصاصی و تفکیک‌شده مشتریان با تطبیق شماره تماس'
+                  : 'دسترسی به توکن ربات و شماره مشتریان نیازمند ورود رمز مدیر است'}
               </p>
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-1.5">
+            {isUnlocked && (
+              <button
+                type="button"
+                onClick={() => setIsUnlocked(false)}
+                className="text-[11px] px-2.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold flex items-center gap-1 transition cursor-pointer"
+                title="قفل کردن مجدد تنظیمات ربات"
+              >
+                <Lock className="w-3.5 h-3.5 text-slate-500" />
+                <span className="hidden sm:inline">قفل مجدد</span>
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex items-center gap-1.5 border-b border-slate-100 pb-2 text-xs font-bold shrink-0">
+        {!isUnlocked ? (
+          /* PIN GATE VIEW */
+          <div className="py-8 px-4 text-center max-w-md mx-auto space-y-4 my-auto">
+            <div className="w-14 h-14 bg-amber-50 rounded-2xl border border-amber-200 text-amber-600 flex items-center justify-center mx-auto shadow-inner">
+              <Lock className="w-7 h-7" />
+            </div>
+            <div>
+              <h3 className="font-black text-base text-slate-900 mb-1">
+                ورود به بخش محرمانه ربات تلگرام
+              </h3>
+              <p className="text-slate-500 text-xs leading-relaxed">
+                این بخش حاوی توکن اختصاصی ربات، اطلاعات مالی، و فهرست شماره‌های مشتریان است.
+                جهت جلوگیری از دسترسی کارمندان و افراد غیرمجاز، ورود رمز عبور فوق‌محرمانه الزامی است.
+              </p>
+            </div>
+
+            <form onSubmit={handleVerifyMasterPin} className="space-y-3 pt-2">
+              <div className="relative">
+                <input
+                  type={showPin ? 'text' : 'password'}
+                  autoFocus
+                  value={pinInput}
+                  onChange={e => {
+                    setPinInput(e.target.value);
+                    if (pinError) setPinError('');
+                  }}
+                  placeholder="رمز فوق‌محرمانه مدیر برنامه..."
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-center text-sm font-mono font-bold text-slate-900 tracking-widest outline-none focus:ring-2 focus:ring-slate-800 focus:bg-white pl-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPin(!showPin)}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                  title={showPin ? 'مخفی کردن' : 'نمایش رمز'}
+                >
+                  {showPin ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+
+              {pinError && (
+                <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl flex items-center gap-2 text-right">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{pinError}</span>
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="w-1/3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition cursor-pointer"
+                >
+                  انصراف
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-2 shadow-sm"
+                >
+                  <KeyRound className="w-4 h-4 text-amber-400" />
+                  <span>تأیید رمز و مشاهده تنظیمات ربات</span>
+                </button>
+              </div>
+
+              <div className="pt-2 text-[11px] text-slate-400 bg-slate-50 p-2 rounded-xl border border-slate-200">
+                🔑 رمز پیش‌فرض مدیر برنامه: <span className="font-mono font-bold text-slate-700">nabavi2026</span>
+              </div>
+            </form>
+          </div>
+        ) : (
+          <>
+            {/* Tab Navigation */}
+            <div className="flex items-center gap-1.5 border-b border-slate-100 pb-2 text-xs font-bold shrink-0">
           <button
             type="button"
             onClick={() => setActiveTab('settings')}
@@ -758,7 +899,7 @@ export const TelegramBotModal: React.FC<TelegramBotModalProps> = ({
           )}
         </div>
 
-        {/* Footer Actions */}
+        {/* Footer Actions (Only when unlocked) */}
         <div className="flex items-center justify-between pt-3 border-t border-slate-100 shrink-0">
           <button
             type="button"
@@ -786,6 +927,8 @@ export const TelegramBotModal: React.FC<TelegramBotModalProps> = ({
             )}
           </button>
         </div>
+      </>
+    )}
       </div>
     </div>
   );
