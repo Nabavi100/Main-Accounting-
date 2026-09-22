@@ -12,6 +12,13 @@ import { PrintInvoiceDocument } from './print/PrintInvoiceDocument';
 import { PrintExpenseVoucher } from './print/PrintExpenseVoucher';
 import { CompanyStampSeal } from './CompanyStampSeal';
 import { SignatureAndSealModal } from './SignatureAndSealModal';
+import { TelegramBotModal } from './TelegramBotModal';
+import {
+  getTelegramSettings,
+  sendInvoiceToTelegramBot,
+  TelegramSettings,
+} from '../services/telegramBotService';
+import html2canvas from 'html2canvas';
 import {
   Printer,
   X,
@@ -35,6 +42,10 @@ import {
   AlertCircle,
   Building2,
   PackageCheck,
+  Send,
+  Bot,
+  Loader2,
+  Settings as SettingsIcon,
 } from 'lucide-react';
 
 interface DocumentPrintModalProps {
@@ -74,6 +85,12 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
   const [stampSize, setStampSize] = useState<number>(companySettings.stampSize || 56);
   const [signatureSize, setSignatureSize] = useState<number>(companySettings.signatureSize || 48);
   const [isSealModalOpen, setIsSealModalOpen] = useState<boolean>(false);
+
+  // Telegram Bot States
+  const [isTelegramModalOpen, setIsTelegramModalOpen] = useState<boolean>(false);
+  const [isTelegramSending, setIsTelegramSending] = useState<boolean>(false);
+  const [telegramStatusMsg, setTelegramStatusMsg] = useState<string | null>(null);
+  const [telegramStatusType, setTelegramStatusType] = useState<'success' | 'error' | null>(null);
 
   // Sync states if companySettings change
   React.useEffect(() => {
@@ -174,6 +191,16 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
   };
 
   const handlePrint = () => {
+    // If autoSendOnSave is enabled in telegram settings, trigger telegram delivery as well
+    try {
+      const tgSettings = getTelegramSettings();
+      if (tgSettings.autoSendOnSave && invData && tgSettings.botToken && tgSettings.defaultChatId) {
+        handleSendToTelegram(false);
+      }
+    } catch (e) {
+      console.warn('Auto send telegram trigger error:', e);
+    }
+
     const filename = getSuggestedDocumentFileName();
     const originalTitle = window.document.title;
     window.document.title = filename;
@@ -193,6 +220,94 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
 
   const handleSavePdf = () => {
     handlePrint();
+  };
+
+  const handleSendToTelegram = async (isManualClick: boolean = true) => {
+    if (!invData) {
+      if (isManualClick) {
+        setTelegramStatusType('error');
+        setTelegramStatusMsg('ارسال به تلگرام در حال حاضر برای فاکتورهای فروش و مرجوعی فعال است.');
+      }
+      return;
+    }
+
+    const settings = getTelegramSettings();
+    if (!settings.botToken || !settings.defaultChatId) {
+      if (isManualClick) {
+        setIsTelegramModalOpen(true);
+      }
+      return;
+    }
+
+    setIsTelegramSending(true);
+    setTelegramStatusMsg('درحال آماده‌سازی تصویر فاکتور و ارسال به ربات تلگرام...');
+    setTelegramStatusType(null);
+
+    try {
+      const party = getPartyExtraInfo(invData.partyId, invData.partyName);
+      const partyPhone = party?.phone || invData.partyPhone || '';
+
+      const invoiceTotal = invData.finalAmount || invData.totalAmount || 0;
+      const paidAmount = invData.paidAmount || 0;
+      const remainingBalanceThisInvoice = Math.max(0, invoiceTotal - paidAmount);
+
+      let customerOverallBalanceAFN = 0;
+      let customerOverallBalanceUSD = 0;
+      if (party) {
+        customerOverallBalanceAFN = party.balanceAFN || 0;
+        customerOverallBalanceUSD = party.balanceUSD || 0;
+      }
+
+      // Capture screenshot of #printable-paper-canvas using html2canvas
+      let imageBlob: Blob | null = null;
+      const canvasElement = window.document.getElementById('printable-paper-canvas');
+      if (canvasElement) {
+        try {
+          const canvas = await html2canvas(canvasElement, {
+            scale: 2,
+            useCORS: true,
+            logging: false,
+            backgroundColor: '#ffffff',
+          });
+          imageBlob = await new Promise<Blob | null>(resolve => {
+            canvas.toBlob(b => resolve(b), 'image/png', 0.95);
+          });
+        } catch (canvasErr) {
+          console.warn('html2canvas screenshot failed:', canvasErr);
+        }
+      }
+
+      const res = await sendInvoiceToTelegramBot(
+        {
+          invoice: invData,
+          party,
+          customerPhone: partyPhone,
+          companyName: companySettings.name || 'شرکت تجارتی برادران نبوی',
+          companyPhone: companySettings.phone || '',
+          remainingBalanceThisInvoice,
+          customerOverallBalanceAFN,
+          customerOverallBalanceUSD,
+          imageBlob,
+        },
+        settings
+      );
+
+      if (res.success) {
+        setTelegramStatusType('success');
+        setTelegramStatusMsg(res.message);
+        setTimeout(() => {
+          setTelegramStatusMsg(null);
+        }, 5000);
+      } else {
+        setTelegramStatusType('error');
+        setTelegramStatusMsg(res.message);
+      }
+    } catch (err: any) {
+      setTelegramStatusType('error');
+      setTelegramStatusMsg(`خطا در ارسال به تلگرام: ${err?.message || 'نامشخص'}`);
+    } finally {
+      setIsTelegramSending(false);
+    }
   };
 
   // Helper to find party details if not already attached on document
@@ -400,6 +515,40 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
               </label>
             </div>
 
+            {/* Telegram Bot Action & Configuration */}
+            {(document.type === 'invoice' || !!invData) && (
+              <div className="flex items-center bg-slate-800 p-1 rounded-xl border border-slate-700 text-xs gap-1">
+                <button
+                  id="doc-telegram-send-btn"
+                  type="button"
+                  disabled={isTelegramSending}
+                  onClick={() => handleSendToTelegram(true)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition shadow-xs cursor-pointer active:scale-95 ${
+                    isTelegramSending
+                      ? 'bg-sky-700 text-white cursor-wait opacity-80'
+                      : 'bg-[#229ED9] hover:bg-[#1E88E5] text-white'
+                  }`}
+                  title="ارسال فاکتور و مانده حساب به ربات تلگرام مشتری (متن، عکس فاکتور و فایل txt)"
+                >
+                  {isTelegramSending ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Send className="w-3.5 h-3.5" />
+                  )}
+                  <span>{isTelegramSending ? 'درحال ارسال...' : 'ارسال به تلگرام'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsTelegramModalOpen(true)}
+                  className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-700 rounded-lg transition cursor-pointer"
+                  title="تنظیمات توکن و چت‌آیدی ربات تلگرام"
+                >
+                  <Bot className="w-3.5 h-3.5 text-sky-400" />
+                </button>
+              </div>
+            )}
+
             {/* Print Button */}
             <button
               id="doc-print-execute-btn"
@@ -437,6 +586,37 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Telegram Status Notification Banner */}
+        {telegramStatusMsg && (
+          <div
+            className={`no-print mx-auto w-full mb-3 px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-between shadow-md transition-all ${
+              telegramStatusType === 'success'
+                ? 'bg-emerald-500/15 border border-emerald-500/40 text-emerald-800'
+                : telegramStatusType === 'error'
+                ? 'bg-rose-500/15 border border-rose-500/40 text-rose-800'
+                : 'bg-sky-500/15 border border-sky-500/40 text-sky-800'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {telegramStatusType === 'success' ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              ) : telegramStatusType === 'error' ? (
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              ) : (
+                <Loader2 className="w-4 h-4 text-sky-600 animate-spin shrink-0" />
+              )}
+              <span>{telegramStatusMsg}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setTelegramStatusMsg(null)}
+              className="text-slate-400 hover:text-slate-600 cursor-pointer p-1"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
         {/* ================= PRINTABLE PAPER CANVAS (A4 Compact & Calibrated) ================= */}
         <div
@@ -1073,6 +1253,17 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
           if (newSettings.stampColor) setStampColor(newSettings.stampColor);
           if (newSettings.stampSize !== undefined) setStampSize(newSettings.stampSize);
           if (newSettings.signatureSize !== undefined) setSignatureSize(newSettings.signatureSize);
+        }}
+      />
+
+      {/* Telegram Bot Configuration Modal */}
+      <TelegramBotModal
+        isOpen={isTelegramModalOpen}
+        onClose={() => setIsTelegramModalOpen(false)}
+        onSettingsSaved={() => {
+          setTelegramStatusType('success');
+          setTelegramStatusMsg('تنظیمات ربات تلگرام با موفقیت ذخیره شد.');
+          setTimeout(() => setTelegramStatusMsg(null), 4000);
         }}
       />
     </div>

@@ -39,6 +39,7 @@ import { TradeOperationsHubView } from './components/TradeOperationsHubView';
 import { ReceiptPaymentHubView } from './components/ReceiptPaymentHubView';
 import { AuditLogView } from './components/AuditLogView';
 import { ComprehensiveJournalView } from './components/ComprehensiveJournalView';
+import { TelegramBotModal } from './components/TelegramBotModal';
 import { ToastContainer } from './components/ToastContainer';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { LoginScreen } from './components/LoginScreen';
@@ -46,10 +47,14 @@ import { LicenseStatusResult, verifyLicense } from './utils/licenseSecurity';
 import { SecretLicenseModal } from './components/SecretLicenseModal';
 import { LicenseWarningModal } from './components/LicenseWarningModal';
 import { LicenseLockScreen } from './components/LicenseLockScreen';
+import { startTelegramBotListener, stopTelegramBotListener } from './services/telegramBotService';
 
 const MainApp: React.FC = () => {
   const {
     invoices,
+    parties,
+    updateParty,
+    notify,
     activePrintDoc,
     closePrintModal,
     openPrintModal,
@@ -60,10 +65,51 @@ const MainApp: React.FC = () => {
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
   const [subFilter, setSubFilter] = useState<string>('all');
 
+  // References for live Telegram Bot listener
+  const partiesRef = React.useRef(parties);
+  partiesRef.current = parties;
+  const invoicesRef = React.useRef(invoices);
+  invoicesRef.current = invoices;
+  const companySettingsRef = React.useRef(companySettings);
+  companySettingsRef.current = companySettings;
+
+  // Background Telegram Bot Polling Listener for real-time customer /start & balance requests
+  useEffect(() => {
+    startTelegramBotListener({
+      getParties: () => partiesRef.current,
+      getInvoices: () => invoicesRef.current,
+      getCompanySettings: () => companySettingsRef.current,
+      onPartyLinked: (partyId, chatId, username) => {
+        updateParty(partyId, {
+          telegramChatId: chatId,
+          telegramUsername: username,
+          telegramLinkedAt: new Date().toISOString(),
+          telegramLastInquiry: new Date().toISOString(),
+        });
+        const party = partiesRef.current.find(p => p.id === partyId);
+        notify(
+          'success',
+          '📱 اتصال موفق مشتری به ربات تلگرام',
+          `مشتری محترم «${party?.name || ''}» با شماره تماس ثبت‌شده در سیستم به ربات متصل گردید.`
+        );
+      },
+      onNewLog: log => {
+        if (log.type === 'inquiry') {
+          notify('info', 'استعلام حساب از تلگرام', log.message);
+        }
+      },
+    });
+
+    return () => {
+      stopTelegramBotListener();
+    };
+  }, [updateParty, notify]);
+
   // License Security & Expiration Management State
   const [licenseStatus, setLicenseStatus] = useState<LicenseStatusResult | null>(null);
   const [isSecretLicenseModalOpen, setIsSecretLicenseModalOpen] = useState(false);
   const [isWarningModalOpen, setIsWarningModalOpen] = useState(false);
+  const [isTelegramModalOpen, setIsTelegramModalOpen] = useState(false);
 
   const refreshLicense = async () => {
     try {
@@ -239,6 +285,7 @@ const MainApp: React.FC = () => {
         onOpenPaymentModal={handleOpenPaymentModal}
         onOpenTransferModal={handleOpenTransferModal}
         onOpenAccessModal={handleOpenAccessModal}
+        onOpenTelegramModal={() => setIsTelegramModalOpen(true)}
       />
 
       {/* Main Content Area */}
@@ -249,6 +296,7 @@ const MainApp: React.FC = () => {
           onOpenNewInvoice={handleOpenNewInvoice}
           onOpenPaymentModal={handleOpenPaymentModal}
           onOpenAccessModal={handleOpenAccessModal}
+          onOpenTelegramModal={() => setIsTelegramModalOpen(true)}
         />
 
         {/* View Body */}
@@ -529,6 +577,12 @@ const MainApp: React.FC = () => {
         isOpen={isSecretLicenseModalOpen}
         onClose={() => setIsSecretLicenseModalOpen(false)}
         onLicenseUpdated={refreshLicense}
+      />
+
+      {/* Telegram Bot Settings Modal */}
+      <TelegramBotModal
+        isOpen={isTelegramModalOpen}
+        onClose={() => setIsTelegramModalOpen(false)}
       />
     </div>
   );

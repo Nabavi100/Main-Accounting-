@@ -26,7 +26,9 @@ import {
   CheckCircle2,
   HelpCircle,
   ShieldCheck,
+  Send,
 } from 'lucide-react';
+import { getTelegramSettings, sendInvoiceToTelegramBot } from '../services/telegramBotService';
 
 interface SalesInvoiceCreateViewProps {
   onBackToList?: () => void;
@@ -62,6 +64,7 @@ export const SalesInvoiceCreateView: React.FC<SalesInvoiceCreateViewProps> = ({
     getProductStock,
     getNextInvoiceNumber,
     openPrintModal,
+    companySettings,
   } = useAccounting();
 
   // Top header fields (matching screenshot IMG-20260906-WA0001.jpg)
@@ -363,7 +366,7 @@ export const SalesInvoiceCreateView: React.FC<SalesInvoiceCreateViewProps> = ({
   const [formError, setFormError] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e?: React.FormEvent, shouldPrint: boolean = false) => {
+  const handleSubmit = (e?: React.FormEvent, shouldPrint: boolean = false, sendTelegramNow: boolean = false) => {
     if (e) e.preventDefault();
     setFormError('');
 
@@ -441,6 +444,38 @@ export const SalesInvoiceCreateView: React.FC<SalesInvoiceCreateViewProps> = ({
         cashRegisterId: selectedCashAccountId,
         notes: `نوع معامله: ${dealType}${shippingCost > 0 ? ` | کرایه خروجی: ${shippingCost} ${currency}` : ''}`,
       });
+
+      // Auto-send or manual button send to Telegram
+      const tgSettings = getTelegramSettings();
+      if (tgSettings.botToken && (tgSettings.autoSendOnSave || sendTelegramNow)) {
+        const targetChat = party?.telegramChatId || tgSettings.defaultChatId;
+        if (targetChat) {
+          sendInvoiceToTelegramBot(
+            {
+              invoice: created,
+              party,
+              customerPhone: party?.phone,
+              companyName: companySettings?.name || 'شرکت تجارتی برادران نبوی',
+              companyPhone: companySettings?.phone || '',
+              remainingBalanceThisInvoice: remainingBalance,
+              customerOverallBalanceAFN: party?.balanceAFN || 0,
+              customerOverallBalanceUSD: party?.balanceUSD || 0,
+              targetChatId: targetChat,
+            },
+            tgSettings
+          ).then(res => {
+            if (res.success) {
+              notify('success', 'ارسال فاکتور به تلگرام', `فاکتور #${created.invoiceNumber} به تلگرام ${party?.name || 'مشتری'} ارسال گردید.`);
+            } else if (sendTelegramNow) {
+              notify('error', 'خطا در ارسال به تلگرام', res.message);
+            }
+          }).catch(err => {
+            console.warn('Telegram send failed:', err);
+          });
+        } else if (sendTelegramNow) {
+          notify('info', 'تلگرام مشتری متصل نیست', 'این مشتری هنوز در ربات تلگرام استارت نزده و شماره ثبت نکرده است.');
+        }
+      }
 
       if (shouldPrint) {
         openPrintModal({
@@ -1183,21 +1218,32 @@ export const SalesInvoiceCreateView: React.FC<SalesInvoiceCreateViewProps> = ({
           {/* Row 3: Action Buttons & Summary Totals */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-3 border-t border-emerald-200/60">
             {/* Left side: Buttons */}
-            <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
               <button
                 type="button"
                 disabled={isSubmitting}
                 onClick={e => handleSubmit(e, true)}
-                className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition cursor-pointer"
+                className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition cursor-pointer"
               >
                 <Printer className="w-4 h-4" />
                 <span>{isReturn ? 'ثبت و چاپ فاکتور برگشت' : 'ثبت و چاپ فاکتور'}</span>
               </button>
 
               <button
+                type="button"
+                disabled={isSubmitting}
+                onClick={e => handleSubmit(e, false, true)}
+                className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs shadow-xs transition cursor-pointer"
+                title="ثبت فاکتور و ارسال مستقیم متن و تصویر فاکتور به ربات تلگرام اختصاصی مشتری"
+              >
+                <Send className="w-4 h-4 -rotate-45" />
+                <span>ثبت و ارسال به تلگرام</span>
+              </button>
+
+              <button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl border border-emerald-600 text-emerald-700 hover:bg-emerald-50 bg-white font-bold text-xs shadow-xs transition cursor-pointer"
+                className="flex-1 sm:flex-initial inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-emerald-600 text-emerald-700 hover:bg-emerald-50 bg-white font-bold text-xs shadow-xs transition cursor-pointer"
               >
                 <Check className="w-4 h-4" />
                 <span>{isReturn ? 'ثبت نهایی فاکتور برگشت' : 'ثبت فاکتور'}</span>

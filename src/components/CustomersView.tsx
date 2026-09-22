@@ -22,7 +22,10 @@ import {
   Building,
   Layers,
   X,
+  Send,
+  Bot,
 } from 'lucide-react';
+import { sendCustomerAccountStatement, getTelegramSettings } from '../services/telegramBotService';
 
 interface CustomersViewProps {
   onOpenPaymentModal: (type: 'receive_payment' | 'make_payment', partyId?: string) => void;
@@ -59,6 +62,8 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
     invoices,
     transactions,
     openPrintModal,
+    companySettings,
+    notify,
   } = useAccounting();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -75,6 +80,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
   const [name, setName] = useState('');
   const [company, setCompany] = useState('');
   const [phone, setPhone] = useState('');
+  const [telegramChatId, setTelegramChatId] = useState('');
   const [address, setAddress] = useState('');
   const [partyType, setPartyType] = useState<PartyType>('customer');
   const [groupId, setGroupId] = useState<string>('');
@@ -83,6 +89,39 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
   const [initialBalanceUSD, setInitialBalanceUSD] = useState(0);
   const [usdType, setUsdType] = useState<'debtor' | 'creditor'>('debtor');
   const [notes, setNotes] = useState('');
+
+  const handleSendCustomerTelegramStatement = async (party: Party) => {
+    const settings = getTelegramSettings();
+    if (!settings.botToken) {
+      notify('warning', 'تنظیمات تلگرام', 'لطفاً ابتدا توکن ربات تلگرام را در تنظیمات وارد و فعال کنید.');
+      return;
+    }
+
+    const targetChatId = party.telegramChatId || settings.defaultChatId;
+    if (!targetChatId) {
+      notify(
+        'info',
+        'مشتری هنوز به ربات وصل نشده است',
+        `این مشتری (${party.name}) باید ابتدا در ربات تلگرام دکمه Start را بزند و شماره تماس خود (${party.phone}) را ارسال کند تا هویت او تایید و متصل گردد.`
+      );
+      return;
+    }
+
+    notify('info', 'در حال ارسال...', `ارسال جمله حساب به تلگرام ${party.name}`);
+    const success = await sendCustomerAccountStatement(
+      targetChatId,
+      party,
+      invoices,
+      companySettings,
+      settings
+    );
+
+    if (success) {
+      notify('success', 'ارسال موفق به تلگرام', `جمله حساب اختصاصی برای محترم ${party.name} ارسال شد.`);
+    } else {
+      notify('error', 'خطا در ارسال', 'ارسال پیام به تلگرام مشتری با خطا مواجه شد. لطفاً توکن و اینترنت را بررسی نمایید.');
+    }
+  };
 
   // Group Management Modal State
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
@@ -115,6 +154,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
     setName('');
     setCompany('');
     setPhone('');
+    setTelegramChatId('');
     setAddress('');
     setPartyType('customer');
     setGroupId(selectedGroupId !== 'all' ? selectedGroupId : partyGroups[0]?.id || '');
@@ -131,6 +171,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
     setName(party.name);
     setCompany(party.company || '');
     setPhone(party.phone);
+    setTelegramChatId(party.telegramChatId || '');
     setAddress(party.address || '');
     setPartyType(party.type);
     setGroupId(party.groupId || '');
@@ -185,6 +226,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
         name,
         company,
         phone,
+        telegramChatId: telegramChatId.trim() || undefined,
         address,
         type: partyType,
         groupId: groupId || undefined,
@@ -200,6 +242,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
         name,
         company,
         phone,
+        telegramChatId: telegramChatId.trim() || undefined,
         address,
         type: partyType,
         groupId: groupId || undefined,
@@ -579,6 +622,19 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
 
                           <td className="px-4 py-3.5">
                             <div className="font-mono text-slate-700">{party.phone}</div>
+                            {party.telegramChatId ? (
+                              <span
+                                className="inline-flex items-center gap-1 text-[9.5px] font-bold text-sky-700 bg-sky-50 px-1.5 py-0.5 rounded-full mt-0.5"
+                                title={`متصل به ربات تلگرام (شناسه چت: ${party.telegramChatId})`}
+                              >
+                                <Send className="w-2.5 h-2.5 -rotate-45" />
+                                <span>وصل تلگرام</span>
+                              </span>
+                            ) : (
+                              <span className="text-[9px] text-slate-400 block mt-0.5">
+                                تلگرام: غیرمتصل
+                              </span>
+                            )}
                           </td>
 
                           <td className="px-4 py-3.5 font-mono font-bold">
@@ -645,6 +701,21 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
                                 title="صورت‌حساب و کاردکس"
                               >
                                 <FileText className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleSendCustomerTelegramStatement(party)}
+                                className={`p-1 rounded-lg transition cursor-pointer ${
+                                  party.telegramChatId
+                                    ? 'text-sky-600 hover:bg-sky-50 hover:text-sky-700'
+                                    : 'text-slate-400 hover:text-sky-600 hover:bg-slate-100'
+                                }`}
+                                title={
+                                  party.telegramChatId
+                                    ? `ارسال مستقیم جمله حساب به تلگرام ${party.name}`
+                                    : `ارسال جمله حساب به تلگرام (مشتری هنوز به ربات متصل نشده است)`
+                                }
+                              >
+                                <Send className="w-3.5 h-3.5 -rotate-45" />
                               </button>
                               <button
                                 onClick={() => openEditModal(party)}
@@ -811,7 +882,9 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">شماره تماس *</label>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  شماره تماس (کلید اتصال ربات تلگرام) *
+                </label>
                 <input
                   type="text"
                   placeholder="۰۷۹۹۱۲۳۴۵۶"
@@ -821,6 +894,32 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
                   required
                 />
               </div>
+            </div>
+
+            {/* Telegram Chat ID linking */}
+            <div className="p-2.5 bg-sky-50/70 border border-sky-200/80 rounded-2xl flex items-center justify-between gap-3">
+              <div className="space-y-0.5">
+                <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                  <Send className="w-3.5 h-3.5 text-sky-600 -rotate-45" />
+                  <span>شناسه چت تلگرام (Chat ID):</span>
+                  {telegramChatId ? (
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded-full">
+                      ✓ متصل به ربات
+                    </span>
+                  ) : (
+                    <span className="text-[10px] text-slate-500">
+                      (با ارسال شماره توسط مشتری در ربات، خودکار وصل می‌شود)
+                    </span>
+                  )}
+                </div>
+              </div>
+              <input
+                type="text"
+                placeholder="ثبت خودکار یا دستی"
+                value={telegramChatId}
+                onChange={e => setTelegramChatId(e.target.value)}
+                className="w-40 px-2.5 py-1.5 bg-white border border-sky-300 rounded-xl text-xs font-mono text-slate-900 outline-none focus:border-sky-500"
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-3">

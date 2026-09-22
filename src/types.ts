@@ -185,6 +185,10 @@ export interface Party {
   balanceUSD: number; // مثبت = طلبکار, منفی = قرضدار
   initialBalanceAFN?: number; // مانده حساب اولیه افغانی
   initialBalanceUSD?: number; // مانده حساب اولیه دلاری
+  telegramChatId?: string; // شناسه چت تلگرام مشتری جهت احراز هویت و ارسال اختصاصی حساب
+  telegramUsername?: string; // نام کاربری تلگرام (@username)
+  telegramLinkedAt?: string; // تاریخ و زمان احراز هویت و اتصال ربات تلگرام
+  telegramLastInquiry?: string; // آخرین زمان استعلام حساب توسط مشتری
   notes?: string;
   createdAt: string;
 }
@@ -258,6 +262,7 @@ export interface Invoice {
   subtotalAmount?: number; // سازگاری با فرمت چاپ فاکتور
   discount: number;
   totalAmount: number; // مبلغ قابل پرداخت
+  finalAmount?: number; // مبلغ نهایی قابل پرداخت
   paidAmount: number; // مبلغ پرداخت شده نقدی
   balanceAmount: number; // باقیمانده (قرضه)
   paymentStatus: PaymentStatus;

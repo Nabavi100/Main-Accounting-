@@ -68,6 +68,7 @@ interface SidebarProps {
   onOpenPaymentModal?: (type: 'receive_payment' | 'make_payment' | 'cash_transfer' | 'currency_exchange') => void;
   onOpenTransferModal?: () => void;
   onOpenAccessModal?: (tab?: 'roles' | 'reset' | 'backup') => void;
+  onOpenTelegramModal?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -79,6 +80,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenPaymentModal,
   onOpenTransferModal,
   onOpenAccessModal,
+  onOpenTelegramModal,
 }) => {
   const { companySettings, logout } = useAccounting();
   const { theme, sidebarStyle } = useTheme();
@@ -940,6 +942,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className="w-full text-right py-1 px-2 text-xs text-slate-500 hover:text-[#2563EB] hover:bg-slate-50 rounded-lg transition-colors font-medium"
               >
                 پشتیبان‌گیری از سیستم
+              </button>
+              <button
+                type="button"
+                id="sidebar-sub-telegram-bot"
+                onClick={() => {
+                  if (onOpenTelegramModal) onOpenTelegramModal();
+                }}
+                className="w-full text-right py-1.5 px-2 text-xs text-sky-600 hover:text-sky-700 hover:bg-sky-50 dark:hover:bg-slate-800 rounded-lg transition-colors font-bold flex items-center justify-between cursor-pointer"
+              >
+                <span>ربات تلگرام و ارسال حسابات</span>
+                <span className="text-[10px] px-1.5 py-0.2 bg-[#229ED9] text-white font-bold rounded-md">
+                  اتصال
+                </span>
               </button>
               <button
                 type="button"
