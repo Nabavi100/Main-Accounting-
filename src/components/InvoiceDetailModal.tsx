@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Invoice } from '../types';
 import { useAccounting } from '../context/AccountingContext';
 import { formatNumber, formatCurrency } from '../utils/formatters';
@@ -15,7 +15,9 @@ import {
   ArrowUpRight,
   Download,
   Edit2,
+  Send,
 } from 'lucide-react';
+import { sendTelegramDirectMessage, buildInvoiceTelegramText } from '../services/telegramApiService';
 
 interface InvoiceDetailModalProps {
   invoice: Invoice | null;
@@ -45,13 +47,48 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
-  const { parties } = useAccounting();
+  const { parties, companySettings, notify } = useAccounting();
+  const [isSendingTelegram, setIsSendingTelegram] = useState(false);
 
   if (!isOpen || !invoice) return null;
 
   const isSale = invoice.type === 'sell';
   const party = parties.find(p => p.id === invoice.partyId);
   const partyBal = party ? (invoice.currency === 'AFN' ? party.balanceAFN : party.balanceUSD) : 0;
+
+  const handleSendTelegram = async () => {
+    if (!party?.telegramChatId) {
+      notify(
+        'warning',
+        'مشتری به ربات تلگرام متصل نیست',
+        'جهت ارسال، از منوی «مدیریت تلگرام» کد اتصال یا شماره تماس مشتری را به این شخص پیوند دهید.'
+      );
+      return;
+    }
+
+    setIsSendingTelegram(true);
+    try {
+      const text = buildInvoiceTelegramText(invoice, party, companySettings);
+      const res = await sendTelegramDirectMessage({
+        chatId: party.telegramChatId,
+        partyId: party.id,
+        partyName: party.name,
+        messageType: 'invoice',
+        title: `فاکتور فروش #${invoice.invoiceNumber}`,
+        textContent: text,
+      });
+
+      if (res.success) {
+        notify('success', 'فاکتور با موفقیت به تلگرام ارسال شد', `فاکتور #${invoice.invoiceNumber} به تلگرام ${party.name} تحویل گردید.`);
+      } else {
+        notify('error', 'خطا در ارسال تلگرام', res.error || 'ارسال ناموفق بود');
+      }
+    } catch (e: any) {
+      notify('error', 'خطای شبکه در ارسال', e?.message);
+    } finally {
+      setIsSendingTelegram(false);
+    }
+  };
 
   const totalBagsInInvoice = invoice.items.reduce((sum, item) => sum + (item.bagsCount || 0), 0);
   const totalTonsInInvoice = invoice.items.reduce((sum, item) => sum + (item.tonsCount || 0), 0);
@@ -118,6 +155,21 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
                 </button>
               </>
             )}
+
+            {/* Direct Telegram Send Button */}
+            <button
+              type="button"
+              onClick={handleSendTelegram}
+              disabled={isSendingTelegram}
+              className="px-3 py-2 bg-sky-600 hover:bg-sky-700 disabled:bg-slate-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-xs cursor-pointer active:scale-95"
+              title={party?.telegramChatId ? `ارسال مستقیم فاکتور به تلگرام ${party.name}` : 'ارسال به تلگرام (مشتری به ربات متصل نیست)'}
+            >
+              <Send className={`w-3.5 h-3.5 -rotate-45 ${isSendingTelegram ? 'animate-bounce' : ''}`} />
+              <span>{isSendingTelegram ? 'در حال ارسال...' : 'ارسال به تلگرام'}</span>
+              {party?.telegramChatId && (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-300" />
+              )}
+            </button>
 
             {onOpenPayment && invoice.balanceAmount > 0 && (
               <button

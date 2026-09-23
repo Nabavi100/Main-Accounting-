@@ -1089,7 +1089,15 @@ export const InitialDefinitionsView: React.FC<InitialDefinitionsViewProps> = ({
 
                             {/* شماره تماس */}
                             <td className="py-2.5 px-3 text-center font-mono text-[11px] text-slate-600">
-                              {party.phone || '—'}
+                              <div>{party.phone || '—'}</div>
+                              {party.telegramChatId ? (
+                                <span className="inline-flex items-center gap-1 text-[9.5px] font-bold text-sky-700 bg-sky-50 border border-sky-200 px-1.5 py-0.2 rounded-md mt-0.5">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                  <span>تلگرام متصل</span>
+                                </span>
+                              ) : (
+                                <span className="text-[9px] text-slate-400 block mt-0.5">بدون تلگرام</span>
+                              )}
                             </td>
 
                             {/* مانده (USD) */}

@@ -39,6 +39,7 @@ import { TradeOperationsHubView } from './components/TradeOperationsHubView';
 import { ReceiptPaymentHubView } from './components/ReceiptPaymentHubView';
 import { AuditLogView } from './components/AuditLogView';
 import { ComprehensiveJournalView } from './components/ComprehensiveJournalView';
+import { TelegramManagementView } from './components/TelegramManagementView';
 import { TelegramBotModal } from './components/TelegramBotModal';
 import { ToastContainer } from './components/ToastContainer';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -289,7 +290,7 @@ const MainApp: React.FC = () => {
         onOpenPaymentModal={handleOpenPaymentModal}
         onOpenTransferModal={handleOpenTransferModal}
         onOpenAccessModal={handleOpenAccessModal}
-        onOpenTelegramModal={() => setIsTelegramModalOpen(true)}
+        onOpenTelegramModal={() => setActiveTab('telegram_manager')}
       />
 
       {/* Main Content Area */}
@@ -300,7 +301,7 @@ const MainApp: React.FC = () => {
           onOpenNewInvoice={handleOpenNewInvoice}
           onOpenPaymentModal={handleOpenPaymentModal}
           onOpenAccessModal={handleOpenAccessModal}
-          onOpenTelegramModal={() => setIsTelegramModalOpen(true)}
+          onOpenTelegramModal={() => setActiveTab('telegram_manager')}
         />
 
         {/* View Body */}
@@ -496,6 +497,13 @@ const MainApp: React.FC = () => {
 
           {/* Audit Log / دفتر ممیزی، امنیت و رویدادهای سیستم */}
           {activeTab === 'audit_log' && <AuditLogView />}
+
+          {/* Telegram Management View / ماژول جامع مدیریت تلگرام */}
+          {activeTab === 'telegram_manager' && (
+            <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
+              <TelegramManagementView />
+            </div>
+          )}
           </ErrorBoundary>
         </main>
       </div>

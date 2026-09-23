@@ -57,7 +57,8 @@ export type NavTab =
   | 'products'
   | 'currencies'
   | 'reports'
-  | 'audit_log';
+  | 'audit_log'
+  | 'telegram_manager';
 
 interface SidebarProps {
   activeTab: NavTab;
@@ -123,6 +124,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       case 'transactions':
         return 'accountingAndPnL';
       case 'audit_log':
+      case 'telegram_manager':
         return 'systemManagement';
       case 'dashboard':
       default:
@@ -942,6 +944,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className="w-full text-right py-1 px-2 text-xs text-slate-500 hover:text-[#2563EB] hover:bg-slate-50 rounded-lg transition-colors font-medium"
               >
                 پشتیبان‌گیری از سیستم
+              </button>
+              <button
+                type="button"
+                id="sidebar-sub-telegram-manager"
+                onClick={() => handleNavigate('telegram_manager', undefined, 'systemManagement')}
+                className={`w-full text-right py-1.5 px-2 text-xs rounded-lg transition-colors font-bold flex items-center justify-between cursor-pointer ${
+                  activeTab === 'telegram_manager'
+                    ? 'text-[#2563EB] dark:text-amber-400 font-black bg-[#EEF2FF] dark:bg-amber-950/40 border border-blue-200 dark:border-amber-500/40 shadow-xs btn-active-luxury'
+                    : 'text-sky-600 hover:text-sky-700 hover:bg-sky-50 dark:hover:bg-slate-800'
+                }`}
+              >
+                <span>📱 مدیریت تلگرام</span>
+                <span className="text-[10px] px-1.5 py-0.5 bg-[#229ED9] text-white font-bold rounded-md">
+                  ماژول اصلی
+                </span>
               </button>
               <button
                 type="button"

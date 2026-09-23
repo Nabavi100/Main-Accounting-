@@ -186,7 +186,9 @@ export interface Party {
   initialBalanceAFN?: number; // مانده حساب اولیه افغانی
   initialBalanceUSD?: number; // مانده حساب اولیه دلاری
   telegramChatId?: string; // شناسه چت تلگرام مشتری جهت احراز هویت و ارسال اختصاصی حساب
+  telegramUserId?: string; // شناسه عددی کاربر تلگرام
   telegramUsername?: string; // نام کاربری تلگرام (@username)
+  telegramConnectionCode?: string; // کد اتصال یکتای اختصاصی (AC-XXXXXX)
   telegramLinkedAt?: string; // تاریخ و زمان احراز هویت و اتصال ربات تلگرام
   telegramLastInquiry?: string; // آخرین زمان استعلام حساب توسط مشتری
   notes?: string;
