@@ -200,9 +200,41 @@ function phonesMatch(p1: string, p2: string): boolean {
   return false;
 }
 
+export function sanitizeBotToken(raw: string): string {
+  if (!raw) return '';
+  let token = String(raw).trim();
+  // Strip outer quotes and spaces
+  token = token.replace(/^["'`\s]+|["'`\s]+$/g, '').trim();
+  // If user pasted whole message from BotFather e.g. "Use this token to access the HTTP API: 123456:ABC..."
+  const match = token.match(/(\d{6,14}:[A-Za-z0-9_-]{20,55})/);
+  if (match) {
+    return match[1].trim();
+  }
+  // Strip leading "bot" if pasted like "bot123456:..."
+  if (token.toLowerCase().startsWith('bot')) {
+    token = token.substring(3).trim();
+  }
+  return token;
+}
+
+function explainTelegramError(status: number, desc?: string): string {
+  const d = (desc || '').toLowerCase();
+  if (status === 401 || d.includes('unauthorized')) {
+    return 'توکن نامعتبر است (خطای ۴۰۱). لطفاً توکن دریافتی از BotFather@ را دقیقاً و کامل کپی نمایید.';
+  }
+  if (status === 404 || d.includes('not found')) {
+    return 'ربات تلگرام یافت نشد (خطای ۴۰۴). بررسی کنید که توکن به درستی وارد شده و پیشوند اضافی نداشته باشد.';
+  }
+  if (d.includes('blocked') || d.includes('terminated')) {
+    return 'این ربات توسط تلگرام مسدود یا غیرفعال گردیده است.';
+  }
+  return desc || 'توکن وارد شده توسط سرورهای رسمی تلگرام تایید نشد.';
+}
+
 // ================= TELEGRAM SEND HELPERS =================
 async function telegramApiCall(token: string, method: string, body: any): Promise<any> {
-  const url = `https://api.telegram.org/bot${token.trim()}/${method}`;
+  const cleanToken = sanitizeBotToken(token);
+  const url = `https://api.telegram.org/bot${cleanToken}/${method}`;
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -538,7 +570,7 @@ app.post('/api/telegram/config', async (req: Request, res: Response) => {
     const config = loadConfig();
 
     if (botToken !== undefined) {
-      config.botToken = (botToken || '').trim();
+      config.botToken = sanitizeBotToken(botToken);
     }
     if (defaultChatId !== undefined) {
       config.defaultChatId = (defaultChatId || '').trim();
@@ -550,7 +582,9 @@ app.post('/api/telegram/config', async (req: Request, res: Response) => {
     // If token provided, verify with Telegram getMe
     if (config.botToken) {
       try {
-        const testRes = await fetch(`https://api.telegram.org/bot${config.botToken}/getMe`);
+        const testRes = await fetch(`https://api.telegram.org/bot${config.botToken}/getMe`, {
+          signal: AbortSignal.timeout(12000),
+        });
         const testData: any = await testRes.json();
         if (testData.ok && testData.result) {
           config.botUsername = testData.result.username;
@@ -560,11 +594,11 @@ app.post('/api/telegram/config', async (req: Request, res: Response) => {
           config.lastError = undefined;
         } else {
           config.lastTestStatus = 'error';
-          config.lastError = testData.description || 'توکن نامعتبر است';
+          config.lastError = explainTelegramError(testRes.status, testData.description);
         }
       } catch (err: any) {
         config.lastTestStatus = 'error';
-        config.lastError = err?.message || 'خطا در شبکه اینترنت';
+        config.lastError = err?.name === 'TimeoutError' ? 'مهلت زمان اتصال به تلگرام به پایان رسید.' : (err?.message || 'خطا در ارتباط با سرور تلگرام');
       }
     }
 
@@ -593,17 +627,20 @@ app.post('/api/telegram/config', async (req: Request, res: Response) => {
 app.post('/api/telegram/test-connection', async (req: Request, res: Response) => {
   try {
     const { botToken } = req.body;
-    const tokenToTest = (botToken || loadConfig().botToken || '').trim();
+    const tokenToTest = sanitizeBotToken(botToken || loadConfig().botToken || '');
 
     if (!tokenToTest) {
-      return res.status(400).json({ success: false, error: 'توکن ربات تلگرام تنظیم نشده است.' });
+      return res.status(400).json({ success: false, error: 'لطفاً توکن ربات تلگرام را وارد فرمایید.' });
     }
 
-    const testRes = await fetch(`https://api.telegram.org/bot${tokenToTest}/getMe`);
+    const testRes = await fetch(`https://api.telegram.org/bot${tokenToTest}/getMe`, {
+      signal: AbortSignal.timeout(12000),
+    });
     const testData: any = await testRes.json();
 
     if (testData.ok && testData.result) {
       const config = loadConfig();
+      config.botToken = tokenToTest;
       config.botUsername = testData.result.username;
       config.botFirstName = testData.result.first_name;
       config.lastTestStatus = 'connected';
@@ -619,11 +656,15 @@ app.post('/api/telegram/test-connection', async (req: Request, res: Response) =>
     } else {
       res.json({
         success: false,
-        error: testData.description || 'توکن نامعتبر است.',
+        error: explainTelegramError(testRes.status, testData.description),
       });
     }
   } catch (err: any) {
-    res.status(500).json({ success: false, error: err?.message || 'خطا در برقراری ارتباط' });
+    const isTimeout = err?.name === 'TimeoutError';
+    res.status(500).json({
+      success: false,
+      error: isTimeout ? 'مهلت زمان اتصال به سرور تلگرام به پایان رسید (Timeout).' : `خطا در ارتباط: ${err?.message || 'خطای شبکه'}`,
+    });
   }
 });
 

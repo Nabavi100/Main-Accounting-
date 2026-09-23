@@ -208,15 +208,41 @@ export const findPartyByPhone = (phoneInput: string, parties: Party[]): Party | 
   });
 };
 
+export const sanitizeTelegramBotToken = (raw: string): string => {
+  if (!raw) return '';
+  let token = String(raw).trim();
+  token = token.replace(/^["'`\s]+|["'`\s]+$/g, '').trim();
+  const match = token.match(/(\d{6,14}:[A-Za-z0-9_-]{20,55})/);
+  if (match) return match[1].trim();
+  if (token.toLowerCase().startsWith('bot')) {
+    token = token.substring(3).trim();
+  }
+  return token;
+};
+
 // ================= TEST CONNECTION =================
 export const testTelegramBotConnection = async (
   botToken: string
 ): Promise<{ success: boolean; botName?: string; username?: string; error?: string }> => {
-  const token = botToken.trim();
+  const token = sanitizeTelegramBotToken(botToken);
   if (!token) {
     return { success: false, error: 'لطفاً توکن ربات تلگرام را وارد کنید.' };
   }
 
+  // 1. Prefer backend proxy to bypass browser CORS and ISP firewall blocks
+  try {
+    const serverRes = await fetch('/api/telegram/test-connection', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ botToken: token }),
+    });
+    const data = await serverRes.json();
+    return data;
+  } catch (backendErr) {
+    console.warn('Backend proxy test connection failed, attempting direct fetch...', backendErr);
+  }
+
+  // 2. Direct fetch fallback
   try {
     const res = await fetch(`https://api.telegram.org/bot${token}/getMe`);
     const data = await res.json();

@@ -56,6 +56,18 @@ export interface SendMessagePayload {
 
 // ================= API CLIENT METHODS =================
 
+export function sanitizeTelegramBotToken(raw?: string): string {
+  if (!raw) return '';
+  let token = String(raw).trim();
+  token = token.replace(/^["'`\s]+|["'`\s]+$/g, '').trim();
+  const match = token.match(/(\d{6,14}:[A-Za-z0-9_-]{20,55})/);
+  if (match) return match[1].trim();
+  if (token.toLowerCase().startsWith('bot')) {
+    token = token.substring(3).trim();
+  }
+  return token;
+}
+
 export async function fetchTelegramStatus(): Promise<TelegramStatusResponse> {
   try {
     const res = await fetch('/api/telegram/status');
@@ -81,12 +93,23 @@ export async function saveTelegramConfig(data: {
   defaultChatId?: string;
   autoPolling?: boolean;
 }): Promise<{ success: boolean; botUsername?: string; botFirstName?: string; error?: string }> {
-  const res = await fetch('/api/telegram/config', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-  return await res.json();
+  try {
+    const payload = {
+      ...data,
+      botToken: data.botToken ? sanitizeTelegramBotToken(data.botToken) : undefined,
+    };
+    const res = await fetch('/api/telegram/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return await res.json();
+  } catch (e: any) {
+    return {
+      success: false,
+      error: `خطا در ذخیره تنظیمات: ${e?.message || 'عدم دسترسی به سرور'}`,
+    };
+  }
 }
 
 export async function testTelegramBotConnection(botToken?: string): Promise<{
@@ -95,12 +118,20 @@ export async function testTelegramBotConnection(botToken?: string): Promise<{
   username?: string;
   error?: string;
 }> {
-  const res = await fetch('/api/telegram/test-connection', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ botToken }),
-  });
-  return await res.json();
+  try {
+    const cleanToken = botToken ? sanitizeTelegramBotToken(botToken) : undefined;
+    const res = await fetch('/api/telegram/test-connection', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ botToken: cleanToken }),
+    });
+    return await res.json();
+  } catch (e: any) {
+    return {
+      success: false,
+      error: `عدم برقراری ارتباط با سرور: ${e?.message || 'خطای شبکه'}`,
+    };
+  }
 }
 
 export async function fetchTelegramUsers(): Promise<{

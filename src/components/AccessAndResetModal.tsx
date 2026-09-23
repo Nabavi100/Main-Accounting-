@@ -59,7 +59,9 @@ import {
   getTelegramLogs,
   clearTelegramLogs,
   isTelegramListenerRunning,
+  sanitizeTelegramBotToken,
 } from '../services/telegramBotService';
+import { saveTelegramConfig } from '../services/telegramApiService';
 import { verifyLicenseMasterPin } from '../utils/securityMaster';
 import { verifyLicense } from '../utils/licenseSecurity';
 
@@ -522,15 +524,26 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
   };
 
   const handleTestTgConnection = async () => {
-    if (!tgSettings.botToken?.trim()) {
+    const rawToken = tgSettings.botToken || '';
+    const cleanToken = sanitizeTelegramBotToken(rawToken);
+    if (!cleanToken) {
       setTgTestResult({ error: 'لطفاً ابتدا توکن ربات تلگرام را وارد فرمایید.' });
       return;
     }
+    // Update state with cleaned token
+    setTgSettings(prev => ({ ...prev, botToken: cleanToken }));
     setTgTesting(true);
     setTgTestResult(null);
     try {
-      const res = await testTelegramBotConnection(tgSettings.botToken.trim());
+      const res = await testTelegramBotConnection(cleanToken);
       setTgTestResult(res);
+      if (res.success) {
+        saveTelegramConfig({
+          botToken: cleanToken,
+          defaultChatId: tgSettings.defaultChatId,
+          autoPolling: tgSettings.autoListenerEnabled !== false,
+        }).catch(() => {});
+      }
     } catch (err: any) {
       setTgTestResult({ error: err.message || 'خطا در برقراری ارتباط با سرور تلگرام' });
     } finally {
@@ -538,8 +551,20 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
     }
   };
 
-  const handleSaveTgSettings = () => {
-    saveTelegramSettings(tgSettings);
+  const handleSaveTgSettings = async () => {
+    const cleanToken = sanitizeTelegramBotToken(tgSettings.botToken || '');
+    const updated = { ...tgSettings, botToken: cleanToken };
+    setTgSettings(updated);
+    saveTelegramSettings(updated);
+    try {
+      await saveTelegramConfig({
+        botToken: cleanToken,
+        defaultChatId: tgSettings.defaultChatId,
+        autoPolling: tgSettings.autoListenerEnabled !== false,
+      });
+    } catch (e) {
+      console.warn('Backend telegram config sync notice:', e);
+    }
     setTgSavedSuccess(true);
     setTimeout(() => setTgSavedSuccess(false), 3000);
   };
