@@ -12,12 +12,14 @@ import { PrintInvoiceDocument } from './print/PrintInvoiceDocument';
 import { PrintExpenseVoucher } from './print/PrintExpenseVoucher';
 import { CompanyStampSeal } from './CompanyStampSeal';
 import { SignatureAndSealModal } from './SignatureAndSealModal';
-import { TelegramBotModal } from './TelegramBotModal';
 import {
   getTelegramSettings,
   sendInvoiceToTelegramBot,
-  TelegramSettings,
 } from '../services/telegramBotService';
+import {
+  sendTelegramDirectMessage,
+  buildInvoiceTelegramText,
+} from '../services/telegramApiService';
 import html2canvas from 'html2canvas';
 import {
   Printer,
@@ -43,7 +45,6 @@ import {
   Building2,
   PackageCheck,
   Send,
-  Bot,
   Loader2,
   Settings as SettingsIcon,
 } from 'lucide-react';
@@ -87,7 +88,6 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
   const [isSealModalOpen, setIsSealModalOpen] = useState<boolean>(false);
 
   // Telegram Bot States
-  const [isTelegramModalOpen, setIsTelegramModalOpen] = useState<boolean>(false);
   const [isTelegramSending, setIsTelegramSending] = useState<boolean>(false);
   const [telegramStatusMsg, setTelegramStatusMsg] = useState<string | null>(null);
   const [telegramStatusType, setTelegramStatusType] = useState<'success' | 'error' | null>(null);
@@ -226,27 +226,57 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
     if (!invData) {
       if (isManualClick) {
         setTelegramStatusType('error');
-        setTelegramStatusMsg('ارسال به تلگرام در حال حاضر برای فاکتورهای فروش و مرجوعی فعال است.');
+        setTelegramStatusMsg('ارسال به تلگرام در حال حاضر برای فاکتورهای فروش و مرجوعی کالا فعال است.');
       }
       return;
     }
 
+    const party = getPartyExtraInfo(invData.partyId, invData.partyName);
     const settings = getTelegramSettings();
-    if (!settings.botToken || !settings.defaultChatId) {
+    const targetChatId = party?.telegramChatId || settings.defaultChatId;
+
+    if (!targetChatId) {
       if (isManualClick) {
-        setIsTelegramModalOpen(true);
+        setTelegramStatusType('error');
+        setTelegramStatusMsg(
+          'مشتری هنوز به ربات تلگرام متصل نشده است. از منوی مدیریت تلگرام می‌توانید حساب مشتری را متصل کنید.'
+        );
       }
       return;
     }
 
     setIsTelegramSending(true);
-    setTelegramStatusMsg('درحال آماده‌سازی تصویر فاکتور و ارسال به ربات تلگرام...');
+    setTelegramStatusMsg('درحال آماده‌سازی و ارسال مستقیم فاکتور به تلگرام...');
     setTelegramStatusType(null);
 
     try {
-      const party = getPartyExtraInfo(invData.partyId, invData.partyName);
       const partyPhone = party?.phone || invData.partyPhone || '';
+      const text = buildInvoiceTelegramText(invData, party || undefined, companySettings);
 
+      // Attempt 1: Fast & secure server proxy (bypasses browser filtering/CORS)
+      try {
+        const directRes = await sendTelegramDirectMessage({
+          chatId: targetChatId,
+          partyId: party?.id,
+          partyName: party?.name || invData.partyName,
+          messageType: 'invoice',
+          title: `فاکتور رسمی #${invData.invoiceNumber}`,
+          textContent: text,
+        });
+
+        if (directRes.success) {
+          setTelegramStatusType('success');
+          setTelegramStatusMsg(`فاکتور #${invData.invoiceNumber} با موفقیت به تلگرام ${party?.name || 'مشتری'} ارسال شد.`);
+          setTimeout(() => {
+            setTelegramStatusMsg(null);
+          }, 5000);
+          return;
+        }
+      } catch (proxyErr) {
+        console.warn('Backend telegram send failed, trying client-side fallback:', proxyErr);
+      }
+
+      // Attempt 2: Fallback to client-side telegram bot service
       const invoiceTotal = invData.finalAmount || invData.totalAmount || 0;
       const paidAmount = invData.paidAmount || 0;
       const remainingBalanceThisInvoice = Math.max(0, invoiceTotal - paidAmount);
@@ -258,7 +288,6 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
         customerOverallBalanceUSD = party.balanceUSD || 0;
       }
 
-      // Capture screenshot of #printable-paper-canvas using html2canvas
       let imageBlob: Blob | null = null;
       const canvasElement = window.document.getElementById('printable-paper-canvas');
       if (canvasElement) {
@@ -288,6 +317,7 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
           customerOverallBalanceAFN,
           customerOverallBalanceUSD,
           imageBlob,
+          targetChatId,
         },
         settings
       );
@@ -515,38 +545,27 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
               </label>
             </div>
 
-            {/* Telegram Bot Action & Configuration */}
+            {/* Direct Telegram Send Button (Strictly Sends Invoice - Never Opens Settings) */}
             {(document.type === 'invoice' || !!invData) && (
-              <div className="flex items-center bg-slate-800 p-1 rounded-xl border border-slate-700 text-xs gap-1">
-                <button
-                  id="doc-telegram-send-btn"
-                  type="button"
-                  disabled={isTelegramSending}
-                  onClick={() => handleSendToTelegram(true)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition shadow-xs cursor-pointer active:scale-95 ${
-                    isTelegramSending
-                      ? 'bg-sky-700 text-white cursor-wait opacity-80'
-                      : 'bg-[#229ED9] hover:bg-[#1E88E5] text-white'
-                  }`}
-                  title="ارسال فاکتور و مانده حساب به ربات تلگرام مشتری (متن، عکس فاکتور و فایل txt)"
-                >
-                  {isTelegramSending ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Send className="w-3.5 h-3.5" />
-                  )}
-                  <span>{isTelegramSending ? 'درحال ارسال...' : 'ارسال به تلگرام'}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setIsTelegramModalOpen(true)}
-                  className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-700 rounded-lg transition cursor-pointer"
-                  title="تنظیمات توکن و چت‌آیدی ربات تلگرام"
-                >
-                  <Bot className="w-3.5 h-3.5 text-sky-400" />
-                </button>
-              </div>
+              <button
+                id="doc-telegram-send-btn"
+                type="button"
+                disabled={isTelegramSending}
+                onClick={() => handleSendToTelegram(true)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition shadow-xs cursor-pointer active:scale-95 text-xs ${
+                  isTelegramSending
+                    ? 'bg-sky-700 text-white cursor-wait opacity-80'
+                    : 'bg-[#229ED9] hover:bg-[#1E88E5] text-white'
+                }`}
+                title="ارسال مستقیم گزارش فاکتور و مانده حساب به تلگرام مشتری"
+              >
+                {isTelegramSending ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Send className="w-3.5 h-3.5 -rotate-45" />
+                )}
+                <span>{isTelegramSending ? 'درحال ارسال...' : 'ارسال به تلگرام'}</span>
+              </button>
             )}
 
             {/* Print Button */}
@@ -1253,17 +1272,6 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
           if (newSettings.stampColor) setStampColor(newSettings.stampColor);
           if (newSettings.stampSize !== undefined) setStampSize(newSettings.stampSize);
           if (newSettings.signatureSize !== undefined) setSignatureSize(newSettings.signatureSize);
-        }}
-      />
-
-      {/* Telegram Bot Configuration Modal */}
-      <TelegramBotModal
-        isOpen={isTelegramModalOpen}
-        onClose={() => setIsTelegramModalOpen(false)}
-        onSettingsSaved={() => {
-          setTelegramStatusType('success');
-          setTelegramStatusMsg('تنظیمات ربات تلگرام با موفقیت ذخیره شد.');
-          setTimeout(() => setTelegramStatusMsg(null), 4000);
         }}
       />
     </div>

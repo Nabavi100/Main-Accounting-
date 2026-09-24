@@ -10,9 +10,14 @@ import {
   RotateCcw,
   TrendingUp,
   Save,
+  Coins,
 } from 'lucide-react';
 
-export const CurrencyRateCalculator: React.FC = () => {
+interface CurrencyRateCalculatorProps {
+  minimal?: boolean;
+}
+
+export const CurrencyRateCalculator: React.FC<CurrencyRateCalculatorProps> = ({ minimal = false }) => {
   const { cashRegister, updateExchangeRate } = useAccounting();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -151,28 +156,48 @@ export const CurrencyRateCalculator: React.FC = () => {
 
   return (
     <div className="relative" ref={containerRef} dir="rtl">
-      {/* Header Trigger Pill Button */}
-      <button
-        type="button"
-        id="header-btn-currency-calculator"
-        onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border transition-all cursor-pointer shadow-2xs ${
-          isOpen
-            ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-            : 'bg-white hover:bg-slate-50 text-slate-700 hover:text-blue-600 border-slate-200/90'
-        }`}
-        title="ماشین حساب سریع تبدیل نرخ اسعار (دالر و افغانی)"
-      >
-        <Calculator className={`w-3.5 h-3.5 ${isOpen ? 'text-white' : 'text-blue-600'}`} />
-        <span className="hidden sm:inline">محاسبه ارز</span>
-        <span
-          className={`font-mono text-[10.5px] px-1.5 py-0.2 rounded-full ${
-            isOpen ? 'bg-blue-700 text-white' : 'bg-blue-50 text-blue-700'
+      {/* Header Trigger Button */}
+      {minimal ? (
+        <button
+          type="button"
+          id="header-btn-currency-calculator"
+          onClick={() => setIsOpen(!isOpen)}
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all cursor-pointer shadow-2xs active:scale-95 ${
+            isOpen
+              ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+              : 'bg-white hover:bg-slate-50 text-slate-700 hover:text-blue-600 border-slate-200/90'
           }`}
+          title={`قیمت اسعار و تبدیل لحظه‌ای ($۱ = ${rate} افغانی) - کلیک برای محاسبه`}
+          aria-label="قیمت ارز و ماشین حساب"
         >
-          {rate}
-        </span>
-      </button>
+          <Coins className={`w-4 h-4 ${isOpen ? 'text-white' : 'text-blue-600'}`} />
+          <span className="font-mono text-[11px] font-black tracking-tight">
+            ${rate}
+          </span>
+        </button>
+      ) : (
+        <button
+          type="button"
+          id="header-btn-currency-calculator"
+          onClick={() => setIsOpen(!isOpen)}
+          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border transition-all cursor-pointer shadow-2xs ${
+            isOpen
+              ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+              : 'bg-white hover:bg-slate-50 text-slate-700 hover:text-blue-600 border-slate-200/90'
+          }`}
+          title="ماشین حساب سریع تبدیل نرخ اسعار (دالر و افغانی)"
+        >
+          <Calculator className={`w-3.5 h-3.5 ${isOpen ? 'text-white' : 'text-blue-600'}`} />
+          <span className="hidden sm:inline">محاسبه ارز</span>
+          <span
+            className={`font-mono text-[10.5px] px-1.5 py-0.2 rounded-full ${
+              isOpen ? 'bg-blue-700 text-white' : 'bg-blue-50 text-blue-700'
+            }`}
+          >
+            {rate}
+          </span>
+        </button>
+      )}
 
       {/* Floating Popover Calculator Card */}
       {isOpen && (

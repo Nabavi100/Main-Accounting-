@@ -377,7 +377,10 @@ async function handleTelegramUpdate(update: any, botToken: string) {
         username,
         connectionCode,
         registeredAt: new Date().toISOString(),
-        status: 'pending',
+        status: matchedParty ? 'connected' : 'pending',
+        partyId: matchedParty ? matchedParty.id : undefined,
+        partyName: matchedParty ? matchedParty.name : undefined,
+        linkedAt: matchedParty ? new Date().toISOString() : undefined,
         inquiriesCount: 1,
       };
       users.unshift(existingUser);
@@ -387,20 +390,38 @@ async function handleTelegramUpdate(update: any, botToken: string) {
       existingUser.lastName = lastName;
       existingUser.username = username;
       if (!existingUser.connectionCode) existingUser.connectionCode = connectionCode;
+      if (matchedParty && existingUser.status !== 'connected') {
+        existingUser.status = 'connected';
+        existingUser.partyId = matchedParty.id;
+        existingUser.partyName = matchedParty.name;
+        existingUser.linkedAt = new Date().toISOString();
+      }
     }
 
     saveUsers(users);
 
     addLog({
       chatId,
-      partyName: fullName,
-      type: 'auth_pending',
+      partyName: matchedParty ? matchedParty.name : fullName,
+      type: matchedParty ? 'connected' : 'auth_pending',
       status: 'success',
-      message: `شماره تماس ${rawPhone} دریافت شد. کد اتصال: ${connectionCode}`,
+      message: matchedParty
+        ? `شماره تماس ${rawPhone} دریافت و فوراً با پرونده «${matchedParty.name}» متصل شد.`
+        : `شماره تماس ${rawPhone} دریافت شد. کد اتصال: ${connectionCode}`,
     });
 
-    const replyText = `
-📱 <b>شماره تماس شما با موفقیت ثبت گردید!</b>
+    const replyText = matchedParty
+      ? `
+✅ <b>تبریک! شماره شما با موفقیت شناسایی و حسابتان متصل گردید.</b>
+━━━━━━━━━━━━━━━━━━━━
+👤 <b>طرف حساب متصل:</b> ${matchedParty.name}
+📞 <b>شماره ثبت‌شده:</b> <code>${rawPhone}</code>
+🔑 <b>کد اتصال شما:</b> <code>${connectionCode}</code>
+━━━━━━━━━━━━━━━━━━━━
+از این پس فاکتورها، رسیدها و صورت‌حساب اختصاصی شما مستقیماً در همین ربات برای شخص شما ارسال خواهد شد.
+`.trim()
+      : `
+📱 <b>شماره تماس شما با موفقیت در سیستم ثبت گردید!</b>
 ━━━━━━━━━━━━━━━━━━━━
 👤 <b>نام:</b> ${fullName}
 📞 <b>شماره ثبت‌شده:</b> <code>${rawPhone}</code>
@@ -409,7 +430,6 @@ async function handleTelegramUpdate(update: any, botToken: string) {
 ⏳ <b>وضعیت حساب: در انتظار تأیید مدیریت</b>
 
 لطفاً این کد اتصال را به مدیریت یا حسابدار شرکت اعلام فرمایید تا دسترسی به حساب مالی شما متصل و فعال شود.
-${matchedParty ? `\n💡 <i>سیستم شماره شما را با پرونده «${matchedParty.name}» شناسایی کرده و آماده تأیید نهایی مدیر می‌باشد.</i>` : ''}
 `.trim();
 
     await telegramApiCall(botToken, 'sendMessage', {
@@ -417,9 +437,14 @@ ${matchedParty ? `\n💡 <i>سیستم شماره شما را با پرونده 
       text: replyText,
       parse_mode: 'HTML',
       reply_markup: {
-        keyboard: [
-          [{ text: '🔄 استعلام وضعیت اتصال' }, { text: '☎️ تماس با دفتر شرکت' }],
-        ],
+        keyboard: matchedParty
+          ? [
+              [{ text: '📋 دریافت خلاصه وضعیت حساب' }],
+              [{ text: '☎️ تماس با دفتر شرکت' }],
+            ]
+          : [
+              [{ text: '🔄 استعلام وضعیت اتصال' }, { text: '☎️ تماس با دفتر شرکت' }],
+            ],
         resize_keyboard: true,
       },
     });

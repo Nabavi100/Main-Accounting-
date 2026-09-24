@@ -29,6 +29,7 @@ import {
   Send,
 } from 'lucide-react';
 import { getTelegramSettings, sendInvoiceToTelegramBot } from '../services/telegramBotService';
+import { sendTelegramDirectMessage, buildInvoiceTelegramText } from '../services/telegramApiService';
 
 interface SalesInvoiceCreateViewProps {
   onBackToList?: () => void;
@@ -447,33 +448,57 @@ export const SalesInvoiceCreateView: React.FC<SalesInvoiceCreateViewProps> = ({
 
       // Auto-send or manual button send to Telegram
       const tgSettings = getTelegramSettings();
-      if (tgSettings.botToken && (tgSettings.autoSendOnSave || sendTelegramNow)) {
+      if (sendTelegramNow || tgSettings.autoSendOnSave) {
         const targetChat = party?.telegramChatId || tgSettings.defaultChatId;
         if (targetChat) {
-          sendInvoiceToTelegramBot(
-            {
-              invoice: created,
-              party,
-              customerPhone: party?.phone,
-              companyName: companySettings?.name || 'شرکت تجارتی برادران نبوی',
-              companyPhone: companySettings?.phone || '',
-              remainingBalanceThisInvoice: remainingBalance,
-              customerOverallBalanceAFN: party?.balanceAFN || 0,
-              customerOverallBalanceUSD: party?.balanceUSD || 0,
-              targetChatId: targetChat,
-            },
-            tgSettings
-          ).then(res => {
-            if (res.success) {
-              notify('success', 'ارسال فاکتور به تلگرام', `فاکتور #${created.invoiceNumber} به تلگرام ${party?.name || 'مشتری'} ارسال گردید.`);
-            } else if (sendTelegramNow) {
-              notify('error', 'خطا در ارسال به تلگرام', res.message);
-            }
-          }).catch(err => {
-            console.warn('Telegram send failed:', err);
-          });
+          const text = buildInvoiceTelegramText(created, party || undefined, companySettings);
+
+          // Fast & secure backend proxy
+          sendTelegramDirectMessage({
+            chatId: targetChat,
+            partyId: party?.id,
+            partyName: party?.name || created.partyName,
+            messageType: 'invoice',
+            title: `فاکتور رسمی #${created.invoiceNumber}`,
+            textContent: text,
+          })
+            .then(res => {
+              if (res.success) {
+                notify('success', 'ارسال فاکتور به تلگرام', `فاکتور #${created.invoiceNumber} به تلگرام ${party?.name || 'مشتری'} ارسال گردید.`);
+              } else if (tgSettings.botToken) {
+                // Client fallback
+                sendInvoiceToTelegramBot(
+                  {
+                    invoice: created,
+                    party,
+                    customerPhone: party?.phone,
+                    companyName: companySettings?.name || 'شرکت تجارتی برادران نبوی',
+                    companyPhone: companySettings?.phone || '',
+                    remainingBalanceThisInvoice: remainingBalance,
+                    customerOverallBalanceAFN: party?.balanceAFN || 0,
+                    customerOverallBalanceUSD: party?.balanceUSD || 0,
+                    targetChatId: targetChat,
+                  },
+                  tgSettings
+                ).then(fbRes => {
+                  if (fbRes.success) {
+                    notify('success', 'ارسال فاکتور به تلگرام', `فاکتور #${created.invoiceNumber} به تلگرام ${party?.name || 'مشتری'} ارسال گردید.`);
+                  } else if (sendTelegramNow) {
+                    notify('error', 'خطا در ارسال به تلگرام', fbRes.message);
+                  }
+                });
+              } else if (sendTelegramNow) {
+                notify('error', 'خطا در ارسال به تلگرام', res.error || 'ارسال فاکتور ناموفق بود.');
+              }
+            })
+            .catch(err => {
+              console.warn('Telegram send failed:', err);
+              if (sendTelegramNow) {
+                notify('error', 'خطای شبکه در ارسال به تلگرام', err?.message || 'نامشخص');
+              }
+            });
         } else if (sendTelegramNow) {
-          notify('info', 'تلگرام مشتری متصل نیست', 'این مشتری هنوز در ربات تلگرام استارت نزده و شماره ثبت نکرده است.');
+          notify('info', 'تلگرام مشتری متصل نیست', 'این مشتری هنوز در ربات تلگرام استارت نزده یا شماره ثبت نکرده است.');
         }
       }
 

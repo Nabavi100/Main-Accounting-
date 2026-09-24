@@ -15,7 +15,11 @@ import {
   Columns,
 } from 'lucide-react';
 
-export const ThemeSwitcherDropdown: React.FC = () => {
+interface ThemeSwitcherDropdownProps {
+  minimal?: boolean;
+}
+
+export const ThemeSwitcherDropdown: React.FC<ThemeSwitcherDropdownProps> = ({ minimal = false }) => {
   const { theme, setTheme, sidebarStyle, setSidebarStyle, isDark } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -119,33 +123,57 @@ export const ThemeSwitcherDropdown: React.FC = () => {
         id="btn-theme-switcher-toggle"
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition shadow-xs cursor-pointer ${
-          theme === 'sky-glass'
-            ? 'bg-sky-50 hover:bg-sky-100 border-sky-300 text-sky-900 shadow-[0_0_12px_rgba(56,189,248,0.25)] backdrop-blur-md'
-            : theme === 'gold'
-            ? 'bg-gradient-to-r from-amber-500/20 to-amber-600/10 border-amber-400/80 text-amber-950 dark:text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.25)]'
-            : theme === 'dark' || theme === 'executive'
-            ? 'bg-slate-800 border-slate-700 text-slate-100'
-            : theme === 'classic'
-            ? 'bg-stone-100 border-stone-300 text-stone-900'
-            : theme === 'vibrant'
-            ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
-            : 'bg-white hover:bg-slate-50 text-slate-800 border-slate-200'
-        }`}
-        title="تغییر تم رنگی برنامه"
+        className={
+          minimal
+            ? `w-9 h-9 rounded-xl border flex items-center justify-center transition shadow-2xs cursor-pointer active:scale-95 ${
+                theme === 'sky-glass'
+                  ? 'bg-sky-50 hover:bg-sky-100 border-sky-300 text-sky-900 shadow-[0_0_10px_rgba(56,189,248,0.25)]'
+                  : theme === 'gold'
+                  ? 'bg-gradient-to-r from-amber-500/20 to-amber-600/10 border-amber-400/80 text-amber-950 dark:text-amber-300'
+                  : theme === 'dark' || theme === 'executive'
+                  ? 'bg-slate-800 border-slate-700 text-slate-100'
+                  : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200/90'
+              }`
+            : `flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-bold transition shadow-xs cursor-pointer ${
+                theme === 'sky-glass'
+                  ? 'bg-sky-50 hover:bg-sky-100 border-sky-300 text-sky-900 shadow-[0_0_12px_rgba(56,189,248,0.25)] backdrop-blur-md'
+                  : theme === 'gold'
+                  ? 'bg-gradient-to-r from-amber-500/20 to-amber-600/10 border-amber-400/80 text-amber-950 dark:text-amber-300 shadow-[0_0_12px_rgba(245,158,11,0.25)]'
+                  : theme === 'dark' || theme === 'executive'
+                  ? 'bg-slate-800 border-slate-700 text-slate-100'
+                  : theme === 'classic'
+                  ? 'bg-stone-100 border-stone-300 text-stone-900'
+                  : theme === 'vibrant'
+                  ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
+                  : 'bg-white hover:bg-slate-50 text-slate-800 border-slate-200'
+              }`
+        }
+        title="تغییر تم رنگی و استایل برنامه"
+        aria-label="تغییر تم رنگی"
       >
-        <Palette className={`w-3.5 h-3.5 ${
-          theme === 'sky-glass' ? 'text-sky-600' :
-          theme === 'gold' ? 'text-amber-500' :
-          theme === 'vibrant' ? 'text-emerald-600' :
-          theme === 'executive' ? 'text-indigo-400' :
-          theme === 'dark' ? 'text-blue-400' :
-          'text-blue-600'
-        }`} />
-        <span className="hidden sm:inline font-bold">
-          {currentThemeObj.name.split(' (')[0]}
-        </span>
-        <ChevronDown className="w-3 h-3 opacity-60" />
+        <Palette
+          className={`w-4 h-4 ${
+            theme === 'sky-glass'
+              ? 'text-sky-600'
+              : theme === 'gold'
+              ? 'text-amber-500'
+              : theme === 'vibrant'
+              ? 'text-emerald-600'
+              : theme === 'executive'
+              ? 'text-indigo-400'
+              : theme === 'dark'
+              ? 'text-blue-400'
+              : 'text-blue-600'
+          }`}
+        />
+        {!minimal && (
+          <>
+            <span className="hidden sm:inline font-bold">
+              {currentThemeObj.name.split(' (')[0]}
+            </span>
+            <ChevronDown className="w-3 h-3 opacity-60" />
+          </>
+        )}
       </button>
 
       {isOpen && (

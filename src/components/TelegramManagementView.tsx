@@ -34,6 +34,9 @@ import {
   Check,
   Bell,
   Wallet,
+  BookOpen,
+  HelpCircle,
+  Share2,
 } from 'lucide-react';
 import {
   fetchTelegramStatus,
@@ -75,7 +78,7 @@ export const TelegramManagementView: React.FC<Props> = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   // Active Tab
-  const [activeTab, setActiveTab] = useState<'pending' | 'connected' | 'send_hub' | 'logs' | 'settings'>('pending');
+  const [activeTab, setActiveTab] = useState<'pending' | 'connected' | 'send_hub' | 'logs' | 'settings' | 'guide'>('pending');
 
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState('');
@@ -598,7 +601,20 @@ export const TelegramManagementView: React.FC<Props> = () => {
         </div>
 
         {/* Top Quick Stats & Refresh */}
-        <div className="flex items-center gap-2 self-end md:self-auto shrink-0">
+        <div className="flex items-center gap-2 self-end md:self-auto shrink-0 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setActiveTab('guide')}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer border ${
+              activeTab === 'guide'
+                ? 'bg-sky-600 text-white border-sky-600 shadow-xs'
+                : 'bg-white hover:bg-sky-50 text-sky-700 border-sky-200 shadow-2xs'
+            }`}
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>آموزش ساخت و اتصال ربات</span>
+          </button>
+
           <button
             type="button"
             onClick={loadAllData}
@@ -705,6 +721,19 @@ export const TelegramManagementView: React.FC<Props> = () => {
         >
           <Key className="w-4 h-4 text-amber-400" />
           <span>تنظیمات امنیتی و سرور</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('guide')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition cursor-pointer shrink-0 ${
+            activeTab === 'guide'
+              ? 'bg-sky-600 text-white shadow-sm'
+              : 'bg-white hover:bg-slate-100 text-sky-700 border border-sky-200'
+          }`}
+        >
+          <BookOpen className="w-4 h-4 text-sky-400" />
+          <span>آموزش ساخت و همگام‌سازی ربات</span>
         </button>
       </div>
 
@@ -1567,6 +1596,231 @@ export const TelegramManagementView: React.FC<Props> = () => {
                 <strong>قابلیت قطع اتصال فوری:</strong> مدیر در هر لحظه می‌تواند اتصال هر اکانت تلگرام را با ۱ کلیک قطع نماید.
               </li>
             </ul>
+          </div>
+        </div>
+      )}
+
+      {/* ================= TAB 6: COMPREHENSIVE BOT CREATION & SYNC GUIDE ================= */}
+      {activeTab === 'guide' && (
+        <div className="space-y-6 animate-in fade-in">
+          {/* Top Banner: Quick Bot Link & Share Box */}
+          <div className="bg-gradient-to-r from-sky-600 via-blue-600 to-indigo-700 rounded-3xl p-6 text-white shadow-lg space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <span className="p-2 bg-white/10 rounded-xl backdrop-blur-xs">
+                    <Share2 className="w-5 h-5 text-sky-200" />
+                  </span>
+                  <h2 className="text-base font-black">لینک و آیدی ربات شما جهت ارسال به مشتریان:</h2>
+                </div>
+                <p className="text-xs text-sky-100 max-w-xl leading-relaxed">
+                  این متن آماده و لینک را کپی کرده و در گروه، کانال یا چت شخصی مشتریان بفرستید تا با ۱ کلیک روی «شروع»، شماره تلفن خود را تأیید کرده و متصل شوند.
+                </p>
+              </div>
+
+              {status?.botUsername ? (
+                <div className="bg-white/10 backdrop-blur-md p-3.5 rounded-2xl border border-white/20 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                  <div className="text-center sm:text-right px-2">
+                    <span className="text-[10px] text-sky-200 block">آدرس رسمی ربات:</span>
+                    <span className="font-mono font-black text-sm text-white" dir="ltr">
+                      https://t.me/{status.botUsername}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const shareText = `سلام و احترام،\nجهت دریافت الکترونیکی صورت‌حساب، فاکتورها و مانده حساب خود در شرکت تجارتی برادران نبوی، لطفاً وارد ربات رسمی تلگرام ما شوید و دکمه Start را لمس کنید:\n👉 https://t.me/${status.botUsername}\nسپس دکمه «اشتراک‌گذاری شماره تماس» را بزنید تا حسابتان متصل گردد.`;
+                      navigator.clipboard.writeText(shareText);
+                      showAlert('success', 'متن دعوت و لینک ربات تلگرام در کلیپ‌بورد کپی شد!');
+                    }}
+                    className="px-4 py-2.5 bg-white text-sky-700 hover:bg-sky-50 rounded-xl text-xs font-black shadow-sm transition flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Copy className="w-4 h-4" />
+                    <span>کپی پیام دعوت مشتریان</span>
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('settings')}
+                  className="px-4 py-2.5 bg-amber-400 hover:bg-amber-300 text-slate-900 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
+                >
+                  <Key className="w-4 h-4" />
+                  <span>ابتدا توکن ربات را در تب تنظیمات ثبت کنید</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Step by Step Visual Guide Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Step 1 */}
+            <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs space-y-3 relative overflow-hidden">
+              <div className="w-8 h-8 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center font-black text-sm">
+                ۱
+              </div>
+              <h3 className="text-sm font-black text-slate-900">مرحله ۱: ایجاد ربات در BotFather</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                در برنامه تلگرام به آیدی رسمی <a href="https://t.me/BotFather" target="_blank" rel="noreferrer" className="text-sky-600 font-bold underline font-mono">@BotFather</a> بروید.
+              </p>
+              <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 space-y-1.5 text-xs text-slate-700 font-medium">
+                <div>۱. دستور <code className="bg-slate-200 px-1 rounded font-mono font-bold text-sky-700">/newbot</code> را بفرستید.</div>
+                <div>۲. نام نمایشی ربات را وارد کنید (مثلاً: <code>حسابداری برادران نبوی</code>).</div>
+                <div>۳. آیدی انگلیسی که آخر آن <code>bot</code> باشد انتخاب کنید (مثلاً: <code>NabaviAcc_bot</code>).</div>
+              </div>
+            </div>
+
+            {/* Step 2 */}
+            <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs space-y-3 relative overflow-hidden">
+              <div className="w-8 h-8 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-black text-sm">
+                ۲
+              </div>
+              <h3 className="text-sm font-black text-slate-900">مرحله ۲: کپی توکن و ثبت در سیستم</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                پات‌فادر یک متن طولانی تحت عنوان <span className="font-mono font-bold text-indigo-600">API Token</span> به شما می‌دهد (شبیه: <code>7123456789:AAH...</code>).
+              </p>
+              <div className="bg-indigo-50/50 p-3 rounded-2xl border border-indigo-100 space-y-2 text-xs text-indigo-950 font-medium">
+                <div>• کل این توکن را کپی کنید.</div>
+                <div>• به تب <strong>«تنظیمات امنیتی و سرور»</strong> همین صفحه بروید.</div>
+                <div>• توکن را الصاق (Paste) کرده، دکمه <strong>«تست توکن»</strong> و سپس <strong>«ذخیره امن تنظیمات»</strong> را بزنید.</div>
+              </div>
+            </div>
+
+            {/* Step 3 */}
+            <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs space-y-3 relative overflow-hidden">
+              <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-black text-sm">
+                ۳
+              </div>
+              <h3 className="text-sm font-black text-slate-900">مرحله ۳: ارسال لینک به مشتری و /start</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                لینک ربات (مثلاً <span className="font-mono font-bold text-emerald-600">t.me/YourBot</span>) را برای مشتری ارسال کنید.
+              </p>
+              <div className="bg-emerald-50/50 p-3 rounded-2xl border border-emerald-100 space-y-2 text-xs text-emerald-950 font-medium">
+                <div>• مشتری روی دکمه <strong>Start / شروع</strong> می‌زند.</div>
+                <div>• ربات به صورت محترمانه پیام خوش‌آمد و دکمه بزرگ <strong>«📱 اشتراک‌گذاری شماره تماس»</strong> را نشان می‌دهد.</div>
+                <div>• با لمس آن، شماره تلگرام مشتری با امنیت کامل به سرور برنامه منتقل می‌گردد.</div>
+              </div>
+            </div>
+
+            {/* Step 4 */}
+            <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs space-y-3 relative overflow-hidden">
+              <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-black text-sm">
+                ۴
+              </div>
+              <h3 className="text-sm font-black text-slate-900">مرحله ۴: ذخیره و اتصال خودکار</h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                سیستم شماره را ذخیره کرده و به طور هوشمند پرونده مالی مشتری را شناسایی می‌کند.
+              </p>
+              <div className="bg-amber-50/50 p-3 rounded-2xl border border-amber-100 space-y-2 text-xs text-amber-950 font-medium">
+                <div>• مشخصات کاربر در تب <strong>«کاربران در انتظار اتصال»</strong> می‌آید.</div>
+                <div>• با ۱ کلیک دکمه <strong>«تأیید و اتصال»</strong> را بزنید.</div>
+                <div>• از این پس در زمان ثبت فاکتور یا سند، با زدن دکمه تلگرام، گزارش مستقیماً و اختصاصی برای خود مشتری ارسال می‌شود!</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Interactive Simulation Preview: How the Customer Sees It */}
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <Smartphone className="w-5 h-5 text-sky-600" />
+                <h3 className="text-sm font-black text-slate-900">
+                  شبیه‌ساز رفتار ربات: تجربه مشتری هنگام کلیک روی لینک ربات و استارت
+                </h3>
+              </div>
+              <span className="px-3 py-1 bg-sky-100 text-sky-800 rounded-full text-xs font-bold">
+                هوشمند و اتوماتیک
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
+              {/* Telegram App Interface Simulator */}
+              <div className="bg-[#0e1621] rounded-3xl p-4 border border-slate-800 shadow-xl max-w-md mx-auto w-full space-y-3 font-sans">
+                {/* Simulated Header */}
+                <div className="flex items-center justify-between pb-3 border-b border-slate-800 text-white px-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-full bg-sky-500 flex items-center justify-center font-bold text-xs text-white">
+                      🤖
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold">{status?.botFirstName || 'ربات رسمی شرکت برادران نبوی'}</div>
+                      <div className="text-[10px] text-sky-400">bot • همیشه آنلاین</div>
+                    </div>
+                  </div>
+                  <span className="text-[10px] text-slate-400">امروز</span>
+                </div>
+
+                {/* Simulated Chat Messages */}
+                <div className="space-y-3 py-2">
+                  {/* User sent start */}
+                  <div className="flex justify-end">
+                    <div className="bg-[#2b5278] text-white px-3.5 py-1.5 rounded-2xl rounded-tr-none text-xs font-mono shadow-xs">
+                      /start
+                    </div>
+                  </div>
+
+                  {/* Bot reply welcome */}
+                  <div className="flex justify-start">
+                    <div className="bg-[#182533] text-slate-200 p-3.5 rounded-2xl rounded-tl-none text-xs leading-relaxed space-y-2 border border-slate-800/80 shadow-xs max-w-[85%]" dir="rtl">
+                      <p className="font-bold text-sky-300">🌸 سلام و عرض احترام، به ربات هوشمند حسابداری «شرکت تجارتی برادران نبوی» خوش آمدید!</p>
+                      <p className="text-[11px] text-slate-300">
+                        جهت صیانت از حریم خصوصی، این ربات طوری طراحی شده است که فقط اطلاعات و فاکتورهای حساب خودتان را نمایش می‌دهد.
+                      </p>
+                      <p className="text-[11px] text-amber-200 font-bold">
+                        👇 لطفاً جهت شروع، دکمه بزرگ زیر را لمس کرده و شماره تماس تلگرام خود را به اشتراک بگذارید:
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Telegram Special Big Keyboard Button */}
+                  <div className="pt-2">
+                    <div className="bg-sky-600 hover:bg-sky-500 text-white font-black text-center py-3 px-4 rounded-2xl text-xs shadow-md shadow-sky-600/30 flex items-center justify-center gap-2 cursor-pointer transition">
+                      <Smartphone className="w-4 h-4 animate-bounce" />
+                      <span>📱 اشتراک‌گذاری شماره تماس (لمس کنید)</span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 text-center block mt-1.5">
+                      (با زدن این دکمه رسمی تلگرام، شماره بدون نیاز به تایپ به سیستم فرستاده می‌شود)
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Explanatory side points */}
+              <div className="space-y-4">
+                <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                  <h4 className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>چرا این روش بهترین و امن‌ترین متد ارتباط با مشتری است؟</span>
+                  </h4>
+                  <ul className="text-xs text-slate-600 space-y-2 list-disc list-inside leading-relaxed">
+                    <li>
+                      <strong>بدون امکان تقلب یا شماره اشتباه:</strong> تلگرام شماره رسمی تأییدشده خط مشتری را ارسال می‌کند و مشتری نمی‌تواند شماره شخص دیگری را تایپ کند.
+                    </li>
+                    <li>
+                      <strong>تولید آنی کد اتصال ۶ رقمی:</strong> به محض ارسال شماره، کد اتصال اختصاصی (مانند <code className="font-mono text-sky-700 font-bold">AC-9K42X1</code>) به مشتری نشان داده می‌شود.
+                    </li>
+                    <li>
+                      <strong>تفکیک مطلق حریم خصوصی:</strong> هنگام چاپ و صدور فاکتور در برنامه، دکمه تلگرام دقیقاً به چت همان مشتری گزارش می‌فرستد نه به کس دیگر.
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 space-y-2">
+                  <h4 className="text-xs font-black text-amber-900 flex items-center gap-1.5">
+                    <AlertCircle className="w-4 h-4 text-amber-600" />
+                    <span>پاسخ به سوال: «چرا توکن را وارد می‌کردم خطا می‌داد؟»</span>
+                  </h4>
+                  <p className="text-xs text-amber-950 leading-relaxed">
+                    توکن تلگرام شامل یک رشته حدود ۴۵ کاراکتری است (ترکیب اعداد و حروف انگلیسی). خطا معمولاً به یکی از دلایل زیر رخ می‌دهد:
+                  </p>
+                  <ul className="text-xs text-amber-900 space-y-1 list-disc list-inside">
+                    <li>کپی ناقص توکن از BotFather (نباید هیچ کاراکتری از اول یا آخر جا بماند).</li>
+                    <li>وجود فاصله (Space) اضافه در ابتدا یا انتهای توکن (سیستم جدید ما این فاصله‌ها را خودکار حذف و اصلاح می‌کند).</li>
+                    <li>غیرفعال بودن یا حذف شدن ربات در تلگرام.</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

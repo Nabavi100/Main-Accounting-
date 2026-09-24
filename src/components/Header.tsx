@@ -1,15 +1,10 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useAccounting } from '../context/AccountingContext';
-import { formatNumber } from '../utils/formatters';
 import {
-  TrendingUp,
   Building2,
   Menu,
-  RefreshCw,
   Lock,
-  Coins,
   Cloud,
-  Send,
 } from 'lucide-react';
 import { NavTab } from './Sidebar';
 import { ThemeSwitcherDropdown } from './ThemeSwitcherDropdown';
@@ -32,164 +27,101 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenTelegramModal,
   onToggleSidebar,
 }) => {
-  const { cashRegister, updateExchangeRate, currentUser, companySettings, baseCurrency, logout } = useAccounting();
-  const [isEditingRate, setIsEditingRate] = useState(false);
-  const [rateInput, setRateInput] = useState(cashRegister.usdToAfnRate.toString());
-
-  const handleSaveRate = (e: React.FormEvent) => {
-    e.preventDefault();
-    const val = parseFloat(rateInput);
-    if (!isNaN(val) && val > 0) {
-      updateExchangeRate(val);
-      setIsEditingRate(false);
-    }
-  };
+  const { currentUser, companySettings, logout } = useAccounting();
 
   return (
-    <header className="h-16 bg-[#F8FAFC] border-b border-slate-200/70 flex items-center justify-between px-4 sm:px-6 shrink-0 z-10 font-sans select-none" dir="rtl">
-      {/* Right side: Company Header Pill Badge (Matching IMG-20260903-WA0001.jpg) */}
-      <div className="flex items-center gap-2.5 min-w-0">
+    <header className="h-16 bg-[#F8FAFC] border-b border-slate-200/70 flex items-center justify-between px-3 sm:px-6 shrink-0 z-10 font-sans select-none" dir="rtl">
+      {/* Right side: Menu button, Company Brand & Sleek Currency Rate Icon Button */}
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
         {onToggleSidebar && (
           <button
             type="button"
             onClick={onToggleSidebar}
-            className="lg:hidden p-2 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition cursor-pointer"
+            className="lg:hidden w-9 h-9 flex items-center justify-center text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition cursor-pointer"
             aria-label="باز و بسته کردن منو"
           >
             <Menu className="w-5 h-5" />
           </button>
         )}
 
-        {/* Rounded company badge matching screenshot */}
+        {/* Executive Company Wordmark Pill */}
         <button
           type="button"
           onClick={() => onOpenAccessModal && onOpenAccessModal('company')}
-          className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200/90 rounded-full shadow-2xs transition cursor-pointer"
+          className="flex items-center gap-2 px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200/90 rounded-xl shadow-2xs transition cursor-pointer max-w-[200px] sm:max-w-none"
           title="مشخصات و تنظیمات لوگوی شرکت"
         >
           {companySettings.logoUrl ? (
-            <img src={companySettings.logoUrl} alt="لوگو" className="w-4 h-4 object-contain rounded-full" />
+            <img src={companySettings.logoUrl} alt="لوگو" className="w-4 h-4 object-contain rounded-md shrink-0" />
           ) : (
-            <Building2 className="w-3.5 h-3.5 text-[#2563EB]" />
+            <Building2 className="w-4 h-4 text-[#2563EB] shrink-0" />
           )}
-          <span className="text-xs font-bold text-[#2563EB] truncate">
+          <span className="text-xs font-black text-slate-900 truncate">
             {companySettings.name || 'شرکت تجارتی برادران نبوی'}
           </span>
         </button>
 
-        {/* Base Currency Pill */}
-        <div
-          className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 bg-white border border-emerald-200/80 text-emerald-800 rounded-full text-xs shadow-2xs"
-          title="ارز مبنای محاسبه سود و زیان"
-        >
-          <Coins className="w-3 h-3 text-emerald-600" />
-          <span className="text-[10px] text-slate-500 font-medium">ارز مبنای سود:</span>
-          <span className="text-[11px] font-black text-emerald-700 font-mono">
-            {baseCurrency.code} ({baseCurrency.name})
-          </span>
-        </div>
-
-        {/* Exchange Rate Mini Badge */}
-        <div className="hidden md:flex items-center gap-2 bg-white border border-slate-200/80 px-2.5 py-1 rounded-full text-xs shadow-2xs">
-          <TrendingUp className="w-3 h-3 text-[#2563EB]" />
-          <span className="text-[11px] text-slate-500 font-medium">اسعار:</span>
-          {isEditingRate ? (
-            <form onSubmit={handleSaveRate} className="flex items-center gap-1">
-              <span className="text-slate-700 font-bold text-xs">$1=</span>
-              <input
-                type="number"
-                step="0.1"
-                value={rateInput}
-                onChange={e => setRateInput(e.target.value)}
-                className="w-14 px-1 py-0.5 border border-blue-500 rounded bg-white text-slate-900 text-xs font-bold text-center outline-none"
-                autoFocus
-              />
-              <span className="text-slate-700 font-bold text-xs">AFN</span>
-              <button
-                type="submit"
-                className="px-1.5 py-0.5 bg-blue-600 hover:bg-blue-700 text-white rounded text-[10px] font-bold cursor-pointer transition"
-              >
-                ثبت
-              </button>
-            </form>
-          ) : (
-            <button
-              type="button"
-              onClick={() => {
-                setRateInput(cashRegister.usdToAfnRate.toString());
-                setIsEditingRate(true);
-              }}
-              className="flex items-center gap-1 font-bold text-slate-800 text-[11px] cursor-pointer hover:text-blue-600 transition"
-              title="برای تغییر نرخ کلیک کنید"
-            >
-              <span>$۱ = {formatNumber(cashRegister.usdToAfnRate)} AFN</span>
-              <RefreshCw className="w-2.5 h-2.5 text-slate-400" />
-            </button>
-          )}
-        </div>
-
-        {/* Quick Currency Rate Calculator */}
-        <CurrencyRateCalculator />
+        {/* Minimal Chic Currency Rate Icon Button */}
+        <CurrencyRateCalculator minimal />
       </div>
 
-      {/* Left side: Theme switcher, Google Drive backup pill, User profile pill & Lock button */}
-      <div className="flex items-center gap-2 sm:gap-3">
-        {/* Quick Google Drive Cloud Backup Pill */}
+      {/* Left side: Minimal Chic Action Icons (Google Drive, Telegram, Theme, User, Lock) */}
+      <div className="flex items-center gap-1.5 sm:gap-2">
+        {/* Sleek Google Drive Cloud Backup Icon Button */}
         <button
           type="button"
+          id="header-btn-google-drive"
           onClick={() => onOpenAccessModal && onOpenAccessModal('backup')}
-          className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 bg-white hover:bg-blue-50 text-slate-700 hover:text-blue-700 rounded-full border border-slate-200/90 text-xs font-bold transition shadow-2xs cursor-pointer"
+          className="w-9 h-9 rounded-xl bg-white hover:bg-blue-50 text-blue-600 hover:text-blue-700 border border-slate-200/90 flex items-center justify-center transition shadow-2xs cursor-pointer active:scale-95"
           title="پشتیبان‌گیری ابری و تنظیمات گوگل درایو"
+          aria-label="گوگل درایو"
         >
-          <Cloud className="w-3.5 h-3.5 text-blue-600" />
-          <span className="text-[11px]">گوگل درایو</span>
+          <Cloud className="w-4 h-4" />
         </button>
 
-        {/* Quick Telegram Bot Pill */}
+        {/* Sleek Official Telegram Bot Icon Button */}
         <button
           type="button"
-          onClick={() => (onOpenAccessModal ? onOpenAccessModal('telegram') : onOpenTelegramModal?.())}
-          className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 bg-white hover:bg-sky-50 text-slate-700 hover:text-[#229ED9] rounded-full border border-slate-200/90 text-xs font-bold transition shadow-2xs cursor-pointer"
-          title="تنظیمات محرمانه ربات تلگرام و ارسال حسابات مشتریان (محافظت‌شده با رمز مدیر)"
+          id="header-btn-telegram"
+          onClick={() => onOpenTelegramModal ? onOpenTelegramModal() : onOpenAccessModal?.('telegram')}
+          className="w-9 h-9 rounded-xl bg-white hover:bg-sky-50 text-[#229ED9] hover:text-[#1982b8] border border-slate-200/90 flex items-center justify-center transition shadow-2xs cursor-pointer active:scale-95"
+          title="مدیریت تلگرام و ارتباط با مشتریان"
+          aria-label="ربات تلگرام"
         >
-          <Send className="w-3.5 h-3.5 text-[#229ED9] -rotate-45" />
-          <span className="text-[11px]">ربات تلگرام</span>
-          <Lock className="w-2.5 h-2.5 text-amber-500" />
+          <svg viewBox="0 0 24 24" className="w-4 h-4 fill-current">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.52 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .37z" />
+          </svg>
         </button>
 
-        {/* Theme Manager Dropdown */}
-        <ThemeSwitcherDropdown />
+        {/* Minimal Theme Switcher Icon Button */}
+        <ThemeSwitcherDropdown minimal />
 
-        {/* User Profile Pill */}
+        {/* Sleek User Profile Badge */}
         <button
           id="header-btn-user-profile"
           type="button"
           onClick={() => onOpenAccessModal && onOpenAccessModal('roles')}
-          className="flex items-center gap-2 px-2.5 sm:px-3 py-1 bg-white hover:bg-slate-50 text-slate-800 rounded-full border border-slate-200/90 text-xs font-bold transition shadow-2xs cursor-pointer"
-          title="مدیریت دسترسی و کاربران سیستم"
+          className="flex items-center gap-2 px-2.5 py-1 bg-white hover:bg-slate-50 text-slate-800 rounded-xl border border-slate-200/90 text-xs font-bold transition shadow-2xs cursor-pointer"
+          title={`کاربر جاری: ${currentUser?.name || 'مدیر کل'} (${currentUser?.roleTitle || 'مدیر سیستم'}) - کلیک جهت مدیریت کاربران`}
         >
-          <div className={`w-7 h-7 rounded-full ${currentUser?.avatarColor || 'bg-[#2563EB]'} text-white flex items-center justify-center text-[11px] font-black shadow-2xs shrink-0`}>
+          <div className={`w-7 h-7 rounded-lg ${currentUser?.avatarColor || 'bg-[#2563EB]'} text-white flex items-center justify-center text-[11px] font-black shadow-2xs shrink-0`}>
             {(currentUser?.name || 'مدیر').slice(0, 2)}
           </div>
-          <div className="flex flex-col text-right leading-tight hidden sm:flex">
-            <span className="text-xs font-black text-slate-900">
-              {currentUser?.name || 'مدیر کل سیستم'}
-            </span>
-            <span className="text-[9.5px] text-slate-500 font-medium">
-              {currentUser?.roleTitle || 'مدیر سیستم'}
-            </span>
-          </div>
+          <span className="text-xs font-black text-slate-800 hidden md:inline truncate max-w-[100px]">
+            {currentUser?.name || 'مدیر سیستم'}
+          </span>
         </button>
 
-        {/* Lock Screen / Logout Button */}
+        {/* Sleek Lock Screen / Logout Icon Button */}
         <button
           type="button"
+          id="header-btn-logout"
           onClick={logout}
-          className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 border border-slate-200/90 hover:border-rose-200 rounded-full text-xs font-bold transition cursor-pointer shadow-2xs"
+          className="w-9 h-9 rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 border border-slate-200/90 hover:border-rose-200 flex items-center justify-center transition cursor-pointer shadow-2xs active:scale-95"
           title="خروج از حساب و قفل سیستم"
+          aria-label="قفل برنامه"
         >
-          <Lock className="w-3.5 h-3.5" />
-          <span className="hidden md:inline">قفل برنامه</span>
+          <Lock className="w-4 h-4" />
         </button>
       </div>
     </header>
