@@ -1528,22 +1528,35 @@ export const TelegramManagementView: React.FC<Props> = () => {
               {/* Test Result Indicator */}
               {testResult && (
                 <div
-                  className={`p-3 rounded-2xl border text-xs font-bold flex items-center gap-2 ${
+                  className={`p-3.5 rounded-2xl border text-xs font-bold space-y-2 ${
                     testResult.success
                       ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
                       : 'bg-rose-50 border-rose-300 text-rose-900'
                   }`}
                 >
-                  {testResult.success ? (
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                  ) : (
-                    <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <div className="flex items-start gap-2">
+                    {testResult.success ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                    )}
+                    <span className="leading-relaxed">
+                      {testResult.success
+                        ? `اتصال موفق بود! نام ربات: ${testResult.botName} (@${testResult.username})`
+                        : `${testResult.error}`}
+                    </span>
+                  </div>
+
+                  {!testResult.success && (
+                    <div className="text-[11px] font-normal bg-white/70 p-2.5 rounded-xl border border-rose-200/80 text-rose-950 space-y-1">
+                      <p className="font-bold text-rose-800">💡 راه‌حل‌های رفع خطای ارتباط:</p>
+                      <ul className="list-disc list-inside space-y-0.5">
+                        <li>مطمئن شوید فیلترشکن شما متصل و پایدار است.</li>
+                        <li>کل توکن را از BotFather بدون کم و زیاد کپی کنید (فرمت نمونه: <code className="font-mono" dir="ltr">7123456789:AAHq_Abc...</code>).</li>
+                        <li>در صورت عدم برقراری اتصال با سرور داخلی، سیستم به صورت هوشمند از اتصال مستقیم مرورگر شما نیز پشتیبانی می‌کند.</li>
+                      </ul>
+                    </div>
                   )}
-                  <span>
-                    {testResult.success
-                      ? `اتصال موفق بود! نام ربات: ${testResult.botName} (@${testResult.username})`
-                      : `خطا در اعتبارسنجی: ${testResult.error}`}
-                  </span>
                 </div>
               )}
 

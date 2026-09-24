@@ -118,18 +118,72 @@ export async function testTelegramBotConnection(botToken?: string): Promise<{
   username?: string;
   error?: string;
 }> {
+  const cleanToken = botToken ? sanitizeTelegramBotToken(botToken) : undefined;
+  if (!cleanToken) {
+    return {
+      success: false,
+      error: 'لطفاً توکن ربات تلگرام را وارد فرمایید.',
+    };
+  }
+
+  // 1. First attempt: via backend proxy (avoids browser-level restrictions)
   try {
-    const cleanToken = botToken ? sanitizeTelegramBotToken(botToken) : undefined;
     const res = await fetch('/api/telegram/test-connection', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ botToken: cleanToken }),
     });
-    return await res.json();
-  } catch (e: any) {
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.success !== undefined) {
+        return data;
+      }
+    }
+  } catch (backendErr) {
+    console.warn('Backend proxy test-connection had network issue, falling back to direct fetch...', backendErr);
+  }
+
+  // 2. Second attempt: Direct fetch to Telegram API from browser
+  try {
+    const directRes = await fetch(`https://api.telegram.org/bot${cleanToken}/getMe`, {
+      signal: AbortSignal.timeout(12000),
+    });
+    const directData = await directRes.json();
+    if (directData.ok && directData.result) {
+      // Also persist to backend asynchronously so server knows about it
+      fetch('/api/telegram/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ botToken: cleanToken, autoPolling: true }),
+      }).catch(() => {});
+
+      return {
+        success: true,
+        botName: directData.result.first_name,
+        username: directData.result.username,
+      };
+    } else {
+      const desc = directData.description || '';
+      let errMsg = 'توکن وارد شده توسط سرور تلگرام تایید نشد.';
+      if (desc.toLowerCase().includes('unauthorized') || directRes.status === 401) {
+        errMsg = 'توکن نامعتبر است (کد ۴۰۱). لطفاً مطمئن شوید کل توکن را از BotFather بدون کم و کاست کپی کرده‌اید.';
+      } else if (desc.toLowerCase().includes('not found') || directRes.status === 404) {
+        errMsg = 'ربات تلگرام با این توکن یافت نشد (کد ۴۰۴). بررسی کنید که توکن به درستی وارد شده باشد.';
+      } else if (desc) {
+        errMsg = `خطای تلگرام: ${desc}`;
+      }
+      return {
+        success: false,
+        error: errMsg,
+      };
+    }
+  } catch (directErr: any) {
+    const isTimeout = directErr?.name === 'TimeoutError';
     return {
       success: false,
-      error: `عدم برقراری ارتباط با سرور: ${e?.message || 'خطای شبکه'}`,
+      error: isTimeout
+        ? 'مهلت زمان ارتباط با سرور تلگرام به پایان رسید. لطفاً وضعیت اینترنت یا قندشکن خود را بررسی فرمایید.'
+        : `عدم برقراری ارتباط با سرور: لطفاً اتصال اینترنت خود را بررسی کرده و اطمینان حاصل کنید فیلترشکن فعال است (${directErr?.message || 'خطای شبکه'}).`,
     };
   }
 }
