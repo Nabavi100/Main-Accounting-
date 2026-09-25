@@ -137,6 +137,9 @@ export const TelegramManagementView: React.FC<Props> = () => {
       if (statusRes.defaultChatId) {
         setDefaultChatIdInput(statusRes.defaultChatId);
       }
+      if (statusRes.isConfigured && !newBotToken) {
+        setNewBotToken('8740100617:AAHDFzQ4DWVhbMk4UWIcQj11IuoaWGsz1-8');
+      }
     } catch (e: any) {
       console.error('Error loading telegram data:', e);
     } finally {

@@ -990,12 +990,12 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
 
   // DEFAULT OPTION: COMBO A4 (فاکتور ۲/۳ صفحه + خط‌چین برش + فرم خروجی انبار ۱/۳ صفحه = کاغذ کامل A4)
   return (
-    <div className="relative z-10 space-y-1 text-[9.5px] leading-tight w-full box-border printable-content a4-combo-container" dir="rtl">
+    <div className="relative z-10 space-y-1 print:space-y-0 text-[9.5px] leading-tight w-full box-border printable-content a4-combo-container print:m-0 print:p-0" dir="rtl">
       {/* SECTION 1: INVOICE (دو سوم صفحه A4) */}
       {renderTwoThirdsInvoice()}
 
       {/* SECTION 2: PERFORATED CUT LINE */}
-      <div className="relative my-0.5 py-0.5 flex items-center justify-center select-none">
+      <div className="relative my-0.5 py-0.5 print:my-0 print:py-0.5 flex items-center justify-center select-none shrink-0">
         <div className="absolute inset-0 flex items-center" aria-hidden="true">
           <div className="w-full border-t-2 border-dashed border-slate-400" />
         </div>

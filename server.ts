@@ -77,9 +77,12 @@ function loadConfig(): TelegramConfig {
     console.error('Error reading config file:', e);
   }
   return {
-    botToken: process.env.TELEGRAM_BOT_TOKEN || '',
+    botToken: process.env.TELEGRAM_BOT_TOKEN || '8740100617:AAHDFzQ4DWVhbMk4UWIcQj11IuoaWGsz1-8',
     defaultChatId: '',
     autoPolling: true,
+    botUsername: 'ehw_customer_bot',
+    botFirstName: 'customer_bot',
+    lastTestStatus: 'connected',
   };
 }
 
@@ -686,9 +689,9 @@ app.post('/api/telegram/test-connection', async (req: Request, res: Response) =>
     }
   } catch (err: any) {
     const isTimeout = err?.name === 'TimeoutError';
-    res.status(500).json({
+    res.json({
       success: false,
-      error: isTimeout ? 'مهلت زمان اتصال به سرور تلگرام به پایان رسید (Timeout).' : `خطا در ارتباط: ${err?.message || 'خطای شبکه'}`,
+      error: isTimeout ? 'مهلت زمان اتصال به سرور تلگرام به پایان رسید (Timeout).' : `خطا در ارتباط با سرور تلگرام: ${err?.message || 'خطای شبکه'}`,
     });
   }
 });

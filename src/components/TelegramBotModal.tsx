@@ -30,7 +30,6 @@ import {
   TelegramLogEntry,
   getTelegramSettings,
   saveTelegramSettings,
-  testTelegramBotConnection,
   getSubscribersList,
   removeTelegramSubscriber,
   getTelegramLogs,
@@ -38,6 +37,7 @@ import {
   sendCustomerAccountStatement,
   isTelegramListenerRunning,
 } from '../services/telegramBotService';
+import { testTelegramBotConnection } from '../services/telegramApiService';
 import { useAccounting } from '../context/AccountingContext';
 import { verifyLicenseMasterPin } from '../utils/securityMaster';
 import { verifyLicense } from '../utils/licenseSecurity';

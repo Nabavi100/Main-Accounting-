@@ -54,14 +54,13 @@ import {
   TelegramLogEntry,
   getTelegramSettings,
   saveTelegramSettings,
-  testTelegramBotConnection,
   getSubscribersList,
   getTelegramLogs,
   clearTelegramLogs,
   isTelegramListenerRunning,
   sanitizeTelegramBotToken,
 } from '../services/telegramBotService';
-import { saveTelegramConfig } from '../services/telegramApiService';
+import { testTelegramBotConnection, saveTelegramConfig } from '../services/telegramApiService';
 import { verifyLicenseMasterPin } from '../utils/securityMaster';
 import { verifyLicense } from '../utils/licenseSecurity';
 
@@ -106,6 +105,7 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
   const [tgPinInput, setTgPinInput] = useState('');
   const [tgPinError, setTgPinError] = useState('');
   const [showTgPin, setShowTgPin] = useState(false);
+  const [showTgToken, setShowTgToken] = useState(false);
   const [tgSettings, setTgSettings] = useState<TelegramSettings>(getTelegramSettings());
   const [tgTesting, setTgTesting] = useState(false);
   const [tgTestResult, setTgTestResult] = useState<{
@@ -2495,14 +2495,23 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
                       <label className="text-xs font-bold text-slate-700 block">
                         توکن دریافتی از BotFather@ تلگرام:
                       </label>
-                      <input
-                        type="password"
-                        dir="ltr"
-                        value={tgSettings.botToken}
-                        onChange={e => setTgSettings({ ...tgSettings, botToken: e.target.value.trim() })}
-                        placeholder="مثال: 123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ"
-                        className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 focus:border-sky-500 rounded-xl text-xs font-mono text-slate-900 outline-none transition"
-                      />
+                      <div className="relative">
+                        <input
+                          type={showTgToken ? 'text' : 'password'}
+                          dir="ltr"
+                          value={tgSettings.botToken}
+                          onChange={e => setTgSettings({ ...tgSettings, botToken: e.target.value.trim() })}
+                          placeholder="مثال: 123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ"
+                          className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-300 focus:border-sky-500 rounded-xl text-xs font-mono text-slate-900 outline-none transition"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowTgToken(!showTgToken)}
+                          className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                        >
+                          {showTgToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
                       <p className="text-[11px] text-slate-500 leading-relaxed">
                         برای ساخت ربات رایگان در تلگرام به ربات رسمی <strong>BotFather@</strong> پیام داده و دستور{' '}
                         <code>/newbot</code> را ارسال کنید.
