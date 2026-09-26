@@ -62,10 +62,12 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
 
   // Print layout options
   const [invoiceLayout, setInvoiceLayout] = useState<'combo_a4' | 'invoice_only' | 'warehouse_only' | 'invoice_full' | 'thermal'>('combo_a4');
+  const [invoiceTheme, setInvoiceTheme] = useState<'navy' | 'gold' | 'emerald' | 'classic'>('navy');
   const [showWatermark, setShowWatermark] = useState<boolean>(false);
-  const [watermarkText, setWatermarkText] = useState<'رسمی' | 'پرداخت شد' | 'تحویل شد' | 'تسویه شده'>(
+  const [watermarkText, setWatermarkText] = useState<'رسمی' | 'پرداخت شد' | 'تحویل شد' | 'تسویه شده' | 'امانی'>(
     'رسمی'
   );
+  const [showBarcode, setShowBarcode] = useState<boolean>(true);
   const [showSignatures, setShowSignatures] = useState<boolean>(true);
   const [showCustomerBalance, setShowCustomerBalance] = useState<boolean>(true);
 
@@ -477,19 +479,121 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
                 </button>
               </div>
 
-              {/* Toggle Show Customer Balance Checkbox for Invoices */}
-              <label
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold border border-slate-700 cursor-pointer select-none transition"
-                title="تیک جهت چاپ یا عدم چاپ الباقی مانده حساب مشتری روی فاکتور"
-              >
-                <input
-                  type="checkbox"
-                  checked={showCustomerBalance}
-                  onChange={e => setShowCustomerBalance(e.target.checked)}
-                  className="rounded text-blue-500 focus:ring-0 w-3.5 h-3.5 cursor-pointer accent-blue-600"
-                />
-                <span>چاپ الباقی حساب مشتری</span>
-              </label>
+              {/* Invoice Theme Style Switcher */}
+              <div className="flex items-center bg-slate-800 p-1 rounded-xl border border-slate-700 text-xs gap-1">
+                <span className="text-[10px] text-slate-400 font-bold px-1.5 hidden lg:inline">طرح و استایل:</span>
+                <button
+                  type="button"
+                  onClick={() => setInvoiceTheme('navy')}
+                  className={`px-2 py-1 rounded-lg font-bold transition flex items-center gap-1 cursor-pointer ${
+                    invoiceTheme === 'navy'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-slate-300 hover:bg-slate-700'
+                  }`}
+                  title="استایل سرمه‌ای سلطنتی شرکتی"
+                >
+                  <span className="w-2 h-2 rounded-full bg-blue-400"></span>
+                  <span>سرمه‌ای رسمی</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInvoiceTheme('gold')}
+                  className={`px-2 py-1 rounded-lg font-bold transition flex items-center gap-1 cursor-pointer ${
+                    invoiceTheme === 'gold'
+                      ? 'bg-amber-600 text-white shadow-xs'
+                      : 'text-slate-300 hover:bg-slate-700'
+                  }`}
+                  title="استایل طلایی لوکس بازرگانی"
+                >
+                  <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+                  <span>طلایی لوکس</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInvoiceTheme('emerald')}
+                  className={`px-2 py-1 rounded-lg font-bold transition flex items-center gap-1 cursor-pointer ${
+                    invoiceTheme === 'emerald'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'text-slate-300 hover:bg-slate-700'
+                  }`}
+                  title="استایل سبز زمردی بانکی"
+                >
+                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  <span>سبز زمردی</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInvoiceTheme('classic')}
+                  className={`px-2 py-1 rounded-lg font-bold transition flex items-center gap-1 cursor-pointer ${
+                    invoiceTheme === 'classic'
+                      ? 'bg-slate-600 text-white shadow-xs'
+                      : 'text-slate-300 hover:bg-slate-700'
+                  }`}
+                  title="استایل کلاسیک اداری تک‌رنگ"
+                >
+                  <span className="w-2 h-2 rounded-full bg-slate-300"></span>
+                  <span>کلاسیک اداری</span>
+                </button>
+              </div>
+
+              {/* Watermark Selector */}
+              <div className="flex items-center bg-slate-800 p-1 rounded-xl border border-slate-700 text-xs gap-1">
+                <button
+                  type="button"
+                  onClick={() => setShowWatermark(!showWatermark)}
+                  className={`px-2 py-1 rounded-lg font-bold transition flex items-center gap-1 cursor-pointer ${
+                    showWatermark
+                      ? 'bg-purple-600 text-white shadow-xs'
+                      : 'text-slate-300 hover:bg-slate-700'
+                  }`}
+                  title="فعال یا غیرفعال کردن متن واترمارک پس‌زمینه فاکتور"
+                >
+                  <span>واترمارک:</span>
+                  <span className="text-[10px]">{showWatermark ? 'روشن' : 'خاموش'}</span>
+                </button>
+                {showWatermark && (
+                  <select
+                    value={watermarkText}
+                    onChange={e => setWatermarkText(e.target.value as any)}
+                    className="bg-slate-900 text-white text-[11px] font-bold px-1.5 py-1 rounded-lg border border-slate-700 outline-none cursor-pointer"
+                  >
+                    <option value="رسمی">رسمی</option>
+                    <option value="پرداخت شد">پرداخت شد</option>
+                    <option value="تسویه شده">تسویه شده</option>
+                    <option value="امانی">امانی</option>
+                    <option value="تحویل شد">تحویل شد</option>
+                  </select>
+                )}
+              </div>
+
+              {/* Barcode & Balance Toggles */}
+              <div className="flex items-center bg-slate-800 p-1 rounded-xl border border-slate-700 text-xs gap-2">
+                <label
+                  className="inline-flex items-center gap-1 px-2 py-1 hover:bg-slate-700 text-slate-300 rounded-md cursor-pointer select-none"
+                  title="چاپ یا عدم چاپ بارکد و QR کد امنیتی فاکتور"
+                >
+                  <input
+                    type="checkbox"
+                    checked={showBarcode}
+                    onChange={e => setShowBarcode(e.target.checked)}
+                    className="rounded text-blue-500 focus:ring-0 w-3 h-3 cursor-pointer accent-blue-500"
+                  />
+                  <span className="text-[11px] font-bold">بارکد/QR</span>
+                </label>
+
+                <label
+                  className="inline-flex items-center gap-1 px-2 py-1 hover:bg-slate-700 text-slate-300 rounded-md cursor-pointer select-none"
+                  title="تیک جهت چاپ یا عدم چاپ الباقی مانده حساب مشتری روی فاکتور"
+                >
+                  <input
+                    type="checkbox"
+                    checked={showCustomerBalance}
+                    onChange={e => setShowCustomerBalance(e.target.checked)}
+                    className="rounded text-emerald-500 focus:ring-0 w-3 h-3 cursor-pointer accent-emerald-500"
+                  />
+                  <span className="text-[11px] font-bold">مانده مشتری</span>
+                </label>
+              </div>
             </>
           )}
 
@@ -840,6 +944,10 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
               stampColor={stampColor}
               stampSize={stampSize}
               signatureSize={signatureSize}
+              invoiceTheme={invoiceTheme}
+              showWatermark={showWatermark}
+              watermarkText={watermarkText}
+              showBarcode={showBarcode}
               getPartyExtraInfo={getPartyExtraInfo}
               getWarehouseName={getWarehouseName}
             />
