@@ -205,9 +205,11 @@ export async function fetchTelegramUsers(): Promise<{
 export async function linkTelegramUserToParty(data: {
   chatId?: string;
   connectionCode?: string;
+  phone?: string;
+  identifier?: string;
   partyId: string;
   partyName: string;
-}): Promise<{ success: boolean; user?: TelegramUser; error?: string }> {
+}): Promise<{ success: boolean; user?: TelegramUser; message?: string; error?: string }> {
   const res = await fetch('/api/telegram/link-user', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

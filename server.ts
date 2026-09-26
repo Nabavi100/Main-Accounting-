@@ -177,7 +177,7 @@ function generateConnectionCode(): string {
   return `AC-${randomPart}`;
 }
 
-function normalizePhone(raw: string): string {
+function normalizeDigits(raw: string): string {
   if (!raw) return '';
   const persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
   const arabicDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
@@ -185,6 +185,12 @@ function normalizePhone(raw: string): string {
   for (let i = 0; i < 10; i++) {
     s = s.replaceAll(persianDigits[i], String(i)).replaceAll(arabicDigits[i], String(i));
   }
+  return s;
+}
+
+function normalizePhone(raw: string): string {
+  if (!raw) return '';
+  let s = normalizeDigits(raw);
   s = s.replace(/\D/g, '');
   if (s.startsWith('0093')) s = s.substring(4);
   else if (s.startsWith('93') && s.length >= 11) s = s.substring(2);
@@ -197,10 +203,60 @@ function phonesMatch(p1: string, p2: string): boolean {
   const n2 = normalizePhone(p2);
   if (!n1 || !n2) return false;
   if (n1 === n2) return true;
-  if (n1.length >= 9 && n2.length >= 9) {
-    return n1.slice(-9) === n2.slice(-9);
+  if (n1.length >= 7 && n2.length >= 7) {
+    const minLen = Math.min(n1.length, n2.length, 9);
+    return n1.slice(-minLen) === n2.slice(-minLen);
   }
   return false;
+}
+
+function findTelegramUserByQuery(users: TelegramUserRecord[], query: string): TelegramUserRecord | undefined {
+  if (!query) return undefined;
+  const rawNormalized = normalizeDigits(query).trim();
+  const upper = rawNormalized.toUpperCase();
+  const cleanCode = upper.replace(/^AC-/, '').replace(/[^A-Z0-9]/g, '');
+  const normPhone = normalizePhone(rawNormalized);
+  const cleanUsername = rawNormalized.replace(/^@/, '').toLowerCase();
+
+  // 1. First priority: Exact or prefix match on connection code
+  const byCode = users.find(u => {
+    if (!u.connectionCode) return false;
+    const uCode = u.connectionCode.toUpperCase();
+    const uClean = uCode.replace(/^AC-/, '').replace(/[^A-Z0-9]/g, '');
+    return uCode === upper || (cleanCode.length >= 4 && (uClean === cleanCode || uClean === upper || uCode === `AC-${cleanCode}`));
+  });
+  if (byCode) return byCode;
+
+  // 2. Second priority: Phone number match (matches Afghan format +93..., 07..., 7...)
+  if (normPhone && normPhone.length >= 7) {
+    const byPhone = users.find(u => u.phoneNumber && phonesMatch(u.phoneNumber, rawNormalized));
+    if (byPhone) return byPhone;
+  }
+
+  // 3. Third priority: Telegram Chat ID or Telegram User ID
+  if (/^\d{5,15}$/.test(rawNormalized)) {
+    const byChatId = users.find(u => u.telegramChatId === rawNormalized || u.telegramUserId === rawNormalized);
+    if (byChatId) return byChatId;
+  }
+
+  // 4. Fourth priority: Telegram Username
+  if (cleanUsername && cleanUsername.length >= 3) {
+    const byUsername = users.find(u => {
+      if (!u.username) return false;
+      const uUser = u.username.replace(/^@/, '').toLowerCase();
+      return uUser === cleanUsername;
+    });
+    if (byUsername) return byUsername;
+  }
+
+  // 5. Fifth priority: Name match
+  const byName = users.find(u => {
+    const fullName = `${u.firstName || ''} ${u.lastName || ''}`.trim().toLowerCase();
+    return fullName && (fullName === rawNormalized.toLowerCase() || fullName.includes(rawNormalized.toLowerCase()));
+  });
+  if (byName) return byName;
+
+  return undefined;
 }
 
 export function sanitizeBotToken(raw: string): string {
@@ -333,6 +389,42 @@ async function handleTelegramUpdate(update: any, botToken: string) {
   const users = loadUsers();
   let existingUser = users.find(u => u.telegramChatId === chatId);
 
+  // If user is new to the bot, register immediately with a connection code
+  if (!existingUser) {
+    const connectionCode = generateConnectionCode();
+    existingUser = {
+      id: 'usr_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+      telegramUserId: senderId,
+      telegramChatId: chatId,
+      phoneNumber: '',
+      firstName,
+      lastName,
+      username,
+      connectionCode,
+      registeredAt: new Date().toISOString(),
+      status: 'pending',
+      inquiriesCount: 0,
+    };
+    users.unshift(existingUser);
+    saveUsers(users);
+
+    addLog({
+      chatId,
+      partyName: fullName,
+      type: 'auth_pending',
+      status: 'success',
+      message: `کاربر تلگرام (${fullName}) ربات را استارت کرد. کد اتصال یکتا: ${connectionCode}`,
+    });
+  } else {
+    // Keep profile fresh
+    let changed = false;
+    if (firstName && existingUser.firstName !== firstName) { existingUser.firstName = firstName; changed = true; }
+    if (lastName && existingUser.lastName !== lastName) { existingUser.lastName = lastName; changed = true; }
+    if (username && existingUser.username !== username) { existingUser.username = username; changed = true; }
+    if (!existingUser.connectionCode) { existingUser.connectionCode = generateConnectionCode(); changed = true; }
+    if (changed) saveUsers(users);
+  }
+
   // 1. CONTACT SHARING (Official Telegram Contact Sharing Request)
   if (msg.contact) {
     const contactUserId = msg.contact.user_id ? String(msg.contact.user_id) : '';
@@ -369,36 +461,17 @@ async function handleTelegramUpdate(update: any, botToken: string) {
 
     let connectionCode = existingUser?.connectionCode || generateConnectionCode();
 
-    if (!existingUser) {
-      existingUser = {
-        id: 'usr_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
-        telegramUserId: senderId,
-        telegramChatId: chatId,
-        phoneNumber: rawPhone,
-        firstName,
-        lastName,
-        username,
-        connectionCode,
-        registeredAt: new Date().toISOString(),
-        status: matchedParty ? 'connected' : 'pending',
-        partyId: matchedParty ? matchedParty.id : undefined,
-        partyName: matchedParty ? matchedParty.name : undefined,
-        linkedAt: matchedParty ? new Date().toISOString() : undefined,
-        inquiriesCount: 1,
-      };
-      users.unshift(existingUser);
-    } else {
-      existingUser.phoneNumber = rawPhone;
-      existingUser.firstName = firstName;
-      existingUser.lastName = lastName;
-      existingUser.username = username;
-      if (!existingUser.connectionCode) existingUser.connectionCode = connectionCode;
-      if (matchedParty && existingUser.status !== 'connected') {
-        existingUser.status = 'connected';
-        existingUser.partyId = matchedParty.id;
-        existingUser.partyName = matchedParty.name;
-        existingUser.linkedAt = new Date().toISOString();
-      }
+    existingUser.phoneNumber = rawPhone;
+    existingUser.firstName = firstName || existingUser.firstName;
+    existingUser.lastName = lastName || existingUser.lastName;
+    existingUser.username = username || existingUser.username;
+    if (!existingUser.connectionCode) existingUser.connectionCode = connectionCode;
+
+    if (matchedParty) {
+      existingUser.status = 'connected';
+      existingUser.partyId = matchedParty.id;
+      existingUser.partyName = matchedParty.name;
+      existingUser.linkedAt = new Date().toISOString();
     }
 
     saveUsers(users);
@@ -541,16 +614,21 @@ async function handleTelegramUpdate(update: any, botToken: string) {
     return;
   }
 
-  // Default /start or first message: Send Contact Request Button
+  // Default /start or first message: Send Contact Request Button with Connection Code
+  const myCode = existingUser?.connectionCode || generateConnectionCode();
   await telegramApiCall(botToken, 'sendMessage', {
     chat_id: chatId,
     text: `
-🌸 <b>سلام و عرض احترام، به ربات هوشمند حسابداری «شرکت تجارتی برادران نبوی» خوش آمدید!</b>
+🌸 <b>سلام و عرض احترام، ${fullName} عزیز</b>
+به ربات رسمی حسابداری <b>«شرکت تجارتی برادران نبوی»</b> خوش آمدید!
 ━━━━━━━━━━━━━━━━━━━━
-🔒 <b>احراز هویت امن و دریافت اختصاصی صورت‌حساب:</b>
-جهت صیانت از حریم خصوصی و امنیت حساب‌های مالی، این ربات طوری طراحی شده است که <b>فقط و فقط اطلاعات و فاکتورهای حساب خودتان</b> را نمایش می‌دهد.
+🔑 <b>کد اتصال یکتای شما:</b> <code>${myCode}</code>
+🆔 <b>شناسه تلگرام:</b> <code>${chatId}</code>
+━━━━━━━━━━━━━━━━━━━━
+🔒 <b>جهت فعال‌سازی و دریافت اختصاصی صورت‌حساب و فاکتورها:</b>
 
-👇 <b>لطفاً جهت شروع، دکمه بزرگ زیر را لمس کرده و شماره تماس همین تلگرام خود را به اشتراک بگذارید:</b>
+۱️⃣ <b>اتصال خودکار:</b> دکمه زیر («📱 اشتراک‌گذاری شماره تماس») را لمس فرمایید تا در صورت ثبت شماره در سیستم شرکت، حسابتان فوراً وصل شود.
+۲️⃣ <b>اتصال دستی توسط شرکت:</b> کد اتصال (<code>${myCode}</code>) یا شماره موبایل خود را به حسابدار شرکت اعلام فرمایید تا تأیید گردد.
 `.trim(),
     parse_mode: 'HTML',
     reply_markup: {
@@ -561,9 +639,12 @@ async function handleTelegramUpdate(update: any, botToken: string) {
             request_contact: true,
           },
         ],
+        [
+          { text: '🔄 استعلام وضعیت اتصال' },
+          { text: '☎️ تماس با دفتر شرکت' },
+        ],
       ],
       resize_keyboard: true,
-      one_time_keyboard: true,
     },
   });
 }
@@ -707,27 +788,83 @@ app.get('/api/telegram/users', (req: Request, res: Response) => {
 // 5. POST /api/telegram/link-user (Manager links Telegram User to Accounting Party)
 app.post('/api/telegram/link-user', async (req: Request, res: Response) => {
   try {
-    const { chatId, connectionCode, partyId, partyName } = req.body;
+    const { chatId, connectionCode, phone, identifier, partyId, partyName } = req.body;
 
     if (!partyId || !partyName) {
       return res.status(400).json({ success: false, error: 'شناسه و نام طرف حساب الزامی است.' });
     }
 
-    const users = loadUsers();
-    let target = users.find(u => (chatId && u.telegramChatId === chatId) || (connectionCode && u.connectionCode?.toUpperCase() === connectionCode.trim().toUpperCase()));
+    const query = String(identifier || connectionCode || phone || chatId || '').trim();
+    if (!query) {
+      return res.status(400).json({ success: false, error: 'لطفاً کد اتصال، شماره موبایل یا شناسه کاربر تلگرام را وارد فرمایید.' });
+    }
 
+    const users = loadUsers();
+    // 1. Smart multi-attribute search across codes, phones, IDs, usernames
+    let target = findTelegramUserByQuery(users, query);
+
+    // 2. Direct chatId fallback
+    if (!target && chatId) {
+      target = users.find(u => u.telegramChatId === String(chatId) || u.telegramUserId === String(chatId));
+    }
+
+    // 3. Fallback: If not found, but query looks like a valid phone number (e.g. 078... or +9378...)
     if (!target) {
-      return res.status(404).json({ success: false, error: 'کاربر تلگرام با مشخصات ارسالی یافت نشد.' });
+      const normPhone = normalizePhone(query);
+      if (normPhone && normPhone.length >= 7) {
+        // Pre-create or pre-link this customer so as soon as they /start or send contact, they're active
+        const newCode = generateConnectionCode();
+        target = {
+          id: 'usr_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+          telegramUserId: '',
+          telegramChatId: '',
+          phoneNumber: query,
+          firstName: partyName,
+          lastName: '',
+          connectionCode: newCode,
+          registeredAt: new Date().toISOString(),
+          status: 'connected',
+          partyId,
+          partyName,
+          linkedAt: new Date().toISOString(),
+          inquiriesCount: 0,
+        };
+        users.unshift(target);
+        saveUsers(users);
+
+        addLog({
+          chatId: 'pre-link',
+          partyName,
+          type: 'connected',
+          status: 'success',
+          message: `طرف حساب «${partyName}» با شماره موبایل ${query} متصل شد. کد اتصال: ${newCode}`,
+        });
+
+        return res.json({
+          success: true,
+          user: target,
+          message: `شماره ${query} به پرونده «${partyName}» متصل گردید. به محض ورود مشتری به ربات، حساب فعال می‌شود.`,
+        });
+      }
+
+      return res.status(404).json({
+        success: false,
+        error: `کاربر تلگرام با مشخصات «${query}» یافت نشد. لطفاً بررسی کنید مشتری ربات را استارت زده یا شماره/کد را صحیح وارد فرمایید.`,
+      });
     }
 
     target.status = 'connected';
     target.partyId = partyId;
     target.partyName = partyName;
     target.linkedAt = new Date().toISOString();
+    // If target has no phone yet, but query was a phone, record it
+    if (!target.phoneNumber && normalizePhone(query).length >= 7) {
+      target.phoneNumber = query;
+    }
     saveUsers(users);
 
     const config = loadConfig();
-    if (config.botToken) {
+    if (config.botToken && target.telegramChatId) {
       // Notify the customer in Telegram immediately
       await telegramApiCall(config.botToken, 'sendMessage', {
         chat_id: target.telegramChatId,
@@ -752,11 +889,11 @@ app.post('/api/telegram/link-user', async (req: Request, res: Response) => {
     }
 
     addLog({
-      chatId: target.telegramChatId,
+      chatId: target.telegramChatId || 'direct',
       partyName,
       type: 'connected',
       status: 'success',
-      message: `اتصال کاربر تلگرام به طرف حساب «${partyName}» با کد ${target.connectionCode} با موفقیت برقرار شد.`,
+      message: `اتصال کاربر تلگرام به طرف حساب «${partyName}» (کد ${target.connectionCode} / تلفن: ${target.phoneNumber || 'بدون شماره'}) با موفقیت برقرار شد.`,
     });
 
     res.json({ success: true, user: target });

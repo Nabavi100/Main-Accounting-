@@ -178,14 +178,34 @@ export const TelegramManagementView: React.FC<Props> = () => {
     setTimeout(() => setCopiedCode(null), 2500);
   };
 
+  // Digit normalization for Persian/Arabic numbers
+  const normalizeDigitsStr = (str: string): string => {
+    if (!str) return '';
+    const persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+    const arabicDigits = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    let s = String(str).trim();
+    for (let i = 0; i < 10; i++) {
+      s = s.replaceAll(persianDigits[i], String(i)).replaceAll(arabicDigits[i], String(i));
+    }
+    return s;
+  };
+
+  const cleanPhoneStr = (p: string): string => {
+    if (!p) return '';
+    const norm = normalizeDigitsStr(p).replace(/\D/g, '');
+    return norm.slice(-9);
+  };
+
   // Quick Match Helper: find party whose phone matches user's phone
   const findSuggestedPartyForUser = (user: TelegramUser): Party | undefined => {
     if (!user.phoneNumber) return undefined;
-    const cleanUserPhone = user.phoneNumber.replace(/\D/g, '').slice(-9);
+    const cleanUserPhone = cleanPhoneStr(user.phoneNumber);
+    if (!cleanUserPhone || cleanUserPhone.length < 7) return undefined;
+
     return parties.find(p => {
       if (!p.phone) return false;
-      const cleanPartyPhone = p.phone.replace(/\D/g, '').slice(-9);
-      return cleanPartyPhone && cleanUserPhone && cleanPartyPhone === cleanUserPhone;
+      const cleanPartyPhone = cleanPhoneStr(p.phone);
+      return cleanPartyPhone && cleanUserPhone && (cleanPartyPhone === cleanUserPhone || cleanPartyPhone.endsWith(cleanUserPhone) || cleanUserPhone.endsWith(cleanPartyPhone));
     });
   };
 
@@ -202,6 +222,7 @@ export const TelegramManagementView: React.FC<Props> = () => {
       const res = await linkTelegramUserToParty({
         chatId: user.telegramChatId,
         connectionCode: user.connectionCode,
+        phone: user.phoneNumber,
         partyId: party.id,
         partyName: party.name,
       });
@@ -228,11 +249,16 @@ export const TelegramManagementView: React.FC<Props> = () => {
     }
   };
 
-  // Direct Code Connect
+  // Direct Code or Phone Connect
   const handleDirectCodeConnect = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!directCode.trim() || !directPartyId) {
-      showAlert('error', 'لطفاً کد اتصال و طرف حساب را مشخص فرمایید.');
+    const cleanInput = normalizeDigitsStr(directCode).trim();
+    if (!cleanInput) {
+      showAlert('error', 'لطفاً کد اتصال یا شماره موبایل تلگرام شخص را وارد فرمایید.');
+      return;
+    }
+    if (!directPartyId) {
+      showAlert('error', 'لطفاً طرف حساب مورد نظر را انتخاب فرمایید.');
       return;
     }
 
@@ -245,7 +271,9 @@ export const TelegramManagementView: React.FC<Props> = () => {
     setIsLinking(true);
     try {
       const res = await linkTelegramUserToParty({
-        connectionCode: directCode.trim().toUpperCase(),
+        connectionCode: cleanInput.toUpperCase(),
+        identifier: cleanInput,
+        phone: cleanInput,
         partyId: party.id,
         partyName: party.name,
       });
@@ -255,19 +283,19 @@ export const TelegramManagementView: React.FC<Props> = () => {
           telegramChatId: res.user?.telegramChatId,
           telegramUserId: res.user?.telegramUserId,
           telegramUsername: res.user?.username,
-          telegramConnectionCode: directCode.trim().toUpperCase(),
+          telegramConnectionCode: res.user?.connectionCode || cleanInput.toUpperCase(),
           telegramLinkedAt: new Date().toISOString(),
         });
 
-        showAlert('success', `کد اتصال تأیید و کاربر به «${party.name}» متصل گردید.`);
+        showAlert('success', res.message || `کد اتصال تأیید و کاربر تلگرام با موفقیت به پرونده «${party.name}» متصل گردید.`);
         setDirectCode('');
         setDirectPartyId('');
         await loadAllData();
       } else {
-        showAlert('error', res.error || 'کد اتصال نامعتبر است یا کاربری یافت نشد.');
+        showAlert('error', res.error || 'کد اتصال یا شماره موبایل واردشده نامعتبر است یا کاربری یافت نشد.');
       }
     } catch (e: any) {
-      showAlert('error', e?.message || 'خطای شبکه');
+      showAlert('error', e?.message || 'خطای شبکه در برقراری ارتباط');
     } finally {
       setIsLinking(false);
     }
@@ -530,6 +558,44 @@ export const TelegramManagementView: React.FC<Props> = () => {
     );
   }, [connectedUsers, searchQuery]);
 
+  // Smart live lookup for direct code / phone input
+  const matchedPendingUser = useMemo(() => {
+    if (!directCode.trim()) return null;
+    const raw = normalizeDigitsStr(directCode).trim();
+    const upper = raw.toUpperCase();
+    const cleanCode = upper.replace(/^AC-/, '').replace(/[^A-Z0-9]/g, '');
+    const cleanPhone = cleanPhoneStr(raw);
+
+    return pendingUsers.find(u => {
+      if (u.connectionCode) {
+        const uCode = u.connectionCode.toUpperCase();
+        const uClean = uCode.replace(/^AC-/, '').replace(/[^A-Z0-9]/g, '');
+        if (uCode === upper || (cleanCode.length >= 4 && (uClean === cleanCode || uClean === upper || uCode === `AC-${cleanCode}`))) {
+          return true;
+        }
+      }
+      if (cleanPhone && cleanPhone.length >= 7 && u.phoneNumber) {
+        const uPhone = cleanPhoneStr(u.phoneNumber);
+        if (uPhone && (uPhone === cleanPhone || uPhone.endsWith(cleanPhone) || cleanPhone.endsWith(uPhone))) {
+          return true;
+        }
+      }
+      if (u.telegramChatId === raw || u.telegramUserId === raw) return true;
+      if (u.username && u.username.replace(/^@/, '').toLowerCase() === raw.replace(/^@/, '').toLowerCase()) return true;
+      return false;
+    });
+  }, [directCode, pendingUsers]);
+
+  // Auto-select suggested party if directCode matched a pending user
+  useEffect(() => {
+    if (matchedPendingUser) {
+      const suggested = findSuggestedPartyForUser(matchedPendingUser);
+      if (suggested && !directPartyId) {
+        setDirectPartyId(suggested.id);
+      }
+    }
+  }, [matchedPendingUser]);
+
   const filteredLogs = useMemo(() => {
     if (logFilter === 'all') return logs;
     return logs.filter(l => l.status === logFilter);
@@ -744,51 +810,81 @@ export const TelegramManagementView: React.FC<Props> = () => {
       {activeTab === 'pending' && (
         <div className="space-y-4">
           {/* Direct Code Connection Card */}
-          <div className="bg-gradient-to-r from-sky-50 via-indigo-50 to-blue-50 border border-sky-200 rounded-3xl p-4 sm:p-5 shadow-xs">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="bg-gradient-to-r from-sky-50 via-indigo-50 to-blue-50 border border-sky-200 rounded-3xl p-5 shadow-xs space-y-3.5">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
               <div className="space-y-1">
                 <div className="flex items-center gap-2 text-sky-950 font-black text-sm">
-                  <Hash className="w-4 h-4 text-sky-600" />
-                  <span>اتصال سریع با «کد اتصال یکتا» (Connection Code):</span>
+                  <Hash className="w-5 h-5 text-sky-600" />
+                  <span>اتصال سریع و هوشمند با «کد اتصال یکتا» یا «شماره موبایل تلگرام»:</span>
                 </div>
                 <p className="text-xs text-sky-800 leading-relaxed">
-                  اگر مشتری کد اختصاصی ربات خود (مثلاً <span className="font-mono font-bold">AC-7F42K9</span>) را به شما اعلام کرده است، آن را اینجا وارد کنید و به پرونده مشتری متصل نمایید:
+                  کد اتصال ربات مشتری (مانند <span className="font-mono font-bold">AC-L2E8CX</span> یا <span className="font-mono font-bold">L2E8CX</span>) یا شماره تلفن تلگرام شخص (مانند <span className="font-mono font-bold">0781781203</span> یا <span className="font-mono font-bold">+93781781203</span>) را وارد کنید و به پرونده مشتری متصل نمایید:
                 </p>
               </div>
+            </div>
 
-              <form onSubmit={handleDirectCodeConnect} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
+            <form onSubmit={handleDirectCodeConnect} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+              <div className="flex-1 sm:max-w-xs">
                 <input
                   type="text"
                   dir="ltr"
-                  placeholder="AC-XXXXXX"
+                  placeholder="کد یکتا (AC-XXXXXX) یا شماره تماس..."
                   value={directCode}
-                  onChange={e => setDirectCode(e.target.value.toUpperCase())}
-                  className="px-3.5 py-2.5 bg-white border border-sky-300 rounded-xl font-mono font-bold text-center text-xs tracking-wider text-slate-900 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none uppercase shadow-2xs"
+                  onChange={e => setDirectCode(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-white border border-sky-300 rounded-xl font-mono font-bold text-center text-xs tracking-wider text-slate-900 focus:border-sky-500 focus:ring-2 focus:ring-sky-200 outline-none shadow-2xs"
                 />
+              </div>
 
+              <div className="flex-1 sm:max-w-md">
                 <select
                   value={directPartyId}
                   onChange={e => setDirectPartyId(e.target.value)}
-                  className="px-3.5 py-2.5 bg-white border border-sky-300 rounded-xl text-xs font-bold text-slate-800 focus:border-sky-500 outline-none shadow-2xs max-w-xs"
+                  className="w-full px-3.5 py-2.5 bg-white border border-sky-300 rounded-xl text-xs font-bold text-slate-800 focus:border-sky-500 outline-none shadow-2xs"
                 >
-                  <option value="">-- انتخاب طرف حساب --</option>
+                  <option value="">-- انتخاب طرف حساب از دفتر حسابداری --</option>
                   {parties.map(p => (
                     <option key={p.id} value={p.id}>
                       {p.name} {p.code ? `(#${p.code})` : ''} - {p.phone || 'بدون شماره'}
                     </option>
                   ))}
                 </select>
+              </div>
 
-                <button
-                  type="submit"
-                  disabled={isLinking || !directCode || !directPartyId}
-                  className="px-4 py-2.5 bg-sky-600 hover:bg-sky-700 disabled:bg-slate-300 text-white font-bold rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-1.5 shadow-xs"
-                >
-                  <Link className="w-4 h-4" />
-                  <span>تأیید و اتصال</span>
-                </button>
-              </form>
-            </div>
+              <button
+                type="submit"
+                disabled={isLinking || !directCode.trim() || !directPartyId}
+                className="px-5 py-2.5 bg-sky-600 hover:bg-sky-700 disabled:bg-slate-300 text-white font-bold rounded-xl text-xs transition cursor-pointer flex items-center justify-center gap-1.5 shadow-xs shrink-0"
+              >
+                {isLinking ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Link className="w-4 h-4" />}
+                <span>تأیید و اتصال</span>
+              </button>
+            </form>
+
+            {/* Live Detected Pending User Info */}
+            {matchedPendingUser && (
+              <div className="bg-emerald-50 border border-emerald-300 rounded-2xl p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs animate-fadeIn">
+                <div className="flex flex-wrap items-center gap-2 text-emerald-950 font-bold">
+                  <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>
+                    کاربر تلگرام شناسایی شد: <span className="font-black text-emerald-800">{matchedPendingUser.firstName} {matchedPendingUser.lastName}</span>
+                    {matchedPendingUser.username && <span className="text-[11px] text-sky-700 mr-1.5 font-mono">({matchedPendingUser.username})</span>}
+                  </span>
+                  <span className="bg-emerald-200 text-emerald-900 font-mono px-2 py-0.5 rounded-lg text-[11px]" dir="ltr">
+                    {matchedPendingUser.connectionCode}
+                  </span>
+                  {matchedPendingUser.phoneNumber && (
+                    <span className="text-slate-600 font-mono text-[11px]" dir="ltr">
+                      {matchedPendingUser.phoneNumber}
+                    </span>
+                  )}
+                </div>
+                {directPartyId && (
+                  <span className="text-[11px] text-emerald-700 font-bold bg-white px-2.5 py-1 rounded-lg border border-emerald-200">
+                    آماده اتصال به طرف حساب انتخابی
+                  </span>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Search bar */}
