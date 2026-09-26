@@ -250,7 +250,7 @@ export const PurchaseInvoicesListView: React.FC<PurchaseInvoicesListViewProps> =
       {/* Invoices Table */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-right border-collapse">
+          <table className="w-full min-w-[800px] text-right border-collapse">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-black text-slate-600">
                 <th className="py-3 px-4">شماره خرید</th>

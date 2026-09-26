@@ -771,11 +771,11 @@ export const PurchaseInvoiceCreateView: React.FC<PurchaseInvoiceCreateViewProps>
         </div>
 
         {/* ========================================================================= */}
-        {/* ITEMS TABLE (EXACTLY AS SCREENSHOT IMG-20260906-WA0000.jpg) */}
+        {/* ITEMS TABLE (EXACTLY AS SCREENSHOT IMG-20260900.jpg) */}
         {/* ========================================================================= */}
         <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-2xs">
           <div className="overflow-x-auto">
-            <table className="w-full text-right text-xs border-collapse">
+            <table className="w-full min-w-[850px] text-right text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-700 font-bold">
                   <th className="py-2.5 px-3 w-[26%]">نام یا کد کالا</th>
