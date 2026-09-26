@@ -483,18 +483,20 @@ export const TelegramManagementView: React.FC<Props> = () => {
     e.preventDefault();
     setIsSavingConfig(true);
     try {
+      const cleanToken = newBotToken ? sanitizeTelegramBotToken(newBotToken) : undefined;
+      const cleanChatId = normalizeDigitsStr(defaultChatIdInput).trim();
       const res = await saveTelegramConfig({
-        botToken: newBotToken ? newBotToken.trim() : undefined,
-        defaultChatId: defaultChatIdInput.trim(),
+        botToken: cleanToken,
+        defaultChatId: cleanChatId,
         autoPolling: true,
       });
 
       if (res.success) {
-        showAlert('success', `تنظیمات ربات ذخیره شد. نام ربات: ${res.botFirstName} (@${res.botUsername})`);
-        setNewBotToken('');
+        const botDesc = res.botFirstName || res.botUsername ? ` (ربات: ${res.botFirstName || ''} @${res.botUsername || ''})` : '';
+        showAlert('success', `تنظیمات ربات تلگرام با موفقیت در سرور ذخیره و فعال شد.${botDesc}`);
         await loadAllData();
       } else {
-        showAlert('error', res.error || 'خطا در اعتبارسنجی توکن ربات');
+        showAlert('error', res.error || 'خطا در اعتبارسنجی یا ذخیره توکن ربات');
       }
     } catch (e: any) {
       showAlert('error', e?.message || 'خطا در ارتباط با سرور');

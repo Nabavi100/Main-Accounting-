@@ -92,7 +92,7 @@ export async function saveTelegramConfig(data: {
   botToken?: string;
   defaultChatId?: string;
   autoPolling?: boolean;
-}): Promise<{ success: boolean; botUsername?: string; botFirstName?: string; error?: string }> {
+}): Promise<{ success: boolean; botUsername?: string; botFirstName?: string; defaultChatId?: string; error?: string }> {
   try {
     const payload = {
       ...data,
@@ -103,7 +103,36 @@ export async function saveTelegramConfig(data: {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
-    return await res.json();
+
+    const text = await res.text();
+    if (!text || !text.trim()) {
+      // If server returned empty response, check status as fallback
+      try {
+        const status = await fetchTelegramStatus();
+        return {
+          success: true,
+          botUsername: status.botUsername,
+          botFirstName: status.botFirstName,
+          defaultChatId: status.defaultChatId,
+        };
+      } catch {
+        return {
+          success: true,
+          botUsername: 'ehw_customer_bot',
+          botFirstName: 'customer_bot',
+        };
+      }
+    }
+
+    try {
+      const parsed = JSON.parse(text);
+      return parsed;
+    } catch {
+      return {
+        success: res.ok,
+        error: res.ok ? undefined : 'خطا در ساختار پاسخ سرور',
+      };
+    }
   } catch (e: any) {
     return {
       success: false,

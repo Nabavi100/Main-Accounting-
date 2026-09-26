@@ -367,7 +367,9 @@ async function startPolling() {
 function stopPolling() {
   isPolling = false;
   if (pollingAbortController) {
-    pollingAbortController.abort();
+    try {
+      pollingAbortController.abort();
+    } catch {}
     pollingAbortController = null;
   }
 }
@@ -678,21 +680,26 @@ app.post('/api/telegram/config', async (req: Request, res: Response) => {
     const { botToken, defaultChatId, autoPolling } = req.body;
     const config = loadConfig();
 
+    let tokenChanged = false;
     if (botToken !== undefined) {
-      config.botToken = sanitizeBotToken(botToken);
+      const sanitized = sanitizeBotToken(botToken);
+      if (sanitized && sanitized !== config.botToken) {
+        config.botToken = sanitized;
+        tokenChanged = true;
+      }
     }
     if (defaultChatId !== undefined) {
-      config.defaultChatId = (defaultChatId || '').trim();
+      config.defaultChatId = normalizeDigits(defaultChatId || '').trim();
     }
     if (autoPolling !== undefined) {
       config.autoPolling = !!autoPolling;
     }
 
-    // If token provided, verify with Telegram getMe
-    if (config.botToken) {
+    // Verify token with Telegram only if token changed or we have no bot info yet
+    if (config.botToken && (tokenChanged || !config.botUsername || config.lastTestStatus !== 'connected')) {
       try {
         const testRes = await fetch(`https://api.telegram.org/bot${config.botToken}/getMe`, {
-          signal: AbortSignal.timeout(12000),
+          signal: AbortSignal.timeout(6000),
         });
         const testData: any = await testRes.json();
         if (testData.ok && testData.result) {
@@ -706,25 +713,32 @@ app.post('/api/telegram/config', async (req: Request, res: Response) => {
           config.lastError = explainTelegramError(testRes.status, testData.description);
         }
       } catch (err: any) {
-        config.lastTestStatus = 'error';
-        config.lastError = err?.name === 'TimeoutError' ? 'مهلت زمان اتصال به تلگرام به پایان رسید.' : (err?.message || 'خطا در ارتباط با سرور تلگرام');
+        if (!config.botUsername) {
+          config.lastTestStatus = 'error';
+          config.lastError = err?.name === 'TimeoutError' ? 'مهلت زمان اتصال به تلگرام به پایان رسید.' : (err?.message || 'خطا در ارتباط با سرور تلگرام');
+        }
       }
+    } else if (config.botToken && !config.lastTestStatus) {
+      config.lastTestStatus = 'connected';
     }
 
     saveConfig(config);
 
     // Restart or stop polling accordingly
     if (config.botToken && config.autoPolling !== false) {
-      stopPolling();
+      if (tokenChanged) {
+        stopPolling();
+      }
       startPolling();
     } else {
       stopPolling();
     }
 
     res.json({
-      success: config.lastTestStatus === 'connected',
-      botUsername: config.botUsername,
-      botFirstName: config.botFirstName,
+      success: true,
+      botUsername: config.botUsername || '',
+      botFirstName: config.botFirstName || '',
+      defaultChatId: config.defaultChatId || '',
       error: config.lastError,
     });
   } catch (e: any) {
