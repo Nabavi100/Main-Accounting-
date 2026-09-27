@@ -47,7 +47,18 @@ import {
   Send,
   Loader2,
   Settings as SettingsIcon,
+  SlidersHorizontal,
+  ZoomIn,
+  ZoomOut,
+  Maximize2,
 } from 'lucide-react';
+import {
+  PrintAdvancedSettingsModal,
+  PrintAdvancedSettings,
+  loadStoredPrintSettings,
+  saveStoredPrintSettings,
+  MARGIN_PRESETS,
+} from './print/PrintAdvancedSettingsModal';
 
 interface DocumentPrintModalProps {
   document: PrintableDocumentPayload | null;
@@ -93,6 +104,19 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
   const [isTelegramSending, setIsTelegramSending] = useState<boolean>(false);
   const [telegramStatusMsg, setTelegramStatusMsg] = useState<string | null>(null);
   const [telegramStatusType, setTelegramStatusType] = useState<'success' | 'error' | null>(null);
+
+  // Advanced Print Settings State (Margins, Zoom Scale, Show/Hide Header and Footer)
+  const [printSettings, setPrintSettings] = useState<PrintAdvancedSettings>(() => loadStoredPrintSettings());
+  const [isAdvancedSettingsOpen, setIsAdvancedSettingsOpen] = useState<boolean>(false);
+
+  const handleQuickZoom = (step: number) => {
+    setPrintSettings(prev => {
+      const nextZoom = Math.max(60, Math.min(140, prev.zoom + step));
+      const updated = { ...prev, zoom: nextZoom };
+      saveStoredPrintSettings(updated);
+      return updated;
+    });
+  };
 
   // Sync states if companySettings change
   React.useEffect(() => {
@@ -583,6 +607,97 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
             </>
           )}
 
+            {/* Advanced Print Settings (Margins, Zoom, Show/Hide Header and Footer) */}
+            <div className="flex items-center bg-slate-800 p-1 rounded-xl border border-slate-700 text-xs gap-1.5">
+              <button
+                id="doc-advanced-print-settings-btn"
+                type="button"
+                onClick={() => setIsAdvancedSettingsOpen(true)}
+                className={`px-2.5 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                  printSettings.zoom !== 100 || printSettings.marginPreset !== 'standard' || !printSettings.showHeader || !printSettings.showFooter
+                    ? 'bg-blue-600/30 text-blue-300 border border-blue-500/40 hover:bg-blue-600/40'
+                    : 'text-slate-200 hover:bg-slate-700'
+                }`}
+                title="تنظیمات پیشرفته حاشیه‌ها (Margins)، مقیاس زوم (Zoom) و سربرگ/پاورقی شرکت"
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5 text-blue-400" />
+                <span>تنظیمات پیشرفته چاپ</span>
+                <span className="text-[10px] bg-slate-900/90 text-blue-200 px-1.5 py-0.5 rounded font-mono hidden sm:inline">
+                  {printSettings.zoom}% • {printSettings.marginPreset === 'custom' ? 'سفارشی' : MARGIN_PRESETS[printSettings.marginPreset]?.label.split(' ')[0]}
+                </span>
+              </button>
+
+              {/* Inline Quick Zoom Control */}
+              <div className="flex items-center bg-slate-900/90 rounded-lg p-0.5 border border-slate-700 text-xs">
+                <button
+                  type="button"
+                  onClick={() => handleQuickZoom(-5)}
+                  disabled={printSettings.zoom <= 60}
+                  className="p-1 text-slate-300 hover:text-white hover:bg-slate-700 rounded transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="کاهش ۵٪ مقیاس فاکتور"
+                >
+                  <ZoomOut className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsAdvancedSettingsOpen(true)}
+                  className="px-1.5 text-[11px] font-mono font-black text-emerald-400 hover:text-emerald-300 transition cursor-pointer"
+                  title="کلیک برای باز کردن پنل تنظیمات پیشرفته چاپ"
+                >
+                  {printSettings.zoom}%
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleQuickZoom(5)}
+                  disabled={printSettings.zoom >= 140}
+                  className="p-1 text-slate-300 hover:text-white hover:bg-slate-700 rounded transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                  title="افزایش ۵٪ مقیاس فاکتور"
+                >
+                  <ZoomIn className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {/* Fast Header Toggle */}
+              <label
+                className={`inline-flex items-center gap-1 px-1.5 py-1 rounded-md cursor-pointer select-none transition ${
+                  printSettings.showHeader ? 'text-slate-300 hover:bg-slate-700' : 'text-amber-400 bg-amber-950/30'
+                }`}
+                title="نمایش یا عدم نمایش هدر و سربرگ شرکت"
+              >
+                <input
+                  type="checkbox"
+                  checked={printSettings.showHeader}
+                  onChange={e => {
+                    const updated = { ...printSettings, showHeader: e.target.checked };
+                    setPrintSettings(updated);
+                    saveStoredPrintSettings(updated);
+                  }}
+                  className="rounded text-purple-500 focus:ring-0 w-3 h-3 cursor-pointer accent-purple-500"
+                />
+                <span className="text-[11px] font-bold">هدر</span>
+              </label>
+
+              {/* Fast Footer Toggle */}
+              <label
+                className={`inline-flex items-center gap-1 px-1.5 py-1 rounded-md cursor-pointer select-none transition ${
+                  printSettings.showFooter ? 'text-slate-300 hover:bg-slate-700' : 'text-amber-400 bg-amber-950/30'
+                }`}
+                title="نمایش یا عدم نمایش فوتر و پانوشت شرکت"
+              >
+                <input
+                  type="checkbox"
+                  checked={printSettings.showFooter}
+                  onChange={e => {
+                    const updated = { ...printSettings, showFooter: e.target.checked };
+                    setPrintSettings(updated);
+                    saveStoredPrintSettings(updated);
+                  }}
+                  className="rounded text-purple-500 focus:ring-0 w-3 h-3 cursor-pointer accent-purple-500"
+                />
+                <span className="text-[11px] font-bold">فوتر</span>
+              </label>
+            </div>
+
             {/* Seal & Signature Settings Button */}
             <div className="flex items-center bg-slate-800 p-1 rounded-xl border border-slate-700 text-xs gap-1">
               <button
@@ -727,12 +842,41 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
           </div>
         )}
 
+        {/* Dynamic Print CSS for Custom Margins and Content Scale */}
+        <style>{`
+          @media print {
+            @page {
+              size: ${invoiceLayout === 'thermal' ? '80mm auto' : 'A4 portrait'};
+              margin: ${invoiceLayout === 'thermal' ? '0mm' : `${printSettings.margins.top}mm ${printSettings.margins.right}mm ${printSettings.margins.bottom}mm ${printSettings.margins.left}mm`} !important;
+            }
+            @page :left {
+              margin: ${invoiceLayout === 'thermal' ? '0mm' : `${printSettings.margins.top}mm ${printSettings.margins.right}mm ${printSettings.margins.bottom}mm ${printSettings.margins.left}mm`} !important;
+            }
+            @page :right {
+              margin: ${invoiceLayout === 'thermal' ? '0mm' : `${printSettings.margins.top}mm ${printSettings.margins.right}mm ${printSettings.margins.bottom}mm ${printSettings.margins.left}mm`} !important;
+            }
+            #printable-paper-canvas, .print-canvas {
+              zoom: ${printSettings.zoom / 100} !important;
+              -moz-transform: scale(${printSettings.zoom / 100}) !important;
+              -moz-transform-origin: top center !important;
+              padding: 0 !important;
+            }
+          }
+        `}</style>
+
         {/* ================= PRINTABLE PAPER CANVAS (A4 Compact & Calibrated) ================= */}
         <div
           id="printable-paper-canvas"
           className={`print-canvas mx-auto bg-white text-slate-900 relative transition-all ${
-            invoiceLayout === 'thermal' ? 'max-w-[380px] p-2' : 'max-w-3xl p-3 sm:p-4'
+            invoiceLayout === 'thermal' ? 'max-w-[380px] p-2' : 'max-w-3xl'
           } border border-slate-300 rounded-2xl shadow-xs print:border-none print:shadow-none print:p-0 print:max-w-none print:w-full font-sans`}
+          style={{
+            zoom: printSettings.zoom !== 100 ? `${printSettings.zoom}%` : undefined,
+            paddingTop: invoiceLayout === 'thermal' ? undefined : `${printSettings.margins.top}mm`,
+            paddingRight: invoiceLayout === 'thermal' ? undefined : `${printSettings.margins.right}mm`,
+            paddingBottom: invoiceLayout === 'thermal' ? undefined : `${printSettings.margins.bottom}mm`,
+            paddingLeft: invoiceLayout === 'thermal' ? undefined : `${printSettings.margins.left}mm`,
+          }}
         >
           {/* Optional Watermark Stamp Overlay */}
           {showWatermark && (
@@ -934,6 +1078,9 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
               showWatermark={showWatermark}
               watermarkText={watermarkText}
               showBarcode={showBarcode}
+              showHeader={printSettings.showHeader}
+              showFooter={printSettings.showFooter}
+              letterheadSpacing={printSettings.letterheadSpacing}
               getPartyExtraInfo={getPartyExtraInfo}
               getWarehouseName={getWarehouseName}
             />
@@ -1366,6 +1513,17 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
           if (newSettings.stampColor) setStampColor(newSettings.stampColor);
           if (newSettings.stampSize !== undefined) setStampSize(newSettings.stampSize);
           if (newSettings.signatureSize !== undefined) setSignatureSize(newSettings.signatureSize);
+        }}
+      />
+
+      {/* Advanced Print Settings Modal (Margins, Zoom, Show/Hide Header and Footer) */}
+      <PrintAdvancedSettingsModal
+        isOpen={isAdvancedSettingsOpen}
+        onClose={() => setIsAdvancedSettingsOpen(false)}
+        settings={printSettings}
+        onChange={newSettings => {
+          setPrintSettings(newSettings);
+          saveStoredPrintSettings(newSettings);
         }}
       />
     </div>

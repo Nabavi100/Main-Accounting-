@@ -35,6 +35,9 @@ interface PrintInvoiceDocumentProps {
   showWatermark?: boolean;
   watermarkText?: string;
   showBarcode?: boolean;
+  showHeader?: boolean;
+  showFooter?: boolean;
+  letterheadSpacing?: boolean;
   getPartyExtraInfo: (partyId?: string, partyName?: string) => any;
   getWarehouseName: (warehouseId?: string) => string;
 }
@@ -55,6 +58,9 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
   invoiceTheme = 'navy',
   showWatermark = false,
   watermarkText = 'رسمی',
+  showHeader = true,
+  showFooter = true,
+  letterheadSpacing = false,
   getPartyExtraInfo,
   getWarehouseName,
 }) => {
@@ -171,69 +177,96 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
       >
         {renderWatermark()}
 
-        <div className="space-y-3.5 relative z-10">
+        <div className={`space-y-3.5 relative z-10 ${letterheadSpacing ? 'pt-20 sm:pt-28' : ''}`}>
           {/* Header Row */}
-          <div className="flex items-center justify-between gap-4 border-b-2 border-slate-900 pb-3">
-            {/* Right: Meta Information */}
-            <div className="text-right text-xs text-slate-800 space-y-1 min-w-[150px]">
-              <div className="flex items-center gap-1.5">
-                <span className="text-slate-500 font-medium">شماره فاکتور:</span>
-                <strong className="text-slate-950 font-mono font-black text-sm">
-                  #{inv.invoiceNumber}
-                </strong>
+          {showHeader ? (
+            <div className="flex items-center justify-between gap-4 border-b-2 border-slate-900 pb-3">
+              {/* Right: Meta Information */}
+              <div className="text-right text-xs text-slate-800 space-y-1 min-w-[150px]">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-500 font-medium">شماره فاکتور:</span>
+                  <strong className="text-slate-950 font-mono font-black text-sm">
+                    #{inv.invoiceNumber}
+                  </strong>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-500 font-medium">تاریخ ثبت:</span>
+                  <strong className="text-slate-900 font-mono font-bold">{inv.date}</strong>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-500 font-medium">ساعت ثبت:</span>
+                  <strong className="text-slate-900 font-mono">{issueTime}</strong>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-slate-500 font-medium">نوع معامله:</span>
+                  <strong className="text-slate-950 font-bold">
+                    {inv.dealTypeLabel || (inv.paymentType ? `${inv.paymentType}` : 'قرضی (اعتباری)')}
+                  </strong>
+                </div>
               </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-slate-500 font-medium">تاریخ ثبت:</span>
-                <strong className="text-slate-900 font-mono font-bold">{inv.date}</strong>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-slate-500 font-medium">ساعت ثبت:</span>
-                <strong className="text-slate-900 font-mono">{issueTime}</strong>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="text-slate-500 font-medium">نوع معامله:</span>
-                <strong className="text-slate-950 font-bold">
-                  {inv.dealTypeLabel || (inv.paymentType ? `${inv.paymentType}` : 'قرضی (اعتباری)')}
-                </strong>
-              </div>
-            </div>
 
-            {/* Center: Company Name & Official Invoice Badge */}
-            <div className="text-center flex flex-col items-center justify-center flex-1 px-2">
-              <h1 className="text-xl sm:text-2xl font-black text-slate-950 tracking-tight">
-                {companySettings.name || 'شرکت تجارتی اسحاق هارون واسعی'}
-              </h1>
-              <div className="mt-1.5">
-                <span className="inline-block bg-sky-100 text-sky-900 border border-sky-300 text-xs font-black px-4 py-1 rounded-full shadow-2xs">
-                  {isReturnSell
-                    ? 'فاکتور رسمی برگشت از فروش کالا'
-                    : isReturnBuy
-                    ? 'فاکتور رسمی برگشت از خرید کالا'
-                    : isSale
-                    ? 'فاکتور رسمی فروش کالا و خدمات'
-                    : 'فاکتور رسمی خرید کالا و خدمات'}
-                </span>
-              </div>
-            </div>
-
-            {/* Left: Company Logo */}
-            <div className="flex items-center justify-end min-w-[150px]">
-              {companySettings.logoUrl ? (
-                <img
-                  src={companySettings.logoUrl}
-                  alt={companySettings.name}
-                  className="w-16 h-16 object-contain rounded-full bg-white border-2 border-slate-300 p-0.5 shadow-xs"
-                />
-              ) : (
-                <div className="w-16 h-16 rounded-full border-2 border-slate-900 bg-white text-slate-900 flex flex-col items-center justify-center font-black text-xs shadow-xs p-1 text-center">
-                  <Building2 className="w-6 h-6 text-slate-700 mb-0.5" />
-                  <span className="text-[8px] font-mono leading-tight truncate max-w-[60px]">
-                    {companySettings.name?.slice(0, 16) || 'شرکت تجارتی'}
+              {/* Center: Company Name & Official Invoice Badge */}
+              <div className="text-center flex flex-col items-center justify-center flex-1 px-2">
+                <h1 className="text-xl sm:text-2xl font-black text-slate-950 tracking-tight">
+                  {companySettings.name || 'شرکت تجارتی اسحاق هارون واسعی'}
+                </h1>
+                <div className="mt-1.5">
+                  <span className="inline-block bg-sky-100 text-sky-900 border border-sky-300 text-xs font-black px-4 py-1 rounded-full shadow-2xs">
+                    {isReturnSell
+                      ? 'فاکتور رسمی برگشت از فروش کالا'
+                      : isReturnBuy
+                      ? 'فاکتور رسمی برگشت از خرید کالا'
+                      : isSale
+                      ? 'فاکتور رسمی فروش کالا و خدمات'
+                      : 'فاکتور رسمی خرید کالا و خدمات'}
                   </span>
                 </div>
-              )}
+              </div>
+
+              {/* Left: Company Logo */}
+              <div className="flex items-center justify-end min-w-[150px]">
+                {companySettings.logoUrl ? (
+                  <img
+                    src={companySettings.logoUrl}
+                    alt={companySettings.name}
+                    className="w-16 h-16 object-contain rounded-full bg-white border-2 border-slate-300 p-0.5 shadow-xs"
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-full border-2 border-slate-900 bg-white text-slate-900 flex flex-col items-center justify-center font-black text-xs shadow-xs p-1 text-center">
+                    <Building2 className="w-6 h-6 text-slate-700 mb-0.5" />
+                    <span className="text-[8px] font-mono leading-tight truncate max-w-[60px]">
+                      {companySettings.name?.slice(0, 16) || 'شرکت تجارتی'}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="flex items-center justify-between border-b-2 border-slate-900 pb-2 text-xs">
+              <div className="flex items-center gap-4">
+                <div>
+                  <span className="text-slate-500">شماره فاکتور: </span>
+                  <strong className="text-slate-950 font-mono font-black text-sm">#{inv.invoiceNumber}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-500">تاریخ: </span>
+                  <strong className="text-slate-900 font-mono font-bold">{inv.date}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-500">ساعت: </span>
+                  <span className="text-slate-800 font-mono">{issueTime}</span>
+                </div>
+              </div>
+              <div>
+                <span className="inline-block bg-sky-100 text-sky-900 border border-sky-300 text-xs font-black px-3 py-0.5 rounded-full">
+                  {isReturnSell ? 'فاکتور برگشت از فروش' : isSale ? 'فاکتور رسمی فروش' : 'فاکتور رسمی خرید'}
+                </span>
+              </div>
+              <div className="text-xs font-mono font-bold text-slate-700">
+                {inv.dealTypeLabel || (inv.paymentType ? `${inv.paymentType}` : 'قرضی')}
+              </div>
+            </div>
+          )}
 
           {/* Company & Customer Information Cards (Two Boxes Side-by-Side) */}
           <div className="grid grid-cols-2 gap-3 text-xs">
@@ -508,15 +541,17 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
         </div>
 
         {/* Global Clean Footer */}
-        <div className="flex items-center justify-between text-[10px] text-slate-600 pt-2 border-t border-slate-300 mt-4 shrink-0">
-          <div>
-            سند معامله رسمی معتبر صادر شده توسط سیستم مالی {companySettings.name || 'شرکت'}
+        {showFooter && (
+          <div className="flex items-center justify-between text-[10px] text-slate-600 pt-2 border-t border-slate-300 mt-4 shrink-0">
+            <div>
+              سند معامله رسمی معتبر صادر شده توسط سیستم مالی {companySettings.name || 'شرکت'}
+            </div>
+            <div className="font-mono">
+              آدرس: {companySettings.address || 'هرات ، سرک 64 متره - نقطه هفت'} | تلفن تماس:{' '}
+              {companySettings.phone || '0794511271'}
+            </div>
           </div>
-          <div className="font-mono">
-            آدرس: {companySettings.address || 'هرات ، سرک 64 متره - نقطه هفت'} | تلفن تماس:{' '}
-            {companySettings.phone || '0794511271'}
-          </div>
-        </div>
+        )}
       </div>
     );
   };
@@ -539,48 +574,64 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
         {renderWatermark()}
 
         {/* SECTION 1: MAIN INVOICE (بالای برگه) */}
-        <div className="space-y-1.5 relative z-10">
-          <div className="flex items-center justify-between gap-2 border-b border-slate-300 pb-1.5">
-            <div className="text-right text-[10px] text-slate-800 space-y-0.5 min-w-[120px]">
+        <div className={`space-y-1.5 relative z-10 ${letterheadSpacing ? 'pt-16' : ''}`}>
+          {showHeader ? (
+            <div className="flex items-center justify-between gap-2 border-b border-slate-300 pb-1.5">
+              <div className="text-right text-[10px] text-slate-800 space-y-0.5 min-w-[120px]">
+                <div>
+                  <span className="text-slate-500 font-medium">شماره: </span>
+                  <strong className="text-slate-950 font-mono font-black text-xs">#{inv.invoiceNumber}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-500 font-medium">تاریخ: </span>
+                  <strong className="text-slate-900 font-mono font-bold">{inv.date}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-500 font-medium">نوع پرداخت: </span>
+                  <strong className="text-slate-900 font-bold">
+                    {inv.dealTypeLabel || (inv.paymentType ? `${inv.paymentType}` : 'قرضی')}
+                  </strong>
+                </div>
+              </div>
+
+              <div className="text-center flex-1 px-1">
+                <h1 className="text-base font-black text-slate-950">
+                  {companySettings.name || 'شرکت تجارتی اسحاق هارون واسعی'}
+                </h1>
+                <span className="inline-block bg-sky-100 text-sky-900 border border-sky-300 text-[10px] font-bold px-3 py-0.5 rounded-full mt-0.5">
+                  {isSale ? 'فاکتور رسمی فروش کالا' : 'فاکتور رسمی خرید کالا'}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-end min-w-[120px]">
+                {companySettings.logoUrl ? (
+                  <img
+                    src={companySettings.logoUrl}
+                    alt={companySettings.name}
+                    className="w-12 h-12 object-contain rounded-full bg-white border border-slate-300 p-0.5"
+                  />
+                ) : (
+                  <div className="w-12 h-12 rounded-full border border-slate-800 bg-white text-slate-900 flex flex-col items-center justify-center font-black text-[9px] p-0.5 text-center">
+                    <Building2 className="w-4 h-4 text-slate-700" />
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between border-b border-slate-300 pb-1 text-[10px]">
               <div>
-                <span className="text-slate-500 font-medium">شماره: </span>
-                <strong className="text-slate-950 font-mono font-black text-xs">#{inv.invoiceNumber}</strong>
+                <span className="text-slate-500 font-medium">شماره فاکتور: </span>
+                <strong className="text-slate-950 font-mono font-black">#{inv.invoiceNumber}</strong>
               </div>
               <div>
                 <span className="text-slate-500 font-medium">تاریخ: </span>
                 <strong className="text-slate-900 font-mono font-bold">{inv.date}</strong>
               </div>
-              <div>
-                <span className="text-slate-500 font-medium">نوع پرداخت: </span>
-                <strong className="text-slate-900 font-bold">
-                  {inv.dealTypeLabel || (inv.paymentType ? `${inv.paymentType}` : 'قرضی')}
-                </strong>
+              <div className="font-bold text-slate-700">
+                {inv.dealTypeLabel || (inv.paymentType ? `${inv.paymentType}` : 'قرضی')}
               </div>
             </div>
-
-            <div className="text-center flex-1 px-1">
-              <h1 className="text-base font-black text-slate-950">
-                {companySettings.name || 'شرکت تجارتی اسحاق هارون واسعی'}
-              </h1>
-              <span className="inline-block bg-sky-100 text-sky-900 border border-sky-300 text-[10px] font-bold px-3 py-0.5 rounded-full mt-0.5">
-                {isSale ? 'فاکتور رسمی فروش کالا' : 'فاکتور رسمی خرید کالا'}
-              </span>
-            </div>
-
-            <div className="flex items-center justify-end min-w-[120px]">
-              {companySettings.logoUrl ? (
-                <img
-                  src={companySettings.logoUrl}
-                  alt={companySettings.name}
-                  className="w-12 h-12 object-contain rounded-full bg-white border border-slate-300 p-0.5"
-                />
-              ) : (
-                <div className="w-12 h-12 rounded-full border border-slate-800 bg-white text-slate-900 flex flex-col items-center justify-center font-black text-[9px] p-0.5 text-center">
-                  <Building2 className="w-4 h-4 text-slate-700" />
-                </div>
-              )}
-            </div>
-          </div>
+          )}
 
           {/* Company & Customer row */}
           <div className="grid grid-cols-2 gap-2 text-[10px]">
@@ -754,6 +805,18 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
             </div>
           )}
         </div>
+
+        {/* Global Clean Footer for Combo A4 */}
+        {showFooter && (
+          <div className="flex items-center justify-between text-[8.5px] text-slate-500 pt-1 border-t border-slate-200 mt-1 shrink-0">
+            <div>
+              سند رسمی مالی صادر شده توسط سیستم حسابداری {companySettings.name || 'شرکت'}
+            </div>
+            <div className="font-mono">
+              {companySettings.address ? `${companySettings.address} | ` : ''}تلفن: {companySettings.phone || '0794511271'}
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -775,19 +838,26 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
         style={{ minHeight: '275mm' }}
       >
         {renderWatermark()}
-        <div className="flex items-center justify-between border-b-2 border-slate-900 pb-3">
-          <div>
-            <h1 className="text-xl font-black text-slate-950">
-              {companySettings.name || 'شرکت تجارتی اسحاق هارون واسعی'}
-            </h1>
-            <p className="text-xs text-slate-600 font-bold mt-1">حواله رسمی خروج و تحویل اجناس از گدام</p>
+        {showHeader ? (
+          <div className="flex items-center justify-between border-b-2 border-slate-900 pb-3">
+            <div>
+              <h1 className="text-xl font-black text-slate-950">
+                {companySettings.name || 'شرکت تجارتی اسحاق هارون واسعی'}
+              </h1>
+              <p className="text-xs text-slate-600 font-bold mt-1">حواله رسمی خروج و تحویل اجناس از گدام</p>
+            </div>
+            <div className="text-left font-mono text-xs space-y-1">
+              <div>شماره فاکتور: <strong>#{inv.invoiceNumber}</strong></div>
+              <div>تاریخ: <strong>{inv.date}</strong></div>
+              <div>مشتری: <strong className="font-sans text-slate-950">{inv.partyName || 'نقدی'}</strong></div>
+            </div>
           </div>
-          <div className="text-left font-mono text-xs space-y-1">
-            <div>شماره فاکتور: <strong>#{inv.invoiceNumber}</strong></div>
-            <div>تاریخ: <strong>{inv.date}</strong></div>
+        ) : (
+          <div className="flex items-center justify-between border-b-2 border-slate-900 pb-2 text-xs">
+            <div>شماره فاکتور: <strong>#{inv.invoiceNumber}</strong> | تاریخ: <strong>{inv.date}</strong></div>
             <div>مشتری: <strong className="font-sans text-slate-950">{inv.partyName || 'نقدی'}</strong></div>
           </div>
-        </div>
+        )}
 
         <div className="border border-slate-900 rounded-lg overflow-hidden bg-white">
           <table className="w-full text-right border-collapse text-xs table-fixed">
@@ -834,6 +904,18 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
               <div className="border-t border-dotted border-slate-400 pt-1 text-slate-400 font-mono text-[9px]">
                 ..................................................................................................
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Global Clean Footer for Warehouse Slip */}
+        {showFooter && (
+          <div className="flex items-center justify-between text-[10px] text-slate-600 pt-2 border-t border-slate-300 mt-4 shrink-0">
+            <div>
+              حواله خروج انبار صادر شده توسط سیستم مالی {companySettings.name || 'شرکت'}
+            </div>
+            <div className="font-mono">
+              آدرس انبار: {companySettings.address || 'هرات ، سرک 64 متره - نقطه هفت'} | تلفن: {companySettings.phone || '0794511271'}
             </div>
           </div>
         )}
