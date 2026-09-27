@@ -61,7 +61,7 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
   const { companySettings, parties, warehouses, products, stocks } = useAccounting();
 
   // Print layout options
-  const [invoiceLayout, setInvoiceLayout] = useState<'combo_a4' | 'invoice_only' | 'warehouse_only' | 'invoice_full' | 'thermal'>('combo_a4');
+  const [invoiceLayout, setInvoiceLayout] = useState<'invoice_full' | 'combo_a4' | 'invoice_only' | 'warehouse_only' | 'thermal'>('invoice_full');
   const [invoiceTheme, setInvoiceTheme] = useState<'navy' | 'gold' | 'emerald' | 'classic'>('navy');
   const [showWatermark, setShowWatermark] = useState<boolean>(false);
   const [watermarkText, setWatermarkText] = useState<'رسمی' | 'پرداخت شد' | 'تحویل شد' | 'تسویه شده' | 'امانی'>(
@@ -410,30 +410,30 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
                 <div className="flex items-center bg-slate-800 p-1 rounded-xl border border-slate-700 text-xs">
                 <button
                   type="button"
+                  onClick={() => setInvoiceLayout('invoice_full')}
+                  className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                    invoiceLayout === 'invoice_full'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-slate-300 hover:bg-slate-700'
+                  }`}
+                  title="چاپ فاکتور رسمی استاندارد و خوانا در تمام صفحه A4"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>فاکتور رسمی کامل (A4)</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => setInvoiceLayout('combo_a4')}
                   className={`px-2.5 py-1.5 rounded-lg font-bold transition flex items-center gap-1 cursor-pointer ${
                     invoiceLayout === 'combo_a4'
                       ? 'bg-blue-600 text-white shadow-xs'
                       : 'text-slate-300 hover:bg-slate-700'
                   }`}
-                  title="چاپ فاکتور و خروجی انبار بر روی یک کاغذ کامل A4 (فاکتور ۲/۳ + خروجی انبار ۱/۳)"
+                  title="چاپ فاکتور و خروجی انبار بر روی یک برگه کامل A4 (فاکتور ۲/۳ + خروجی انبار ۱/۳ با خط برش)"
                 >
                   <Layers className="w-3.5 h-3.5" />
-                  <span>A4 کامل (فاکتور ۲/۳ + خروجی ۱/۳)</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setInvoiceLayout('invoice_only')}
-                  className={`px-2.5 py-1.5 rounded-lg font-bold transition flex items-center gap-1 cursor-pointer ${
-                    invoiceLayout === 'invoice_only'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-slate-300 hover:bg-slate-700'
-                  }`}
-                  title="چاپ تنها خود فاکتور به اندازه دو سوم (۲/۳) کاغذ استاندارد A4"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  <span>تنها فاکتور (۲/۳ A4)</span>
+                  <span>A4 ترکیبی (با حواله گدام)</span>
                 </button>
 
                 <button
@@ -444,24 +444,10 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
                       ? 'bg-blue-600 text-white shadow-xs'
                       : 'text-slate-300 hover:bg-slate-700'
                   }`}
-                  title="چاپ تنها فرم خروجی انبار به اندازه یک سوم (۱/۳) کاغذ استاندارد A4"
+                  title="چاپ تنها فرم خروجی و تحویل کالا از گدام"
                 >
                   <Truck className="w-3.5 h-3.5" />
-                  <span>تنها خروجی انبار (۱/۳ A4)</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setInvoiceLayout('invoice_full')}
-                  className={`px-2.5 py-1.5 rounded-lg font-bold transition flex items-center gap-1 cursor-pointer ${
-                    invoiceLayout === 'invoice_full'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-slate-300 hover:bg-slate-700'
-                  }`}
-                  title="چاپ فاکتور رسمی به صورت تمام صفحه A4"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  <span>فاکتور تمام‌صفحه</span>
+                  <span>تنها حواله گدام</span>
                 </button>
 
                 <button
@@ -472,10 +458,10 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
                       ? 'bg-blue-600 text-white shadow-xs'
                       : 'text-slate-300 hover:bg-slate-700'
                   }`}
-                  title="کاغذ رول / ۸۰ میلی‌متری حرارتی"
+                  title="کاغذ رول / ۸۰ میلی‌متری حرارتی (فیش‌پرینتر)"
                 >
                   <Receipt className="w-3.5 h-3.5" />
-                  <span>رول حرارتی</span>
+                  <span>فیش حرارتی</span>
                 </button>
               </div>
 
