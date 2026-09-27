@@ -49,6 +49,7 @@ import {
   sendTelegramDirectMessage,
   clearTelegramLogsApi,
   syncPartiesWithBackend,
+  sanitizeTelegramBotToken,
   TelegramStatusResponse,
   TelegramUser,
   TelegramLog,
@@ -137,8 +138,16 @@ export const TelegramManagementView: React.FC<Props> = () => {
       if (statusRes.defaultChatId) {
         setDefaultChatIdInput(statusRes.defaultChatId);
       }
-      if (statusRes.isConfigured && !newBotToken) {
-        setNewBotToken('8740100617:AAHDFzQ4DWVhbMk4UWIcQj11IuoaWGsz1-8');
+      if (!newBotToken) {
+        try {
+          const storedRaw = localStorage.getItem('telegram_bot_settings');
+          if (storedRaw) {
+            const stored = JSON.parse(storedRaw);
+            if (stored.botToken) {
+              setNewBotToken(stored.botToken);
+            }
+          }
+        } catch {}
       }
     } catch (e: any) {
       console.error('Error loading telegram data:', e);
@@ -485,14 +494,48 @@ export const TelegramManagementView: React.FC<Props> = () => {
     try {
       const cleanToken = newBotToken ? sanitizeTelegramBotToken(newBotToken) : undefined;
       const cleanChatId = normalizeDigitsStr(defaultChatIdInput).trim();
+
+      let activeTestResult = testResult;
+      if ((!activeTestResult || !activeTestResult.username) && cleanToken && cleanToken.includes(':')) {
+        try {
+          const quickTest = await testTelegramBotConnection(cleanToken);
+          if (quickTest.success) {
+            activeTestResult = quickTest;
+            setTestResult(quickTest);
+          }
+        } catch {}
+      }
+
       const res = await saveTelegramConfig({
         botToken: cleanToken,
         defaultChatId: cleanChatId,
         autoPolling: true,
+        botUsername: activeTestResult?.username || status?.botUsername || undefined,
+        botFirstName: activeTestResult?.botName || status?.botFirstName || undefined,
       });
 
       if (res.success) {
-        const botDesc = res.botFirstName || res.botUsername ? ` (ربات: ${res.botFirstName || ''} @${res.botUsername || ''})` : '';
+        // Sync with localStorage
+        try {
+          const storedRaw = localStorage.getItem('telegram_bot_settings');
+          const stored = storedRaw ? JSON.parse(storedRaw) : {};
+          localStorage.setItem(
+            'telegram_bot_settings',
+            JSON.stringify({
+              ...stored,
+              botToken: cleanToken,
+              defaultChatId: cleanChatId,
+              botUsername: activeTestResult?.username || res.botUsername || stored.botUsername,
+              botFirstName: activeTestResult?.botName || res.botFirstName || stored.botFirstName,
+              isConfigured: true,
+              lastTestStatus: 'connected',
+            })
+          );
+        } catch {}
+
+        const botNameToShow = res.botFirstName || activeTestResult?.botName || status?.botFirstName || '';
+        const botUserToShow = res.botUsername || activeTestResult?.username || status?.botUsername || '';
+        const botDesc = botNameToShow || botUserToShow ? ` (ربات: ${botNameToShow} @${botUserToShow})` : '';
         showAlert('success', `تنظیمات ربات تلگرام با موفقیت در سرور ذخیره و فعال شد.${botDesc}`);
         await loadAllData();
       } else {

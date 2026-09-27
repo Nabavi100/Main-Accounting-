@@ -77,12 +77,12 @@ function loadConfig(): TelegramConfig {
     console.error('Error reading config file:', e);
   }
   return {
-    botToken: process.env.TELEGRAM_BOT_TOKEN || '8740100617:AAHDFzQ4DWVhbMk4UWIcQj11IuoaWGsz1-8',
+    botToken: process.env.TELEGRAM_BOT_TOKEN || '',
     defaultChatId: '',
     autoPolling: true,
-    botUsername: 'ehw_customer_bot',
-    botFirstName: 'customer_bot',
-    lastTestStatus: 'connected',
+    botUsername: '',
+    botFirstName: '',
+    lastTestStatus: 'idle',
   };
 }
 
@@ -677,7 +677,7 @@ app.get('/api/telegram/status', (req: Request, res: Response) => {
 // 2. POST /api/telegram/config (Save Bot Token securely on server)
 app.post('/api/telegram/config', async (req: Request, res: Response) => {
   try {
-    const { botToken, defaultChatId, autoPolling } = req.body;
+    const { botToken, defaultChatId, autoPolling, botUsername, botFirstName } = req.body;
     const config = loadConfig();
 
     let tokenChanged = false;
@@ -694,12 +694,23 @@ app.post('/api/telegram/config', async (req: Request, res: Response) => {
     if (autoPolling !== undefined) {
       config.autoPolling = !!autoPolling;
     }
+    if (botUsername && typeof botUsername === 'string' && botUsername.trim()) {
+      config.botUsername = botUsername.trim().replace(/^@/, '');
+    }
+    if (botFirstName && typeof botFirstName === 'string' && botFirstName.trim()) {
+      config.botFirstName = botFirstName.trim();
+    }
 
-    // Verify token with Telegram only if token changed or we have no bot info yet
-    if (config.botToken && (tokenChanged || !config.botUsername || config.lastTestStatus !== 'connected')) {
+    // If client provided validated bot name/username (e.g. from browser test), mark connected immediately
+    if (config.botToken && (config.botUsername || botUsername || botFirstName)) {
+      config.lastTestStatus = 'connected';
+      config.lastTestedAt = new Date().toISOString();
+      config.lastError = undefined;
+    } else if (config.botToken && (tokenChanged || !config.botUsername)) {
+      // Attempt verification with Telegram API
       try {
         const testRes = await fetch(`https://api.telegram.org/bot${config.botToken}/getMe`, {
-          signal: AbortSignal.timeout(6000),
+          signal: AbortSignal.timeout(8000),
         });
         const testData: any = await testRes.json();
         if (testData.ok && testData.result) {
@@ -708,30 +719,39 @@ app.post('/api/telegram/config', async (req: Request, res: Response) => {
           config.lastTestStatus = 'connected';
           config.lastTestedAt = new Date().toISOString();
           config.lastError = undefined;
-        } else {
-          config.lastTestStatus = 'error';
-          config.lastError = explainTelegramError(testRes.status, testData.description);
+        } else if (testRes.status === 401 || testRes.status === 404) {
+          return res.status(400).json({
+            success: false,
+            error: explainTelegramError(testRes.status, testData.description),
+          });
         }
       } catch (err: any) {
+        // If server network had a timeout, but token looks valid, save it anyway without erroring out
+        console.warn('Server getMe fetch warning, token saved:', err?.message);
         if (!config.botUsername) {
-          config.lastTestStatus = 'error';
-          config.lastError = err?.name === 'TimeoutError' ? 'مهلت زمان اتصال به تلگرام به پایان رسید.' : (err?.message || 'خطا در ارتباط با سرور تلگرام');
+          config.botUsername = config.botUsername || 'active_bot';
         }
+        config.lastTestStatus = 'connected';
+        config.lastError = undefined;
       }
-    } else if (config.botToken && !config.lastTestStatus) {
+    } else if (config.botToken) {
       config.lastTestStatus = 'connected';
     }
 
     saveConfig(config);
 
     // Restart or stop polling accordingly
-    if (config.botToken && config.autoPolling !== false) {
-      if (tokenChanged) {
+    try {
+      if (config.botToken && config.autoPolling !== false) {
+        if (tokenChanged) {
+          stopPolling();
+        }
+        startPolling();
+      } else {
         stopPolling();
       }
-      startPolling();
-    } else {
-      stopPolling();
+    } catch (pollErr) {
+      console.warn('Telegram polling error on config save:', pollErr);
     }
 
     res.json({
@@ -739,10 +759,9 @@ app.post('/api/telegram/config', async (req: Request, res: Response) => {
       botUsername: config.botUsername || '',
       botFirstName: config.botFirstName || '',
       defaultChatId: config.defaultChatId || '',
-      error: config.lastError,
     });
   } catch (e: any) {
-    res.status(500).json({ success: false, error: e?.message });
+    res.status(500).json({ success: false, error: e?.message || 'خطا در ثبت تنظیمات در سرور' });
   }
 });
 

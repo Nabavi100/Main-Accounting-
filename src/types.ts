@@ -274,6 +274,7 @@ export interface Invoice {
   consignmentWarehouseName?: string; // نام گدام مقصد امانی
   exchangeRate?: number; // نرخ تسعیر نسبت به ارز پایه
   shippingCost?: number; // کرایه خروجی (+)
+  tax?: number; // مالیات و عوارض قانونی
   extraExpenses?: Array<{
     id: string;
     partyId?: string;

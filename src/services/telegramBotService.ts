@@ -60,16 +60,16 @@ export const getTelegramSettings = (): TelegramSettings => {
     console.error('Failed to parse telegram settings', e);
   }
   return {
-    botToken: '8740100617:AAHDFzQ4DWVhbMk4UWIcQj11IuoaWGsz1-8',
+    botToken: '',
     defaultChatId: '',
     autoSendOnSave: false,
     autoListenerEnabled: true,
     sendPhoto: true,
     sendText: true,
     sendDocument: true,
-    botUsername: 'ehw_customer_bot',
-    botFirstName: 'customer_bot',
-    lastTestStatus: 'connected',
+    botUsername: '',
+    botFirstName: '',
+    lastTestStatus: 'idle',
   };
 };
 

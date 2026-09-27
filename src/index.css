@@ -644,15 +644,15 @@ body.gold .btn-active-luxury {
 @media print {
   @page {
     size: A4 portrait;
-    margin: 6mm 8mm 6mm 8mm; /* Safe 6mm top/bottom, 8mm left/right margins ensure full page occupancy without overflow */
+    margin: 4mm 6mm; /* Safe 4mm top/bottom, 6mm left/right margins allow full page occupancy with outer enclosing border */
   }
 
   @page :left {
-    margin: 6mm 8mm 6mm 8mm;
+    margin: 4mm 6mm;
   }
 
   @page :right {
-    margin: 6mm 8mm 6mm 8mm;
+    margin: 4mm 6mm;
   }
 
   *, *::before, *::after {
@@ -823,15 +823,18 @@ body.gold .btn-active-luxury {
     break-inside: avoid !important;
   }
 
-  /* Full Combo A4 Page Container Rule (fits strictly on 1 sheet of A4 without spillover) */
+  /* Full Combo A4 Enclosed Page Rule (fits strictly on 1 sheet of A4 with enclosing outer border) */
+  .a4-combo-enclosed-page,
   .a4-combo-container {
     width: 100% !important;
     max-width: 100% !important;
     height: 100% !important;
-    max-height: 285mm !important;
+    max-height: 288mm !important;
     margin: 0 !important;
-    padding: 0 !important;
+    padding: 3mm 3.5mm !important;
     box-sizing: border-box !important;
+    border: 1.5pt solid #0f172a !important;
+    border-radius: 8px !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
     page-break-after: avoid !important;
@@ -840,6 +843,9 @@ body.gold .btn-active-luxury {
     flex-direction: column !important;
     justify-content: space-between !important;
     overflow: hidden !important;
+    background-color: #ffffff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
   .a4-combo-container .two-thirds-a4-box {

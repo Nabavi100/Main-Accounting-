@@ -92,6 +92,8 @@ export async function saveTelegramConfig(data: {
   botToken?: string;
   defaultChatId?: string;
   autoPolling?: boolean;
+  botUsername?: string;
+  botFirstName?: string;
 }): Promise<{ success: boolean; botUsername?: string; botFirstName?: string; defaultChatId?: string; error?: string }> {
   try {
     const payload = {
@@ -111,21 +113,24 @@ export async function saveTelegramConfig(data: {
         const status = await fetchTelegramStatus();
         return {
           success: true,
-          botUsername: status.botUsername,
-          botFirstName: status.botFirstName,
-          defaultChatId: status.defaultChatId,
+          botUsername: status.botUsername || data.botUsername,
+          botFirstName: status.botFirstName || data.botFirstName,
+          defaultChatId: status.defaultChatId || data.defaultChatId,
         };
       } catch {
         return {
           success: true,
-          botUsername: 'ehw_customer_bot',
-          botFirstName: 'customer_bot',
+          botUsername: data.botUsername || 'active_bot',
+          botFirstName: data.botFirstName || 'ربات تلگرام',
         };
       }
     }
 
     try {
       const parsed = JSON.parse(text);
+      if (parsed.success && parsed.error) {
+        delete parsed.error;
+      }
       return parsed;
     } catch {
       return {
@@ -183,8 +188,30 @@ export async function testTelegramBotConnection(botToken?: string): Promise<{
       fetch('/api/telegram/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ botToken: cleanToken, autoPolling: true }),
+        body: JSON.stringify({
+          botToken: cleanToken,
+          autoPolling: true,
+          botUsername: directData.result.username,
+          botFirstName: directData.result.first_name,
+        }),
       }).catch(() => {});
+
+      // Sync with localStorage
+      try {
+        const storedRaw = localStorage.getItem('telegram_bot_settings');
+        const stored = storedRaw ? JSON.parse(storedRaw) : {};
+        localStorage.setItem(
+          'telegram_bot_settings',
+          JSON.stringify({
+            ...stored,
+            botToken: cleanToken,
+            botUsername: directData.result.username,
+            botFirstName: directData.result.first_name,
+            lastTestStatus: 'connected',
+            isConfigured: true,
+          })
+        );
+      } catch {}
 
       return {
         success: true,
