@@ -40,6 +40,7 @@ import {
 } from 'lucide-react';
 import {
   fetchTelegramStatus,
+  fetchTelegramConfig,
   fetchTelegramUsers,
   fetchTelegramLogs,
   saveTelegramConfig,
@@ -125,7 +126,8 @@ export const TelegramManagementView: React.FC<Props> = () => {
   const loadAllData = async () => {
     setIsLoading(true);
     try {
-      const [statusRes, usersRes, logsRes] = await Promise.all([
+      const [configRes, statusRes, usersRes, logsRes] = await Promise.all([
+        fetchTelegramConfig(),
         fetchTelegramStatus(),
         fetchTelegramUsers(),
         fetchTelegramLogs(),
@@ -135,10 +137,13 @@ export const TelegramManagementView: React.FC<Props> = () => {
       setConnectedUsers(usersRes.connected || []);
       setLogs(logsRes || []);
 
-      if (statusRes.defaultChatId) {
-        setDefaultChatIdInput(statusRes.defaultChatId);
+      if (configRes.defaultChatId || statusRes.defaultChatId) {
+        setDefaultChatIdInput(configRes.defaultChatId || statusRes.defaultChatId || '');
       }
-      if (!newBotToken) {
+
+      if (configRes.botToken) {
+        setNewBotToken(configRes.botToken);
+      } else {
         try {
           const storedRaw = localStorage.getItem('telegram_bot_settings');
           if (storedRaw) {

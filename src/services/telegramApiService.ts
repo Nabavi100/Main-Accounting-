@@ -88,6 +88,33 @@ export async function fetchTelegramStatus(): Promise<TelegramStatusResponse> {
   }
 }
 
+export async function fetchTelegramConfig(): Promise<{
+  botToken: string;
+  defaultChatId: string;
+  autoPolling: boolean;
+  botUsername: string;
+  botFirstName: string;
+  lastTestStatus: string;
+  lastError?: string;
+}> {
+  try {
+    const res = await fetch('/api/telegram/config');
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (e) {
+    console.warn('Could not fetch telegram config from server:', e);
+  }
+  return {
+    botToken: '',
+    defaultChatId: '',
+    autoPolling: true,
+    botUsername: '',
+    botFirstName: '',
+    lastTestStatus: 'idle',
+  };
+}
+
 export async function saveTelegramConfig(data: {
   botToken?: string;
   defaultChatId?: string;

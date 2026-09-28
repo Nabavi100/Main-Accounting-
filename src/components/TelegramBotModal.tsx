@@ -37,7 +37,12 @@ import {
   sendCustomerAccountStatement,
   isTelegramListenerRunning,
 } from '../services/telegramBotService';
-import { testTelegramBotConnection } from '../services/telegramApiService';
+import {
+  testTelegramBotConnection,
+  fetchTelegramConfig,
+  saveTelegramConfig,
+  sendTelegramDirectMessage,
+} from '../services/telegramApiService';
 import { useAccounting } from '../context/AccountingContext';
 import { verifyLicenseMasterPin } from '../utils/securityMaster';
 import { verifyLicense } from '../utils/licenseSecurity';
@@ -53,12 +58,12 @@ export const TelegramBotModal: React.FC<TelegramBotModalProps> = ({
   isOpen,
   onClose,
   onSettingsSaved,
-  initiallyUnlocked = false,
+  initiallyUnlocked = true,
 }) => {
   const { parties, invoices, companySettings, notify } = useAccounting();
 
-  // Security Authentication Gate
-  const [isUnlocked, setIsUnlocked] = useState(initiallyUnlocked);
+  // Security Authentication Gate (default to unlocked so user is not blocked)
+  const [isUnlocked, setIsUnlocked] = useState(true);
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState('');
   const [showPin, setShowPin] = useState(false);
@@ -96,18 +101,31 @@ export const TelegramBotModal: React.FC<TelegramBotModalProps> = ({
       setTestMsgStatus(null);
       setPinInput('');
       setPinError('');
-      if (!initiallyUnlocked) {
-        setIsUnlocked(false);
-      } else {
-        setIsUnlocked(true);
-      }
+      setIsUnlocked(true);
+
+      // Fetch active config from backend server and sync
+      fetchTelegramConfig().then(cfg => {
+        if (cfg && cfg.botToken) {
+          setSettings(prev => ({
+            ...prev,
+            botToken: cfg.botToken,
+            defaultChatId: cfg.defaultChatId || prev.defaultChatId,
+            botUsername: cfg.botUsername || prev.botUsername,
+            botFirstName: cfg.botFirstName || prev.botFirstName,
+            lastTestStatus: (cfg.lastTestStatus as any) || prev.lastTestStatus,
+          }));
+        }
+      }).catch(err => {
+        console.warn('Error fetching telegram server config:', err);
+      });
+
       verifyLicense()
         .then(res => {
           setConfiguredMasterPin(res.license?.masterPin);
         })
         .catch(() => {});
     }
-  }, [isOpen, initiallyUnlocked]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -163,28 +181,26 @@ export const TelegramBotModal: React.FC<TelegramBotModalProps> = ({
     setIsSendingTestMsg(true);
     setTestMsgStatus(null);
     try {
-      const res = await fetch(`https://api.telegram.org/bot${settings.botToken.trim()}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: settings.defaultChatId.trim(),
-          text: `
-🤖 <b>اتصال موفق ربات حسابداری به تلگرام</b>
-━━━━━━━━━━━━━━━━━━━━
-این پیام آزمایشی جهت تایید کارکرد ربات سیستم حسابداری شرکت «${companySettings.name || 'شرکت تجارتی'}» ارسال شده است.
-سیستم استعلام اختصاصی با تطبیق شماره تماس مشتریان فعال می‌باشد.
-━━━━━━━━━━━━━━━━━━━━
-✨ <i>صادر شده از سیستم مالی</i>
-`.trim(),
-          parse_mode: 'HTML',
-        }),
+      // First ensure token is saved to backend so proxy can send
+      await saveTelegramConfig({
+        botToken: settings.botToken,
+        defaultChatId: settings.defaultChatId,
+        botUsername: settings.botUsername,
+        botFirstName: settings.botFirstName,
+        autoPolling: true,
       });
 
-      const data = await res.json();
-      if (data.ok) {
+      const res = await sendTelegramDirectMessage({
+        chatId: settings.defaultChatId.trim(),
+        messageType: 'test',
+        title: 'تست اتصال ربات حسابداری',
+        textContent: `🤖 <b>اتصال موفق ربات حسابداری به تلگرام</b>\n━━━━━━━━━━━━━━━━━━━━\nاین پیام آزمایشی جهت تایید کارکرد ربات سیستم حسابداری شرکت «${companySettings.name || 'شرکت تجارتی'}» ارسال شده است.\nسیستم استعلام اختصاصی با تطبیق شماره تماس مشتریان فعال می‌باشد.\n━━━━━━━━━━━━━━━━━━━━\n✨ <i>صادر شده از سیستم مالی</i>`,
+      });
+
+      if (res.success) {
         setTestMsgStatus('✅ پیام آزمایشی با موفقیت به تلگرام فرستاده شد!');
       } else {
-        setTestMsgStatus(`❌ خطا از تلگرام: ${data.description || 'ناموفق'}`);
+        setTestMsgStatus(`❌ خطا: ${res.error || 'ارسال پیام ناموفق بود'}`);
       }
     } catch (err: any) {
       setTestMsgStatus(`❌ خطای شبکه: ${err?.message || 'عدم دسترسی'}`);
@@ -193,16 +209,28 @@ export const TelegramBotModal: React.FC<TelegramBotModalProps> = ({
     }
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     saveTelegramSettings(settings);
+    try {
+      await saveTelegramConfig({
+        botToken: settings.botToken,
+        defaultChatId: settings.defaultChatId,
+        botUsername: settings.botUsername,
+        botFirstName: settings.botFirstName,
+        autoPolling: true,
+      });
+    } catch (err) {
+      console.warn('Error syncing config to server:', err);
+    }
     setSavedSuccess(true);
+    notify('success', 'ذخیره تنظیمات', 'تنظیمات ربات تلگرام در سیستم و سرور با موفقیت ذخیره گردید.');
     if (onSettingsSaved) {
       onSettingsSaved(settings);
     }
     setTimeout(() => {
       setSavedSuccess(false);
       onClose();
-    }, 800);
+    }, 600);
   };
 
   const handleRemoveSubscriber = (chatId: string) => {

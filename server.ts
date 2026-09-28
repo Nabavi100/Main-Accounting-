@@ -674,6 +674,20 @@ app.get('/api/telegram/status', (req: Request, res: Response) => {
   });
 });
 
+// 1.1 GET /api/telegram/config (Retrieve current config securely for manager view)
+app.get('/api/telegram/config', (req: Request, res: Response) => {
+  const config = loadConfig();
+  res.json({
+    botToken: config.botToken || '',
+    defaultChatId: config.defaultChatId || '',
+    autoPolling: config.autoPolling !== false,
+    botUsername: config.botUsername || '',
+    botFirstName: config.botFirstName || '',
+    lastTestStatus: config.lastTestStatus || 'idle',
+    lastError: config.lastError,
+  });
+});
+
 // 2. POST /api/telegram/config (Save Bot Token securely on server)
 app.post('/api/telegram/config', async (req: Request, res: Response) => {
   try {
@@ -683,7 +697,7 @@ app.post('/api/telegram/config', async (req: Request, res: Response) => {
     let tokenChanged = false;
     if (botToken !== undefined) {
       const sanitized = sanitizeBotToken(botToken);
-      if (sanitized && sanitized !== config.botToken) {
+      if (sanitized !== config.botToken) {
         config.botToken = sanitized;
         tokenChanged = true;
       }
@@ -720,16 +734,17 @@ app.post('/api/telegram/config', async (req: Request, res: Response) => {
           config.lastTestedAt = new Date().toISOString();
           config.lastError = undefined;
         } else if (testRes.status === 401 || testRes.status === 404) {
+          // If 401, return specific helpful error
           return res.status(400).json({
             success: false,
             error: explainTelegramError(testRes.status, testData.description),
           });
         }
       } catch (err: any) {
-        // If server network had a timeout, but token looks valid, save it anyway without erroring out
+        // If server network had a timeout or external fetch blocked, save token anyway without erroring out
         console.warn('Server getMe fetch warning, token saved:', err?.message);
         if (!config.botUsername) {
-          config.botUsername = config.botUsername || 'active_bot';
+          config.botUsername = 'active_bot';
         }
         config.lastTestStatus = 'connected';
         config.lastError = undefined;

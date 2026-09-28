@@ -47,18 +47,7 @@ import {
   Send,
   Loader2,
   Settings as SettingsIcon,
-  SlidersHorizontal,
-  ZoomIn,
-  ZoomOut,
-  Maximize2,
 } from 'lucide-react';
-import {
-  PrintAdvancedSettingsModal,
-  PrintAdvancedSettings,
-  loadStoredPrintSettings,
-  saveStoredPrintSettings,
-  MARGIN_PRESETS,
-} from './print/PrintAdvancedSettingsModal';
 
 interface DocumentPrintModalProps {
   document: PrintableDocumentPayload | null;
@@ -96,27 +85,14 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
   const [stampColor, setStampColor] = useState<'navy' | 'blue' | 'red'>(
     companySettings.stampColor || 'navy'
   );
-  const [stampSize, setStampSize] = useState<number>(companySettings.stampSize || 56);
-  const [signatureSize, setSignatureSize] = useState<number>(companySettings.signatureSize || 48);
+  const [stampSize, setStampSize] = useState<number>(companySettings.stampSize || 52);
+  const [signatureSize, setSignatureSize] = useState<number>(companySettings.signatureSize || 44);
   const [isSealModalOpen, setIsSealModalOpen] = useState<boolean>(false);
 
   // Telegram Bot States
   const [isTelegramSending, setIsTelegramSending] = useState<boolean>(false);
   const [telegramStatusMsg, setTelegramStatusMsg] = useState<string | null>(null);
   const [telegramStatusType, setTelegramStatusType] = useState<'success' | 'error' | null>(null);
-
-  // Advanced Print Settings State (Margins, Zoom Scale, Show/Hide Header and Footer)
-  const [printSettings, setPrintSettings] = useState<PrintAdvancedSettings>(() => loadStoredPrintSettings());
-  const [isAdvancedSettingsOpen, setIsAdvancedSettingsOpen] = useState<boolean>(false);
-
-  const handleQuickZoom = (step: number) => {
-    setPrintSettings(prev => {
-      const nextZoom = Math.max(60, Math.min(140, prev.zoom + step));
-      const updated = { ...prev, zoom: nextZoom };
-      saveStoredPrintSettings(updated);
-      return updated;
-    });
-  };
 
   // Sync states if companySettings change
   React.useEffect(() => {
@@ -430,8 +406,7 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
           <div className="flex flex-wrap items-center gap-2">
             {/* Format Layout Switcher for Invoices */}
             {(document.type === 'invoice' || !!invData) && (
-              <>
-                <div className="flex items-center bg-slate-800 p-1 rounded-xl border border-slate-700 text-xs">
+              <div className="flex items-center bg-slate-800 p-1 rounded-xl border border-slate-700 text-xs">
                 <button
                   type="button"
                   onClick={() => setInvoiceLayout('invoice_full')}
@@ -440,7 +415,7 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
                       ? 'bg-blue-600 text-white shadow-xs'
                       : 'text-slate-300 hover:bg-slate-700'
                   }`}
-                  title="چاپ فاکتور رسمی استاندارد و خوانا در تمام صفحه A4"
+                  title="چاپ فاکتور رسمی کامل استاندارد در یک برگه کامل A4"
                 >
                   <FileText className="w-3.5 h-3.5" />
                   <span>فاکتور رسمی کامل (A4)</span>
@@ -454,24 +429,10 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
                       ? 'bg-blue-600 text-white shadow-xs'
                       : 'text-slate-300 hover:bg-slate-700'
                   }`}
-                  title="چاپ فاکتور و خروجی انبار بر روی یک برگه کامل A4 (فاکتور ۲/۳ + خروجی انبار ۱/۳ با خط برش)"
+                  title="فاکتور + حواله گدام فیکس در یک برگ کامل A4 با خط برش"
                 >
                   <Layers className="w-3.5 h-3.5" />
                   <span>A4 ترکیبی (با حواله گدام)</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setInvoiceLayout('warehouse_only')}
-                  className={`px-2.5 py-1.5 rounded-lg font-bold transition flex items-center gap-1 cursor-pointer ${
-                    invoiceLayout === 'warehouse_only'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-slate-300 hover:bg-slate-700'
-                  }`}
-                  title="چاپ تنها فرم خروجی و تحویل کالا از گدام"
-                >
-                  <Truck className="w-3.5 h-3.5" />
-                  <span>تنها حواله گدام</span>
                 </button>
 
                 <button
@@ -488,269 +449,9 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
                   <span>فیش حرارتی</span>
                 </button>
               </div>
+            )}
 
-              {/* Invoice Theme Style Switcher */}
-              <div className="flex items-center bg-slate-800 p-1 rounded-xl border border-slate-700 text-xs gap-1">
-                <span className="text-[10px] text-slate-400 font-bold px-1.5 hidden lg:inline">طرح و استایل:</span>
-                <button
-                  type="button"
-                  onClick={() => setInvoiceTheme('navy')}
-                  className={`px-2 py-1 rounded-lg font-bold transition flex items-center gap-1 cursor-pointer ${
-                    invoiceTheme === 'navy'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-slate-300 hover:bg-slate-700'
-                  }`}
-                  title="استایل سرمه‌ای سلطنتی شرکتی"
-                >
-                  <span className="w-2 h-2 rounded-full bg-blue-400"></span>
-                  <span>سرمه‌ای رسمی</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setInvoiceTheme('gold')}
-                  className={`px-2 py-1 rounded-lg font-bold transition flex items-center gap-1 cursor-pointer ${
-                    invoiceTheme === 'gold'
-                      ? 'bg-amber-600 text-white shadow-xs'
-                      : 'text-slate-300 hover:bg-slate-700'
-                  }`}
-                  title="استایل طلایی لوکس بازرگانی"
-                >
-                  <span className="w-2 h-2 rounded-full bg-amber-400"></span>
-                  <span>طلایی لوکس</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setInvoiceTheme('emerald')}
-                  className={`px-2 py-1 rounded-lg font-bold transition flex items-center gap-1 cursor-pointer ${
-                    invoiceTheme === 'emerald'
-                      ? 'bg-emerald-600 text-white shadow-xs'
-                      : 'text-slate-300 hover:bg-slate-700'
-                  }`}
-                  title="استایل سبز زمردی بانکی"
-                >
-                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                  <span>سبز زمردی</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setInvoiceTheme('classic')}
-                  className={`px-2 py-1 rounded-lg font-bold transition flex items-center gap-1 cursor-pointer ${
-                    invoiceTheme === 'classic'
-                      ? 'bg-slate-600 text-white shadow-xs'
-                      : 'text-slate-300 hover:bg-slate-700'
-                  }`}
-                  title="استایل کلاسیک اداری تک‌رنگ"
-                >
-                  <span className="w-2 h-2 rounded-full bg-slate-300"></span>
-                  <span>کلاسیک اداری</span>
-                </button>
-              </div>
-
-              {/* Watermark Selector */}
-              <div className="flex items-center bg-slate-800 p-1 rounded-xl border border-slate-700 text-xs gap-1">
-                <button
-                  type="button"
-                  onClick={() => setShowWatermark(!showWatermark)}
-                  className={`px-2 py-1 rounded-lg font-bold transition flex items-center gap-1 cursor-pointer ${
-                    showWatermark
-                      ? 'bg-purple-600 text-white shadow-xs'
-                      : 'text-slate-300 hover:bg-slate-700'
-                  }`}
-                  title="فعال یا غیرفعال کردن متن واترمارک پس‌زمینه فاکتور"
-                >
-                  <span>واترمارک:</span>
-                  <span className="text-[10px]">{showWatermark ? 'روشن' : 'خاموش'}</span>
-                </button>
-                {showWatermark && (
-                  <select
-                    value={watermarkText}
-                    onChange={e => setWatermarkText(e.target.value as any)}
-                    className="bg-slate-900 text-white text-[11px] font-bold px-1.5 py-1 rounded-lg border border-slate-700 outline-none cursor-pointer"
-                  >
-                    <option value="رسمی">رسمی</option>
-                    <option value="پرداخت شد">پرداخت شد</option>
-                    <option value="تسویه شده">تسویه شده</option>
-                    <option value="امانی">امانی</option>
-                    <option value="تحویل شد">تحویل شد</option>
-                  </select>
-                )}
-              </div>
-
-              {/* Barcode & Balance Toggles */}
-              <div className="flex items-center bg-slate-800 p-1 rounded-xl border border-slate-700 text-xs gap-2">
-                <label
-                  className="inline-flex items-center gap-1 px-2 py-1 hover:bg-slate-700 text-slate-300 rounded-md cursor-pointer select-none"
-                  title="چاپ یا عدم چاپ بارکد و QR کد امنیتی فاکتور"
-                >
-                  <input
-                    type="checkbox"
-                    checked={showBarcode}
-                    onChange={e => setShowBarcode(e.target.checked)}
-                    className="rounded text-blue-500 focus:ring-0 w-3 h-3 cursor-pointer accent-blue-500"
-                  />
-                  <span className="text-[11px] font-bold">بارکد/QR</span>
-                </label>
-
-                <label
-                  className="inline-flex items-center gap-1 px-2 py-1 hover:bg-slate-700 text-slate-300 rounded-md cursor-pointer select-none"
-                  title="تیک جهت چاپ یا عدم چاپ الباقی مانده حساب مشتری روی فاکتور"
-                >
-                  <input
-                    type="checkbox"
-                    checked={showCustomerBalance}
-                    onChange={e => setShowCustomerBalance(e.target.checked)}
-                    className="rounded text-emerald-500 focus:ring-0 w-3 h-3 cursor-pointer accent-emerald-500"
-                  />
-                  <span className="text-[11px] font-bold">مانده مشتری</span>
-                </label>
-              </div>
-            </>
-          )}
-
-            {/* Advanced Print Settings (Margins, Zoom, Show/Hide Header and Footer) */}
-            <div className="flex items-center bg-slate-800 p-1 rounded-xl border border-slate-700 text-xs gap-1.5">
-              <button
-                id="doc-advanced-print-settings-btn"
-                type="button"
-                onClick={() => setIsAdvancedSettingsOpen(true)}
-                className={`px-2.5 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                  printSettings.zoom !== 100 || printSettings.marginPreset !== 'standard' || !printSettings.showHeader || !printSettings.showFooter
-                    ? 'bg-blue-600/30 text-blue-300 border border-blue-500/40 hover:bg-blue-600/40'
-                    : 'text-slate-200 hover:bg-slate-700'
-                }`}
-                title="تنظیمات پیشرفته حاشیه‌ها (Margins)، مقیاس زوم (Zoom) و سربرگ/پاورقی شرکت"
-              >
-                <SlidersHorizontal className="w-3.5 h-3.5 text-blue-400" />
-                <span>تنظیمات پیشرفته چاپ</span>
-                <span className="text-[10px] bg-slate-900/90 text-blue-200 px-1.5 py-0.5 rounded font-mono hidden sm:inline">
-                  {printSettings.zoom}% • {printSettings.marginPreset === 'custom' ? 'سفارشی' : MARGIN_PRESETS[printSettings.marginPreset]?.label.split(' ')[0]}
-                </span>
-              </button>
-
-              {/* Inline Quick Zoom Control */}
-              <div className="flex items-center bg-slate-900/90 rounded-lg p-0.5 border border-slate-700 text-xs">
-                <button
-                  type="button"
-                  onClick={() => handleQuickZoom(-5)}
-                  disabled={printSettings.zoom <= 60}
-                  className="p-1 text-slate-300 hover:text-white hover:bg-slate-700 rounded transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                  title="کاهش ۵٪ مقیاس فاکتور"
-                >
-                  <ZoomOut className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsAdvancedSettingsOpen(true)}
-                  className="px-1.5 text-[11px] font-mono font-black text-emerald-400 hover:text-emerald-300 transition cursor-pointer"
-                  title="کلیک برای باز کردن پنل تنظیمات پیشرفته چاپ"
-                >
-                  {printSettings.zoom}%
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleQuickZoom(5)}
-                  disabled={printSettings.zoom >= 140}
-                  className="p-1 text-slate-300 hover:text-white hover:bg-slate-700 rounded transition cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-                  title="افزایش ۵٪ مقیاس فاکتور"
-                >
-                  <ZoomIn className="w-3.5 h-3.5" />
-                </button>
-              </div>
-
-              {/* Fast Header Toggle */}
-              <label
-                className={`inline-flex items-center gap-1 px-1.5 py-1 rounded-md cursor-pointer select-none transition ${
-                  printSettings.showHeader ? 'text-slate-300 hover:bg-slate-700' : 'text-amber-400 bg-amber-950/30'
-                }`}
-                title="نمایش یا عدم نمایش هدر و سربرگ شرکت"
-              >
-                <input
-                  type="checkbox"
-                  checked={printSettings.showHeader}
-                  onChange={e => {
-                    const updated = { ...printSettings, showHeader: e.target.checked };
-                    setPrintSettings(updated);
-                    saveStoredPrintSettings(updated);
-                  }}
-                  className="rounded text-purple-500 focus:ring-0 w-3 h-3 cursor-pointer accent-purple-500"
-                />
-                <span className="text-[11px] font-bold">هدر</span>
-              </label>
-
-              {/* Fast Footer Toggle */}
-              <label
-                className={`inline-flex items-center gap-1 px-1.5 py-1 rounded-md cursor-pointer select-none transition ${
-                  printSettings.showFooter ? 'text-slate-300 hover:bg-slate-700' : 'text-amber-400 bg-amber-950/30'
-                }`}
-                title="نمایش یا عدم نمایش فوتر و پانوشت شرکت"
-              >
-                <input
-                  type="checkbox"
-                  checked={printSettings.showFooter}
-                  onChange={e => {
-                    const updated = { ...printSettings, showFooter: e.target.checked };
-                    setPrintSettings(updated);
-                    saveStoredPrintSettings(updated);
-                  }}
-                  className="rounded text-purple-500 focus:ring-0 w-3 h-3 cursor-pointer accent-purple-500"
-                />
-                <span className="text-[11px] font-bold">فوتر</span>
-              </label>
-            </div>
-
-            {/* Seal & Signature Settings Button */}
-            <div className="flex items-center bg-slate-800 p-1 rounded-xl border border-slate-700 text-xs gap-1">
-              <button
-                id="doc-stamp-settings-btn"
-                type="button"
-                onClick={() => setIsSealModalOpen(true)}
-                className={`px-2.5 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                  showStamp || showSignature
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 hover:bg-amber-500/30'
-                    : 'text-slate-300 hover:bg-slate-700'
-                }`}
-                title="شخصی‌سازی و تعیین اندازه مهر و امضای دیجیتال در پایین برگه فاکتور"
-              >
-                <Stamp className="w-3.5 h-3.5 text-amber-400" />
-                <span>تنظیم مهر و امضا</span>
-                <span className="text-[10px] text-amber-300/80 font-mono hidden sm:inline">
-                  ({stampSize}px / {signatureSize}px)
-                </span>
-                {(stampUrl || signatureUrl) && (
-                  <span className="w-2 h-2 rounded-full bg-emerald-400" title="تصویر بارگذاری شده"></span>
-                )}
-              </button>
-
-              {/* Fast Stamp Toggle */}
-              <label
-                className="inline-flex items-center gap-1 px-2 py-1 hover:bg-slate-700 text-slate-300 rounded-md cursor-pointer select-none"
-                title="فعال یا غیرفعال کردن چاپ مهر رسمی شرکت"
-              >
-                <input
-                  type="checkbox"
-                  checked={showStamp}
-                  onChange={e => setShowStamp(e.target.checked)}
-                  className="rounded text-amber-500 focus:ring-0 w-3 h-3 cursor-pointer accent-amber-500"
-                />
-                <span className="text-[11px] font-bold">مهر</span>
-              </label>
-
-              {/* Fast Signature Toggle */}
-              <label
-                className="inline-flex items-center gap-1 px-2 py-1 hover:bg-slate-700 text-slate-300 rounded-md cursor-pointer select-none"
-                title="فعال یا غیرفعال کردن چاپ امضای دیجیتال"
-              >
-                <input
-                  type="checkbox"
-                  checked={showSignature}
-                  onChange={e => setShowSignature(e.target.checked)}
-                  className="rounded text-blue-500 focus:ring-0 w-3 h-3 cursor-pointer accent-blue-500"
-                />
-                <span className="text-[11px] font-bold">امضا</span>
-              </label>
-            </div>
-
-            {/* Direct Telegram Send Button (Strictly Sends Invoice - Never Opens Settings) */}
+            {/* Direct Telegram Send Button */}
             {(document.type === 'invoice' || !!invData) && (
               <button
                 id="doc-telegram-send-btn"
@@ -782,7 +483,7 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
               title="چاپ فوری مستقیم با پرینتر"
             >
               <Printer className="w-4 h-4" />
-              <span>چاپ مستقیم (Print)</span>
+              <span>چاپ فاکتور (Print)</span>
             </button>
 
             {/* Save PDF Button */}
@@ -842,24 +543,20 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
           </div>
         )}
 
-        {/* Dynamic Print CSS for Custom Margins and Content Scale */}
+        {/* Dynamic Print CSS for Single Page Fit */}
         <style>{`
           @media print {
             @page {
               size: ${invoiceLayout === 'thermal' ? '80mm auto' : 'A4 portrait'};
-              margin: ${invoiceLayout === 'thermal' ? '0mm' : `${printSettings.margins.top}mm ${printSettings.margins.right}mm ${printSettings.margins.bottom}mm ${printSettings.margins.left}mm`} !important;
-            }
-            @page :left {
-              margin: ${invoiceLayout === 'thermal' ? '0mm' : `${printSettings.margins.top}mm ${printSettings.margins.right}mm ${printSettings.margins.bottom}mm ${printSettings.margins.left}mm`} !important;
-            }
-            @page :right {
-              margin: ${invoiceLayout === 'thermal' ? '0mm' : `${printSettings.margins.top}mm ${printSettings.margins.right}mm ${printSettings.margins.bottom}mm ${printSettings.margins.left}mm`} !important;
+              margin: ${invoiceLayout === 'thermal' ? '0mm' : '4mm 5mm'} !important;
             }
             #printable-paper-canvas, .print-canvas {
-              zoom: ${printSettings.zoom / 100} !important;
-              -moz-transform: scale(${printSettings.zoom / 100}) !important;
-              -moz-transform-origin: top center !important;
               padding: 0 !important;
+              margin: 0 auto !important;
+              width: 100% !important;
+              max-width: 100% !important;
+              border: none !important;
+              box-shadow: none !important;
             }
           }
         `}</style>
@@ -868,15 +565,8 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
         <div
           id="printable-paper-canvas"
           className={`print-canvas mx-auto bg-white text-slate-900 relative transition-all ${
-            invoiceLayout === 'thermal' ? 'max-w-[380px] p-2' : 'max-w-3xl'
-          } border border-slate-300 rounded-2xl shadow-xs print:border-none print:shadow-none print:p-0 print:max-w-none print:w-full font-sans`}
-          style={{
-            zoom: printSettings.zoom !== 100 ? `${printSettings.zoom}%` : undefined,
-            paddingTop: invoiceLayout === 'thermal' ? undefined : `${printSettings.margins.top}mm`,
-            paddingRight: invoiceLayout === 'thermal' ? undefined : `${printSettings.margins.right}mm`,
-            paddingBottom: invoiceLayout === 'thermal' ? undefined : `${printSettings.margins.bottom}mm`,
-            paddingLeft: invoiceLayout === 'thermal' ? undefined : `${printSettings.margins.left}mm`,
-          }}
+            invoiceLayout === 'thermal' ? 'max-w-[380px] p-2' : 'max-w-4xl p-0'
+          } border border-slate-300 rounded-xl shadow-xs print:border-none print:shadow-none print:p-0 print:max-w-none print:w-full font-sans`}
         >
           {/* Optional Watermark Stamp Overlay */}
           {showWatermark && (
@@ -1074,13 +764,12 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
               stampColor={stampColor}
               stampSize={stampSize}
               signatureSize={signatureSize}
-              invoiceTheme={invoiceTheme}
               showWatermark={showWatermark}
               watermarkText={watermarkText}
               showBarcode={showBarcode}
-              showHeader={printSettings.showHeader}
-              showFooter={printSettings.showFooter}
-              letterheadSpacing={printSettings.letterheadSpacing}
+              showHeader={true}
+              showFooter={true}
+              letterheadSpacing={false}
               getPartyExtraInfo={getPartyExtraInfo}
               getWarehouseName={getWarehouseName}
             />
@@ -1513,17 +1202,6 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
           if (newSettings.stampColor) setStampColor(newSettings.stampColor);
           if (newSettings.stampSize !== undefined) setStampSize(newSettings.stampSize);
           if (newSettings.signatureSize !== undefined) setSignatureSize(newSettings.signatureSize);
-        }}
-      />
-
-      {/* Advanced Print Settings Modal (Margins, Zoom, Show/Hide Header and Footer) */}
-      <PrintAdvancedSettingsModal
-        isOpen={isAdvancedSettingsOpen}
-        onClose={() => setIsAdvancedSettingsOpen(false)}
-        settings={printSettings}
-        onChange={newSettings => {
-          setPrintSettings(newSettings);
-          saveStoredPrintSettings(newSettings);
         }}
       />
     </div>
