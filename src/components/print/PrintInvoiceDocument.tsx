@@ -1019,16 +1019,15 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
     );
   };
 
-  // Route to layout
+  // Route to layout: Default is always Combo A4 (فاکتور رسمی + حواله خروج گدام فیکس در یک برگ A4)
   if (invoiceLayout === 'thermal') {
     return renderThermalReceipt();
   }
   if (invoiceLayout === 'warehouse_only') {
     return renderWarehouseSlipOnly();
   }
-  if (invoiceLayout === 'combo_a4') {
-    return renderComboA4Invoice();
+  if (invoiceLayout === 'invoice_full') {
+    return renderFullA4Invoice();
   }
-  // Default: 'invoice_full' or 'invoice_only'
-  return renderFullA4Invoice();
+  return renderComboA4Invoice();
 };

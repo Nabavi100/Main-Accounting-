@@ -60,8 +60,8 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
 }) => {
   const { companySettings, parties, warehouses, products, stocks } = useAccounting();
 
-  // Print layout options
-  const [invoiceLayout, setInvoiceLayout] = useState<'invoice_full' | 'combo_a4' | 'invoice_only' | 'warehouse_only' | 'thermal'>('invoice_full');
+  // Print layout options (Default is always A4 Combo: Invoice + Warehouse Exit Slip)
+  const [invoiceLayout, setInvoiceLayout] = useState<'combo_a4' | 'invoice_full' | 'thermal'>('combo_a4');
   const [invoiceTheme, setInvoiceTheme] = useState<'navy' | 'gold' | 'emerald' | 'classic'>('navy');
   const [showWatermark, setShowWatermark] = useState<boolean>(false);
   const [watermarkText, setWatermarkText] = useState<'رسمی' | 'پرداخت شد' | 'تحویل شد' | 'تسویه شده' | 'امانی'>(
@@ -397,60 +397,13 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
                 )}
               </div>
               <p className="text-[11px] text-slate-300">
-                برگه استاندارد A4 • فاکتور ۲/۳ صفحه و خروجی انبار ۱/۳ صفحه جهت تکمیل دقیق برگ A4
+                برگه رسمی A4 • فاکتور فروش معتبر به همراه فرم حواله خروج انبار
               </p>
             </div>
           </div>
 
-          {/* Action and Layout Controls */}
+          {/* Action Controls */}
           <div className="flex flex-wrap items-center gap-2">
-            {/* Format Layout Switcher for Invoices */}
-            {(document.type === 'invoice' || !!invData) && (
-              <div className="flex items-center bg-slate-800 p-1 rounded-xl border border-slate-700 text-xs">
-                <button
-                  type="button"
-                  onClick={() => setInvoiceLayout('invoice_full')}
-                  className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                    invoiceLayout === 'invoice_full'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-slate-300 hover:bg-slate-700'
-                  }`}
-                  title="چاپ فاکتور رسمی کامل استاندارد در یک برگه کامل A4"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  <span>فاکتور رسمی کامل (A4)</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setInvoiceLayout('combo_a4')}
-                  className={`px-2.5 py-1.5 rounded-lg font-bold transition flex items-center gap-1 cursor-pointer ${
-                    invoiceLayout === 'combo_a4'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-slate-300 hover:bg-slate-700'
-                  }`}
-                  title="فاکتور + حواله گدام فیکس در یک برگ کامل A4 با خط برش"
-                >
-                  <Layers className="w-3.5 h-3.5" />
-                  <span>A4 ترکیبی (با حواله گدام)</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setInvoiceLayout('thermal')}
-                  className={`px-2.5 py-1.5 rounded-lg font-bold transition flex items-center gap-1 cursor-pointer ${
-                    invoiceLayout === 'thermal'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-slate-300 hover:bg-slate-700'
-                  }`}
-                  title="کاغذ رول / ۸۰ میلی‌متری حرارتی (فیش‌پرینتر)"
-                >
-                  <Receipt className="w-3.5 h-3.5" />
-                  <span>فیش حرارتی</span>
-                </button>
-              </div>
-            )}
-
             {/* Direct Telegram Send Button */}
             {(document.type === 'invoice' || !!invData) && (
               <button
@@ -463,7 +416,7 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
                     ? 'bg-sky-700 text-white cursor-wait opacity-80'
                     : 'bg-[#229ED9] hover:bg-[#1E88E5] text-white'
                 }`}
-                title="ارسال مستقیم گزارش فاکتور و مانده حساب به تلگرام مشتری"
+                title="ارسال مستقیم فاکتور به تلگرام مشتری"
               >
                 {isTelegramSending ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -480,10 +433,10 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
               type="button"
               onClick={handlePrint}
               className="flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-xs hover:shadow cursor-pointer active:scale-95"
-              title="چاپ فوری مستقیم با پرینتر"
+              title="چاپ مستقیم روی کاغذ A4 (فاکتور + خروجی انبار)"
             >
               <Printer className="w-4 h-4" />
-              <span>چاپ فاکتور (Print)</span>
+              <span>چاپ فاکتور و خروجی انبار (Print)</span>
             </button>
 
             {/* Save PDF Button */}
