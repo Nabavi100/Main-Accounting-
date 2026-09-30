@@ -20,6 +20,7 @@ import {
   sendTelegramDirectMessage,
   buildInvoiceTelegramText,
 } from '../services/telegramApiService';
+import { APP_VERSION } from '../config/version';
 import html2canvas from 'html2canvas';
 import {
   Printer,
@@ -385,6 +386,9 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-black text-sm sm:text-base text-white">پیش‌نمایش و چاپ سند</span>
+                <span className="text-[10px] font-mono font-bold text-slate-300 bg-white/10 px-2 py-0.5 rounded-full border border-white/10">
+                  {APP_VERSION}
+                </span>
                 {(document.invoice || invData) && (
                   <span className="text-xs font-mono font-bold bg-white/15 px-2.5 py-0.5 rounded-full text-slate-200 border border-white/10">
                     #{(document.invoice || invData)?.invoiceNumber}

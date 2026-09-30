@@ -9,6 +9,7 @@ import {
 import { NavTab } from './Sidebar';
 import { ThemeSwitcherDropdown } from './ThemeSwitcherDropdown';
 import { CurrencyRateCalculator } from './CurrencyRateCalculator';
+import { APP_VERSION } from '../config/version';
 
 interface HeaderProps {
   activeTab: NavTab;
@@ -60,6 +61,15 @@ export const Header: React.FC<HeaderProps> = ({
             {companySettings.name || 'شرکت تجارتی برادران نبوی'}
           </span>
         </button>
+
+        {/* System Version Badge */}
+        <span
+          className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 bg-white hover:bg-slate-100 text-slate-700 rounded-lg text-[10px] font-mono font-bold border border-slate-200/90 shadow-2xs select-none"
+          title="نسخه فعال سیستم برای ردیابی تغییرات و پایداری داده‌ها"
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>{APP_VERSION}</span>
+        </span>
 
         {/* Minimal Chic Currency Rate Icon Button */}
         <CurrencyRateCalculator minimal />

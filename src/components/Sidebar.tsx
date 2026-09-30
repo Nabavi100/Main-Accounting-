@@ -25,6 +25,7 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { CompanySealLogo } from './CompanySealLogo';
+import { APP_VERSION, APP_FULL_VERSION_STRING } from '../config/version';
 
 export type NavTab =
   | 'dashboard'
@@ -1009,6 +1010,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <Power className="w-4 h-4 text-rose-600" />
           <span>خروج از سیستم</span>
         </button>
+
+        {/* شماره نسخه پایدار سیستم جهت ردیابی و ارتقاء */}
+        <div className="pt-2 px-1 flex items-center justify-between text-[11px] text-slate-400 font-mono border-t border-slate-100 select-none">
+          <span className="text-slate-500 font-sans text-[10.5px]">نسخه نرم‌افزار:</span>
+          <span className="font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 px-2 py-0.5 rounded-md border border-slate-200 shadow-2xs" title="نسخه فعال سیستم برای بازیابی و پشتیبانی">
+            {APP_VERSION}
+          </span>
+        </div>
       </div>
 
       {/* ---------------- MODALS FOR SIDEBAR ACTIONS ---------------- */}
@@ -1073,7 +1082,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">نسخه سیستم:</span>
-                <span className="font-bold font-mono text-emerald-600">V4.8.2 Enterprise</span>
+                <span className="font-bold font-mono text-emerald-600">{APP_FULL_VERSION_STRING}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">وضعیت پایگاه داده:</span>
