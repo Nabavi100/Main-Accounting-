@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 
 import { ExpenseDefinitionsView } from './ExpenseDefinitionsView';
+import { ShamsiDatePickerInput } from './ShamsiDatePickerInput';
 
 interface ExpensesViewProps {
   initialMode?: 'definitions' | 'payments';
@@ -629,12 +630,14 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="font-bold text-slate-700">تاریخ سند</label>
-                  <input
-                    type="text"
+                  <ShamsiDatePickerInput
+                    id="expense-date-input"
                     value={expDate}
-                    onChange={e => setExpDate(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 font-mono text-center outline-none"
+                    onChange={setExpDate}
+                    label="تاریخ سند (شمسی)"
+                    required
+                    colorTheme="slate"
+                    placeholder="1405/06/15"
                   />
                 </div>
               </div>

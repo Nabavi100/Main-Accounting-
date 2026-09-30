@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import { IncomeItem, IncomeCategory, Currency } from '../types';
 import { formatCurrency, formatNumber } from '../utils/formatters';
+import { ShamsiDatePickerInput } from './ShamsiDatePickerInput';
 import {
   TrendingUp,
   Plus,
@@ -978,16 +979,14 @@ export const IncomesView: React.FC<IncomesViewProps> = ({
               {/* Date & Receipt Number */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    تاریخ سند (شمسی) *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="1403/01/01"
+                  <ShamsiDatePickerInput
+                    id="income-date-input"
                     value={incDate}
-                    onChange={e => setIncDate(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                    onChange={setIncDate}
+                    label="تاریخ سند (شمسی)"
+                    required
+                    colorTheme="emerald"
+                    placeholder="1405/01/01"
                   />
                 </div>
 

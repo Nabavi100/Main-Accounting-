@@ -3,6 +3,7 @@ import { useAccounting } from '../context/AccountingContext';
 import { Unit, StockTransfer } from '../types';
 import { formatNumber, getPersianDate, calculateBagsAndTons } from '../utils/formatters';
 import { ProductSearchSelector } from './ProductSearchSelector';
+import { ShamsiDatePickerInput } from './ShamsiDatePickerInput';
 import { Repeat, X, ArrowRightLeft, Warehouse as WarehouseIcon } from 'lucide-react';
 
 interface StockTransferModalProps {
@@ -184,13 +185,14 @@ export const StockTransferModal: React.FC<StockTransferModalProps> = ({
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1">تاریخ انتقال</label>
-            <input
-              type="text"
+            <ShamsiDatePickerInput
+              id="stock-transfer-date-input"
               value={date}
-              onChange={e => setDate(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900"
+              onChange={setDate}
+              label="تاریخ انتقال (شمسی)"
               required
+              colorTheme="blue"
+              placeholder="1405/06/15"
             />
           </div>
         </div>

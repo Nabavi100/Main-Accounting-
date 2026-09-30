@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import { Currency } from '../types';
 import { formatNumber, formatCurrency, getPersianDate, getCurrentTime } from '../utils/formatters';
+import { ShamsiDatePickerInput } from './ShamsiDatePickerInput';
 import {
   TrendingDown,
   DollarSign,
@@ -267,16 +268,15 @@ export const ExpensePaymentDesk: React.FC<ExpensePaymentDeskProps> = ({
           </div>
 
           <div>
-            <label className="text-slate-500 font-bold block mb-1">تاریخ پرداخت:</label>
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
-              <input
-                type="text"
-                value={date}
-                onChange={e => setDate(e.target.value)}
-                className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-xl font-mono font-bold text-slate-900 text-left outline-none focus:border-rose-500"
-              />
-            </div>
+            <ShamsiDatePickerInput
+              id="expense-payment-desk-date"
+              value={date}
+              onChange={setDate}
+              label="تاریخ پرداخت:"
+              required
+              colorTheme="slate"
+              placeholder="1405/06/15"
+            />
           </div>
 
           <div>

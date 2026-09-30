@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import { Currency } from '../types';
 import { formatNumber, formatCurrency, getPersianDate, getCurrentTime } from '../utils/formatters';
+import { ShamsiDatePickerInput } from './ShamsiDatePickerInput';
 import {
   TrendingUp,
   DollarSign,
@@ -278,16 +279,15 @@ export const IncomeReceiptDesk: React.FC<IncomeReceiptDeskProps> = ({
           </div>
 
           <div>
-            <label className="text-slate-500 font-bold block mb-1">تاریخ ثبت:</label>
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
-              <input
-                type="text"
-                value={date}
-                onChange={e => setDate(e.target.value)}
-                className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-xl font-mono font-bold text-slate-900 text-left outline-none focus:border-emerald-500"
-              />
-            </div>
+            <ShamsiDatePickerInput
+              id="income-receipt-desk-date"
+              value={date}
+              onChange={setDate}
+              label="تاریخ ثبت:"
+              required
+              colorTheme="emerald"
+              placeholder="1405/06/15"
+            />
           </div>
 
           <div>

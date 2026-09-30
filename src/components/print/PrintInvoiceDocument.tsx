@@ -41,6 +41,7 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
   companySettings,
   invoiceLayout = 'combo_a4',
   showSignatures = true,
+  showCustomerBalance = true,
   showStamp = true,
   showSignature = true,
   stampUrl,
@@ -284,12 +285,12 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
             <table className="w-full text-right border-collapse text-xs table-fixed">
               <colgroup>
                 <col className="w-[4%]" />
-                <col className="w-[38%]" />
-                <col className="w-[10%]" />
-                <col className="w-[12%]" />
-                <col className="w-[12%]" />
-                <col className="w-[12%]" />
-                <col className="w-[12%]" />
+                <col className="w-[22%]" />
+                <col className="w-[8%]" />
+                <col className="w-[9%]" />
+                <col className="w-[13%]" />
+                <col className="w-[14%]" />
+                <col className="w-[30%]" />
               </colgroup>
               <thead>
                 <tr className="bg-[#1E293B] text-white font-bold h-7 text-xs">
@@ -329,7 +330,7 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
                       <td className="py-0.5 px-1 border-l border-slate-300 text-center font-mono font-black text-slate-950">
                         {it ? formatNumber(it.totalPrice) : ''}
                       </td>
-                      <td className="py-0.5 px-2 text-center text-slate-600 font-normal truncate">
+                      <td className="py-0.5 px-2 text-center text-slate-800 font-medium text-[11px] leading-tight break-words whitespace-normal">
                         {it?.description || (it ? '---' : '')}
                       </td>
                     </tr>
@@ -403,15 +404,17 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
                       {inv.currency || 'AFN'} {formatNumber(inv.paidAmount || 0)}
                     </td>
                   </tr>
-                  {/* Remaining Balance Row */}
-                  <tr className="bg-rose-50 text-rose-700">
-                    <td className="py-1 px-3 font-black border-l border-rose-200 text-right">
-                      مبلغ باقی‌مانده بدهی:
-                    </td>
-                    <td className="py-1 px-3 text-left font-mono font-black text-rose-700 text-sm">
-                      {inv.currency || 'AFN'} {formatNumber(remainingBalance)}
-                    </td>
-                  </tr>
+                  {/* Remaining Balance Row (قابلیت نمایش یا مخفی سازی با سوییچ چاپ) */}
+                  {showCustomerBalance && (
+                    <tr className="bg-rose-50 text-rose-700">
+                      <td className="py-1 px-3 font-black border-l border-rose-200 text-right">
+                        مبلغ باقی‌مانده بدهی:
+                      </td>
+                      <td className="py-1 px-3 text-left font-mono font-black text-rose-700 text-sm">
+                        {inv.currency || 'AFN'} {formatNumber(remainingBalance)}
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -493,10 +496,10 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
             <table className="w-full text-right border-collapse text-xs table-fixed">
               <colgroup>
                 <col className="w-[4%]" />
-                <col className="w-[48%]" />
+                <col className="w-[26%]" />
                 <col className="w-[16%]" />
-                <col className="w-[16%]" />
-                <col className="w-[16%]" />
+                <col className="w-[14%]" />
+                <col className="w-[40%]" />
               </colgroup>
               <thead>
                 <tr className="bg-[#1E293B] text-white font-bold h-6 text-xs">
@@ -525,7 +528,7 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
                     <td className="py-0.5 px-2 border-l border-slate-300 text-center text-slate-800 text-[11px] font-bold">
                       {it ? formatItemUnit(it.unit) : ''}
                     </td>
-                    <td className="py-0.5 px-2 text-center text-slate-600 font-normal truncate">
+                    <td className="py-0.5 px-2 text-center text-slate-800 font-medium text-[11px] leading-tight break-words whitespace-normal">
                       {it?.description || (it ? '---' : '')}
                     </td>
                   </tr>

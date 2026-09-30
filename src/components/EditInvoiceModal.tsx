@@ -4,6 +4,7 @@ import { Invoice, InvoiceItem, Currency, Unit, InvoiceType, CashRegisterType } f
 import { formatNumber, formatCurrency, getPersianDate, calculateBagsAndTons } from '../utils/formatters';
 import { PartySearchSelector } from './PartySearchSelector';
 import { ProductSearchSelector } from './ProductSearchSelector';
+import { ShamsiDatePickerInput } from './ShamsiDatePickerInput';
 import {
   X,
   Save,
@@ -310,17 +311,15 @@ export const EditInvoiceModal: React.FC<EditInvoiceModalProps> = ({
 
             {/* Date */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">تاریخ سند (شمسی)</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={invoiceDate}
-                  onChange={e => setInvoiceDate(e.target.value)}
-                  className="w-full px-3.5 py-2.5 pr-9 rounded-xl border border-slate-300 text-slate-800 text-sm focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-                <Calendar className="w-4 h-4 text-slate-400 absolute right-3 top-3 pointer-events-none" />
-              </div>
+              <ShamsiDatePickerInput
+                id="edit-invoice-date-input"
+                value={invoiceDate}
+                onChange={setInvoiceDate}
+                label="تاریخ سند (شمسی)"
+                required
+                colorTheme="blue"
+                placeholder="1405/06/15"
+              />
             </div>
 
             {/* Party Selector */}
@@ -540,7 +539,7 @@ export const EditInvoiceModal: React.FC<EditInvoiceModalProps> = ({
                         <td className="p-3 text-center font-mono font-bold text-blue-700">
                           {formatCurrency(it.totalPrice, currency)}
                         </td>
-                        <td className="p-3 text-center text-slate-600 text-[11px] truncate max-w-[120px]">
+                        <td className="p-3 text-right text-slate-800 text-xs break-words leading-tight">
                           {it.description || '---'}
                         </td>
                         <td className="p-3 text-center">

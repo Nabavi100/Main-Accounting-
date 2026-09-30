@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import { formatNumber, getPersianDate, calculateBagsAndTons } from '../utils/formatters';
+import { ShamsiDatePickerInput } from './ShamsiDatePickerInput';
 import {
   X,
   ShieldCheck,
@@ -283,15 +284,14 @@ export const ConsignmentDeliveryModal: React.FC<ConsignmentDeliveryModalProps> =
           </div>
 
           <div>
-            <label className="text-xs font-bold text-slate-700 block mb-1 flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5 text-slate-500" />
-              <span>تاریخ تحویل (شمسی)</span>
-            </label>
-            <input
-              type="text"
+            <ShamsiDatePickerInput
+              id="consignment-delivery-date"
               value={date}
-              onChange={e => setDate(e.target.value)}
-              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-800 text-center outline-none focus:border-amber-500"
+              onChange={setDate}
+              label="تاریخ تحویل (شمسی)"
+              required
+              colorTheme="slate"
+              placeholder="1405/06/15"
             />
           </div>
 

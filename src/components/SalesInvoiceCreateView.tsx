@@ -10,6 +10,7 @@ import {
 } from '../utils/formatters';
 import { QuickAddPartyModal } from './QuickAddPartyModal';
 import { ProductSearchSelector } from './ProductSearchSelector';
+import { ShamsiDatePickerInput } from './ShamsiDatePickerInput';
 import {
   User,
   Calendar,
@@ -596,25 +597,17 @@ export const SalesInvoiceCreateView: React.FC<SalesInvoiceCreateViewProps> = ({
             </div>
           </div>
 
-          {/* 2. تاریخ فروش (شمسی) */}
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
-              <span className="text-red-500">*</span>
-              <Calendar className="w-3.5 h-3.5 text-slate-500" />
-              <span>تاریخ {isReturn ? 'برگشت از فروش' : 'فروش'} (شمسی)</span>
-            </label>
-            <input
-              type="text"
-              value={invoiceDate}
-              onChange={e => setInvoiceDate(e.target.value)}
-              placeholder="1405/06/15"
-              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-800 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 outline-none text-center"
-            />
-            <div className="flex items-center gap-1 text-[10px] text-emerald-600 font-mono mt-0.5">
-              <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
-              <span>معادل میلادی: {gregorianDateStr}</span>
-            </div>
-          </div>
+          {/* 2. تاریخ فروش (شمسی با انتخاب تقویم و موس) */}
+          <ShamsiDatePickerInput
+            id="sales-invoice-date-input"
+            value={invoiceDate}
+            onChange={setInvoiceDate}
+            label={`تاریخ ${isReturn ? 'برگشت از فروش' : 'فروش'} (شمسی)`}
+            required
+            colorTheme="emerald"
+            showGregorianPreview
+            placeholder="1405/06/15"
+          />
 
           {/* 3. شماره فاکتور */}
           <div className="space-y-1">
@@ -794,11 +787,11 @@ export const SalesInvoiceCreateView: React.FC<SalesInvoiceCreateViewProps> = ({
             <table className="w-full text-right text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-700 font-bold">
-                  <th className="py-2.5 px-3 w-[22%]">نام یا کد کالا</th>
+                  <th className="py-2.5 px-3 w-[17%]">نام یا کد کالا</th>
                   <th className="py-2.5 px-3 w-[10%]">واحد اندازه‌گیری</th>
-                  <th className="py-2.5 px-3 w-[10%] text-center">موجود در گدام</th>
-                  <th className="py-2.5 px-3 w-[10%] text-center">تعداد فروش</th>
-                  <th className="py-2.5 px-3 w-[13%] text-center">
+                  <th className="py-2.5 px-3 w-[9%] text-center">موجود در گدام</th>
+                  <th className="py-2.5 px-3 w-[9%] text-center">تعداد فروش</th>
+                  <th className="py-2.5 px-3 w-[12%] text-center">
                     <div className="flex items-center justify-center gap-1">
                       <span>قیمت فروش (فی)</span>
                       <button
@@ -814,7 +807,7 @@ export const SalesInvoiceCreateView: React.FC<SalesInvoiceCreateViewProps> = ({
                     </div>
                   </th>
                   <th className="py-2.5 px-3 w-[13%] text-center">جمع کل ({currency})</th>
-                  <th className="py-2.5 px-3 w-[18%] text-slate-900 font-bold bg-emerald-50/50">
+                  <th className="py-2.5 px-3 w-[25%] text-slate-900 font-bold bg-emerald-50/50">
                     <div className="flex items-center gap-1">
                       <FileText className="w-3.5 h-3.5 text-emerald-700" />
                       <span>توضیحات قلم کالا (چاپ در فاکتور)</span>
@@ -834,7 +827,7 @@ export const SalesInvoiceCreateView: React.FC<SalesInvoiceCreateViewProps> = ({
                   return (
                     <tr key={row.id} className="hover:bg-slate-50/60 transition">
                       {/* 1. نام یا کد کالا (تایپ و جستجوی سریع Autocomplete) */}
-                      <td className="p-2 min-w-[220px]">
+                      <td className="p-2 min-w-[170px]">
                         <ProductSearchSelector
                           id={`prod-search-${row.id}`}
                           compact

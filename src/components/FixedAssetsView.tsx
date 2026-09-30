@@ -3,6 +3,7 @@ import { useAccounting } from '../context/AccountingContext';
 import { AssetGroup, FixedAsset, Currency } from '../types';
 import { formatNumber, formatCurrency, getPersianDate } from '../utils/formatters';
 import { calculateAssetDepreciation } from '../utils/assetCalculations';
+import { ShamsiDatePickerInput } from './ShamsiDatePickerInput';
 import {
   Layers,
   Plus,
@@ -640,13 +641,14 @@ export const FixedAssetsView: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1.5">تاریخ خرید</label>
-                  <input
-                    type="text"
+                  <ShamsiDatePickerInput
+                    id="fixed-asset-purchase-date"
                     value={assetPurchaseDate}
-                    onChange={e => setAssetPurchaseDate(e.target.value)}
-                    placeholder="1403/01/15"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-900 text-left outline-none"
+                    onChange={setAssetPurchaseDate}
+                    label="تاریخ خرید (شمسی)"
+                    required
+                    colorTheme="blue"
+                    placeholder="1405/01/15"
                   />
                 </div>
               </div>

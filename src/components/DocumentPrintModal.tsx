@@ -25,6 +25,8 @@ import html2canvas from 'html2canvas';
 import {
   Printer,
   X,
+  Eye,
+  EyeOff,
   FileCheck,
   Phone,
   MapPin,
@@ -70,7 +72,26 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
   );
   const [showBarcode, setShowBarcode] = useState<boolean>(true);
   const [showSignatures, setShowSignatures] = useState<boolean>(true);
-  const [showCustomerBalance, setShowCustomerBalance] = useState<boolean>(true);
+  const [showCustomerBalance, setShowCustomerBalance] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('print_show_customer_balance');
+      if (saved !== null) return saved === 'true';
+    } catch {
+      // ignore
+    }
+    return companySettings.showCustomerBalanceOnInvoice !== undefined
+      ? companySettings.showCustomerBalanceOnInvoice
+      : true;
+  });
+
+  // Persist showCustomerBalance preference
+  React.useEffect(() => {
+    try {
+      localStorage.setItem('print_show_customer_balance', String(showCustomerBalance));
+    } catch {
+      // ignore
+    }
+  }, [showCustomerBalance]);
 
   // Digital Signature and Stamp States
   const [showStamp, setShowStamp] = useState<boolean>(
@@ -454,6 +475,37 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
               <Download className="w-4 h-4" />
               <span>خروجی PDF</span>
             </button>
+
+            {/* Customer Balance Toggle Button (نمایش یا مخفی سازی چاپ الباقی حساب مشتری روی فاکتور) */}
+            {(document.type === 'invoice' || !!invData) && (
+              <button
+                id="doc-toggle-customer-balance-btn"
+                type="button"
+                onClick={() => setShowCustomerBalance(prev => !prev)}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition shadow-xs cursor-pointer active:scale-95 border ${
+                  showCustomerBalance
+                    ? 'bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 border-amber-400/40'
+                    : 'bg-white/10 hover:bg-white/15 text-slate-300 border-white/10'
+                }`}
+                title={
+                  showCustomerBalance
+                    ? 'الباقی حساب مشتری در فاکتور چاپی نمایان است (جهت مخفی‌سازی کلیک کنید)'
+                    : 'الباقی حساب مشتری در فاکتور چاپی مخفی است (جهت نمایش کلیک کنید)'
+                }
+              >
+                {showCustomerBalance ? (
+                  <>
+                    <Eye className="w-3.5 h-3.5 text-amber-400" />
+                    <span>الباقی حساب: نمایان</span>
+                  </>
+                ) : (
+                  <>
+                    <EyeOff className="w-3.5 h-3.5 text-slate-400" />
+                    <span>الباقی حساب: مخفی</span>
+                  </>
+                )}
+              </button>
+            )}
 
             {/* Close Button */}
             <button

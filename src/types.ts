@@ -225,6 +225,7 @@ export interface CompanySettings {
   stampColor?: 'blue' | 'red' | 'navy'; // رنگ جوهر مهر در صورت استفاده از مهر سیستمی
   showStampOnInvoice?: boolean; // نمایش پیش‌فرض مهر روی فاکتورها هنگام پرینت
   showSignatureOnInvoice?: boolean; // نمایش پیش‌فرض امضا روی فاکتورها هنگام پرینت
+  showCustomerBalanceOnInvoice?: boolean; // نمایش پیش‌فرض الباقی حساب مشتری روی فاکتور چاپی
   stampSize?: number; // اندازه قطر مهر رسمی بر حسب پیکسل (پیش‌فرض: 56)
   signatureSize?: number; // اندازه ارتفاع امضای دیجیتال بر حسب پیکسل (پیش‌فرض: 48)
   phone: string; // شماره تماس اصلی

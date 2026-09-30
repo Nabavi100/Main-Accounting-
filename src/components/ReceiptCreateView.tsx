@@ -4,6 +4,7 @@ import { Currency, CashRegisterType } from '../types';
 import { formatNumber, formatCurrency, getPersianDate, getCurrentTime } from '../utils/formatters';
 import { PartySearchSelector } from './PartySearchSelector';
 import { QuickAddPartyModal } from './QuickAddPartyModal';
+import { ShamsiDatePickerInput } from './ShamsiDatePickerInput';
 import {
   ArrowDownLeft,
   ArrowLeft,
@@ -423,18 +424,16 @@ export const ReceiptCreateView: React.FC<ReceiptCreateViewProps> = ({
           </div>
 
           <div>
-            <span className="text-slate-500 font-bold block mb-1">تاریخ سند:</span>
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={date}
-                onChange={e => setDate(e.target.value)}
-                className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-xl font-mono font-bold text-slate-900 text-left outline-none"
-              />
-              <span className="text-[10px] text-slate-500 font-mono whitespace-nowrap">
-                میلادی: {gregorianDate}
-              </span>
-            </div>
+            <ShamsiDatePickerInput
+              id="receipt-create-date-input"
+              value={date}
+              onChange={setDate}
+              label="تاریخ سند (شمسی)"
+              required
+              colorTheme="emerald"
+              showGregorianPreview
+              placeholder="1405/06/15"
+            />
           </div>
         </div>
 

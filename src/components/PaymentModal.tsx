@@ -4,6 +4,7 @@ import { Currency, TransactionType, CashRegisterType, FinancialTransaction } fro
 import { formatNumber, formatCurrency, getPersianDate } from '../utils/formatters';
 import { PartySearchSelector } from './PartySearchSelector';
 import { QuickAddPartyModal } from './QuickAddPartyModal';
+import { ShamsiDatePickerInput } from './ShamsiDatePickerInput';
 import {
   ArrowDownLeft,
   ArrowUpRight,
@@ -787,13 +788,14 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 />
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">تاریخ سند</label>
-                <input
-                  type="text"
+                <ShamsiDatePickerInput
+                  id="payment-modal-date-input"
                   value={date}
-                  onChange={e => setDate(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900"
+                  onChange={setDate}
+                  label="تاریخ سند (شمسی)"
                   required
+                  colorTheme="emerald"
+                  placeholder="1405/06/15"
                 />
               </div>
             </div>

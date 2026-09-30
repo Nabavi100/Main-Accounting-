@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import { Currency, FinancialTransaction } from '../types';
 import { formatNumber, formatCurrency, getPersianDate } from '../utils/formatters';
+import { ShamsiDatePickerInput } from './ShamsiDatePickerInput';
 import {
   ArrowLeftRight,
   ArrowRight,
@@ -923,12 +924,14 @@ export const CashToCashTransferView: React.FC<CashToCashTransferViewProps> = ({
                 </div>
               ) : (
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700">تاریخ عملیه (شمسی)</label>
-                  <input
-                    type="text"
+                  <ShamsiDatePickerInput
+                    id="transfer-date-input"
                     value={transferDate}
-                    onChange={e => setTransferDate(e.target.value)}
-                    className="w-full text-xs font-bold font-mono p-3 rounded-2xl border border-slate-300 bg-white text-center outline-none focus:border-blue-500"
+                    onChange={setTransferDate}
+                    label="تاریخ عملیه (شمسی)"
+                    required
+                    colorTheme="blue"
+                    placeholder="1405/06/15"
                   />
                 </div>
               )}
@@ -1288,12 +1291,14 @@ export const CashToCashTransferView: React.FC<CashToCashTransferViewProps> = ({
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-700">تاریخ عملیه (شمسی)</label>
-                <input
-                  type="text"
+                <ShamsiDatePickerInput
+                  id="exchange-date-input"
                   value={exchangeDate}
-                  onChange={e => setExchangeDate(e.target.value)}
-                  className="w-full text-xs font-bold font-mono p-3 rounded-2xl border border-slate-300 bg-white text-center outline-none focus:border-indigo-500"
+                  onChange={setExchangeDate}
+                  label="تاریخ عملیه (شمسی)"
+                  required
+                  colorTheme="blue"
+                  placeholder="1405/06/15"
                 />
               </div>
             </div>

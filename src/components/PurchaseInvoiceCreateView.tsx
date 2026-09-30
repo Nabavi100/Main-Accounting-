@@ -10,6 +10,7 @@ import {
 } from '../utils/formatters';
 import { QuickAddPartyModal } from './QuickAddPartyModal';
 import { ProductSearchSelector } from './ProductSearchSelector';
+import { ShamsiDatePickerInput } from './ShamsiDatePickerInput';
 import {
   User,
   Calendar,
@@ -591,25 +592,17 @@ export const PurchaseInvoiceCreateView: React.FC<PurchaseInvoiceCreateViewProps>
             </div>
           </div>
 
-          {/* 2. تاریخ فاکتور (شمسی) */}
-          <div className="space-y-1">
-            <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
-              <span className="text-red-500">*</span>
-              <Calendar className="w-3.5 h-3.5 text-slate-500" />
-              <span>تاریخ فاکتور (شمسی)</span>
-            </label>
-            <input
-              type="text"
-              value={invoiceDate}
-              onChange={e => setInvoiceDate(e.target.value)}
-              placeholder="1405/06/15"
-              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-800 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none text-center"
-            />
-            <div className="flex items-center gap-1 text-[10px] text-emerald-600 font-mono mt-0.5">
-              <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
-              <span>معادل میلادی (دیتابیس): {gregorianDateStr}</span>
-            </div>
-          </div>
+          {/* 2. تاریخ فاکتور (شمسی با تقویم و انتخاب موس) */}
+          <ShamsiDatePickerInput
+            id="purchase-invoice-date-input"
+            value={invoiceDate}
+            onChange={setInvoiceDate}
+            label="تاریخ فاکتور (شمسی)"
+            required
+            colorTheme="blue"
+            showGregorianPreview
+            placeholder="1405/06/15"
+          />
 
           {/* 3. شماره فاکتور خرید */}
           <div className="space-y-1">
@@ -779,7 +772,7 @@ export const PurchaseInvoiceCreateView: React.FC<PurchaseInvoiceCreateViewProps>
             <table className="w-full text-right text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-700 font-bold">
-                  <th className="py-2.5 px-3 w-[24%]">نام یا کد کالا</th>
+                  <th className="py-2.5 px-3 w-[17%]">نام یا کد کالا</th>
                   <th className="py-2.5 px-3 w-[12%]">واحد اندازه‌گیری</th>
                   <th className="py-2.5 px-3 w-[10%] text-center">تعداد</th>
                   <th className="py-2.5 px-3 w-[14%] text-center">
@@ -798,7 +791,7 @@ export const PurchaseInvoiceCreateView: React.FC<PurchaseInvoiceCreateViewProps>
                     </div>
                   </th>
                   <th className="py-2.5 px-3 w-[14%] text-center">مبلغ کل ({currency})</th>
-                  <th className="py-2.5 px-3 w-[20%] text-slate-900 font-bold bg-blue-50/50">
+                  <th className="py-2.5 px-3 w-[27%] text-slate-900 font-bold bg-blue-50/50">
                     <div className="flex items-center gap-1">
                       <FileText className="w-3.5 h-3.5 text-blue-700" />
                       <span>توضیحات قلم کالا (چاپ در فاکتور)</span>
@@ -811,7 +804,7 @@ export const PurchaseInvoiceCreateView: React.FC<PurchaseInvoiceCreateViewProps>
                 {rows.map((row, index) => (
                   <tr key={row.id} className="hover:bg-slate-50/60 transition">
                     {/* 1. نام یا کد کالا (تایپ و جستجوی هوشمند Autocomplete) */}
-                    <td className="p-2 min-w-[220px]">
+                    <td className="p-2 min-w-[170px]">
                       <ProductSearchSelector
                         id={`prod-search-${row.id}`}
                         compact
