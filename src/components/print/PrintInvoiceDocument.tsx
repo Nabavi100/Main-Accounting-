@@ -85,6 +85,7 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
 
   const items = inv.items || [];
   const warehouseName = getWarehouseName(inv.warehouseId) || 'انبار مرکزی';
+  const invoiceNotes = (inv.notes || (inv as any).description || '').trim();
 
   // Helper for unit text
   const formatItemUnit = (unit?: string) => {
@@ -349,8 +350,11 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
               <p>• فاکتور هذا بدون مهر و امضاء اعتبار ندارد.</p>
               <p>• اجناس فروخته شده برای تمام مشترکین موسسات و شرکت ها بدون مالیه میباشد.</p>
               <p>• جنس فروخته شده واپس گرفته نمیشود.</p>
-              {inv.notes && (
-                <p className="text-amber-900 font-bold">• یادداشت: {inv.notes}</p>
+              {invoiceNotes && (
+                <div className="mt-1 pt-1 border-t border-slate-300">
+                  <span className="font-black text-slate-950">توضیحات فاکتور:</span>{' '}
+                  <span className="text-slate-900 font-bold">{invoiceNotes}</span>
+                </div>
               )}
             </div>
 
@@ -529,6 +533,14 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
               </tbody>
             </table>
           </div>
+
+          {/* توضیحات حواله انبار (در صورت وجود) */}
+          {invoiceNotes && (
+            <div className="text-[10px] text-slate-800 bg-slate-50 px-2 py-0.5 rounded border border-slate-200 flex items-center gap-1.5">
+              <span className="font-bold text-slate-900 shrink-0">توضیحات حواله انبار:</span>
+              <span className="truncate">{invoiceNotes}</span>
+            </div>
+          )}
 
           {/* Lower Signatures (2 Columns: مسئول گدام و تحویل‌گیرنده) */}
           {showSignatures && (

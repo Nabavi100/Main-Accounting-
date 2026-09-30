@@ -129,6 +129,7 @@ export const PurchaseInvoiceCreateView: React.FC<PurchaseInvoiceCreateViewProps>
 
   // Overall discounts
   const [discount, setDiscount] = useState<number>(0);
+  const [notes, setNotes] = useState<string>('');
 
   // Extra expenses (هزینه‌های جانبی فاکتور: کرایه، تخلیه، باسکول و غیره)
   const [extraExpenses, setExtraExpenses] = useState<ExtraExpenseRowState[]>([]);
@@ -497,7 +498,7 @@ export const PurchaseInvoiceCreateView: React.FC<PurchaseInvoiceCreateViewProps>
         paymentType,
         cashRegister: selectedCashAccountId,
         cashRegisterId: selectedCashAccountId,
-        notes: `نوع معامله: ${dealType}${extraExpensesTotal > 0 ? ` | هزینه‌های جانبی: ${extraExpensesTotal} ${currency}` : ''}`,
+        notes: notes.trim() || undefined,
       });
 
       if (shouldPrint) {
@@ -1236,6 +1237,24 @@ export const PurchaseInvoiceCreateView: React.FC<PurchaseInvoiceCreateViewProps>
                 />
               </div>
             </div>
+          </div>
+
+          {/* توضیحات و شرایط اختصاصی فاکتور خرید (در پرینت فاکتور درج می‌شود) */}
+          <div className="space-y-1.5 pt-1">
+            <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5 text-blue-600" />
+                <span>توضیحات و شرایط اختصاصی فاکتور (در فاکتور چاپی درج می‌شود):</span>
+              </span>
+              <span className="text-[10px] text-slate-400 font-normal">اختیاری</span>
+            </label>
+            <textarea
+              rows={2}
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="توضیحات تکمیلی، شرایط تسویه، مشخصات بارگیری یا هرگونه یادداشت که می‌خواهید روی فاکتور چاپ شود..."
+              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:border-blue-500 outline-none resize-none shadow-2xs leading-relaxed"
+            />
           </div>
 
           {/* Persistent Supplier Account Balance Status on System */}

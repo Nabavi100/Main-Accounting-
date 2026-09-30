@@ -123,6 +123,7 @@ export const SalesInvoiceCreateView: React.FC<SalesInvoiceCreateViewProps> = ({
   // Bottom section: discount, shipping, payment type, cash account, paid amount
   const [discount, setDiscount] = useState<number>(0);
   const [shippingCost, setShippingCost] = useState<number>(0);
+  const [notes, setNotes] = useState<string>('');
 
   // Explicit user requirement: "گزینه نقدی و نسیه و نیمه نسیه"
   const [paymentType, setPaymentType] = useState<'نقدی' | 'نسیه' | 'نیمه نسیه'>('نقدی');
@@ -443,7 +444,7 @@ export const SalesInvoiceCreateView: React.FC<SalesInvoiceCreateViewProps> = ({
         paymentType,
         cashRegister: selectedCashAccountId,
         cashRegisterId: selectedCashAccountId,
-        notes: `نوع معامله: ${dealType}${shippingCost > 0 ? ` | کرایه خروجی: ${shippingCost} ${currency}` : ''}`,
+        notes: notes.trim() || undefined,
       });
 
       // Auto-send or manual button send to Telegram
@@ -1163,6 +1164,24 @@ export const SalesInvoiceCreateView: React.FC<SalesInvoiceCreateViewProps> = ({
                 />
               </div>
             </div>
+          </div>
+
+          {/* توضیحات و شرایط اختصاصی فاکتور (در پرینت فاکتور درج می‌شود) */}
+          <div className="space-y-1.5 pt-1">
+            <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <FileText className="w-3.5 h-3.5 text-emerald-600" />
+                <span>توضیحات و شرایط اختصاصی فاکتور (در فاکتور چاپی درج می‌شود):</span>
+              </span>
+              <span className="text-[10px] text-slate-400 font-normal">اختیاری</span>
+            </label>
+            <textarea
+              rows={2}
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="توضیحات تکمیلی، شرایط تسویه، مشخصات بارگیری یا هرگونه یادداشت که می‌خواهید روی فاکتور چاپ شود..."
+              className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:border-emerald-500 outline-none resize-none shadow-2xs leading-relaxed"
+            />
           </div>
 
           {/* Persistent Customer Account Balance Status on System */}
