@@ -216,7 +216,7 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
           {/* Symmetrical Seller & Buyer Cards with Dark Header Strips */}
           <div className="grid grid-cols-2 gap-3 text-xs shrink-0">
             {/* Right: Seller Information (اطلاعات شرکت صادرکننده) */}
-            <div className="border border-slate-400 rounded-md overflow-hidden bg-white shadow-2xs">
+            <div className="border border-slate-400 rounded-sm overflow-hidden bg-white shadow-2xs">
               <div className="bg-[#1E293B] text-white px-3 py-1 flex items-center justify-between font-bold text-xs">
                 <span className="flex items-center gap-1.5 font-bold">
                   <Building2 className="w-3.5 h-3.5" />
@@ -226,22 +226,22 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
                   کد تجاری: {companySettings.taxId || companySettings.tin || '1'}
                 </span>
               </div>
-              <div className="p-2 space-y-1 text-slate-800 text-xs leading-normal bg-white">
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-600 font-bold">نام واحد تجاری:</span>
-                  <strong className="text-slate-950 font-black truncate max-w-[210px]">
+              <div className="p-2 space-y-1.5 text-slate-800 text-xs leading-normal bg-white">
+                <div className="flex items-center gap-2 text-right">
+                  <span className="text-slate-600 font-bold shrink-0">نام واحد تجاری:</span>
+                  <span className="text-slate-950 font-black truncate">
                     {companySettings.name || 'شرکت تجارتی اسحاق هارون واسعی'}
-                  </strong>
+                  </span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-600 font-bold">شماره تماس:</span>
+                <div className="flex items-center gap-2 text-right border-b border-dotted border-slate-300 pb-1">
+                  <span className="text-slate-600 font-bold shrink-0">شماره تماس:</span>
                   <span className="text-slate-950 font-mono font-bold">
                     {companySettings.phone || '0794511271'} - {companySettings.phoneSecondary || '0795986263'}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-600 font-bold">آدرس شرکت:</span>
-                  <span className="truncate max-w-[210px] text-slate-800 font-medium">
+                <div className="flex items-center gap-2 text-right pt-0.5">
+                  <span className="text-slate-600 font-bold shrink-0">آدرس شرکت:</span>
+                  <span className="text-slate-800 font-medium truncate">
                     {companySettings.address || 'هرات ، سرک 64 متره - نقطه هفت'}
                   </span>
                 </div>
@@ -249,7 +249,7 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
             </div>
 
             {/* Left: Customer Information (اطلاعات طرف حساب مشتری) */}
-            <div className="border border-slate-400 rounded-md overflow-hidden bg-white shadow-2xs">
+            <div className="border border-slate-400 rounded-sm overflow-hidden bg-white shadow-2xs">
               <div className="bg-[#1E293B] text-white px-3 py-1 flex items-center justify-between font-bold text-xs">
                 <span className="flex items-center gap-1.5 font-bold">
                   <User className="w-3.5 h-3.5" />
@@ -259,20 +259,20 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
                   کد حساب: {partyCode}
                 </span>
               </div>
-              <div className="p-2 space-y-1 text-slate-800 text-xs leading-normal bg-white">
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-600 font-bold">مشتری محترم:</span>
-                  <strong className="text-slate-950 font-black truncate max-w-[210px]">
+              <div className="p-2 space-y-1.5 text-slate-800 text-xs leading-normal bg-white">
+                <div className="flex items-center gap-2 text-right">
+                  <span className="text-slate-600 font-bold shrink-0">مشتری محترم:</span>
+                  <span className="text-slate-950 font-black truncate">
                     {inv.partyName || 'شرکت جهان نیرو'}
-                  </strong>
+                  </span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-600 font-bold">شماره تماس:</span>
+                <div className="flex items-center gap-2 text-right border-b border-dotted border-slate-300 pb-1">
+                  <span className="text-slate-600 font-bold shrink-0">شماره تماس:</span>
                   <span className="text-slate-950 font-mono font-bold">{partyPhone}</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-600 font-bold">آدرس مشتری:</span>
-                  <span className="truncate max-w-[210px] text-slate-800 font-medium">{partyAddress}</span>
+                <div className="flex items-center gap-2 text-right pt-0.5">
+                  <span className="text-slate-600 font-bold shrink-0">آدرس مشتری:</span>
+                  <span className="text-slate-800 font-medium truncate">{partyAddress}</span>
                 </div>
               </div>
             </div>
@@ -464,18 +464,22 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
                 برگه حواله خروج کالا از گدام (نسخه گدام‌دار)
               </span>
             </div>
-            <div className="flex items-center gap-4 text-slate-800 text-xs">
-              <div>
-                شماره فاکتور مرجع: <strong className="text-slate-950 font-black font-mono">#{inv.invoiceNumber}</strong>
+            <div className="flex items-center gap-3.5 text-slate-800 text-xs">
+              <div className="flex items-center gap-1">
+                <span className="text-slate-600 font-bold">شماره فاکتور مرجع:</span>
+                <strong className="text-slate-950 font-black font-mono">#{inv.invoiceNumber}</strong>
               </div>
-              <div>
-                تاریخ ثبت: <strong className="font-mono">{inv.date}</strong>
+              <div className="flex items-center gap-1">
+                <span className="text-slate-600 font-bold">تاریخ ثبت:</span>
+                <strong className="font-mono text-slate-900">{inv.date}</strong>
               </div>
-              <div>
-                ساعت ثبت: <strong className="font-mono">{issueTime}</strong>
+              <div className="flex items-center gap-1">
+                <span className="text-slate-600 font-bold">ساعت ثبت:</span>
+                <strong className="font-mono text-slate-900">{issueTime}</strong>
               </div>
-              <div>
-                تحویل به مشتری: <strong className="font-sans text-slate-950 font-black">{inv.partyName || 'شرکت جهان نیرو'}</strong>
+              <div className="flex items-center gap-1">
+                <span className="text-slate-600 font-bold">تحویل به مشتری:</span>
+                <strong className="font-sans text-slate-950 font-black">{inv.partyName || 'شرکت جهان نیرو'}</strong>
               </div>
             </div>
           </div>
