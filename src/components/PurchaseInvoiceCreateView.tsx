@@ -776,13 +776,13 @@ export const PurchaseInvoiceCreateView: React.FC<PurchaseInvoiceCreateViewProps>
         {/* ========================================================================= */}
         <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-2xs">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[850px] text-right text-xs border-collapse">
+            <table className="w-full text-right text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-700 font-bold">
-                  <th className="py-2.5 px-3 w-[26%]">نام یا کد کالا</th>
-                  <th className="py-2.5 px-3 w-[14%]">واحد اندازه‌گیری</th>
+                  <th className="py-2.5 px-3 w-[24%]">نام یا کد کالا</th>
+                  <th className="py-2.5 px-3 w-[12%]">واحد اندازه‌گیری</th>
                   <th className="py-2.5 px-3 w-[10%] text-center">تعداد</th>
-                  <th className="py-2.5 px-3 w-[15%] text-center">
+                  <th className="py-2.5 px-3 w-[14%] text-center">
                     <div className="flex items-center justify-center gap-1">
                       <span>قیمت واحد</span>
                       <button
@@ -797,8 +797,13 @@ export const PurchaseInvoiceCreateView: React.FC<PurchaseInvoiceCreateViewProps>
                       </button>
                     </div>
                   </th>
-                  <th className="py-2.5 px-3 w-[15%] text-center">مبلغ کل ({currency})</th>
-                  <th className="py-2.5 px-3 w-[16%]">توضیحات ردیف (اختیاری)</th>
+                  <th className="py-2.5 px-3 w-[14%] text-center">مبلغ کل ({currency})</th>
+                  <th className="py-2.5 px-3 w-[20%] text-slate-900 font-bold bg-blue-50/50">
+                    <div className="flex items-center gap-1">
+                      <FileText className="w-3.5 h-3.5 text-blue-700" />
+                      <span>توضیحات قلم کالا (چاپ در فاکتور)</span>
+                    </div>
+                  </th>
                   <th className="py-2.5 px-3 w-[4%] text-center">عملیات</th>
                 </tr>
               </thead>
@@ -900,14 +905,14 @@ export const PurchaseInvoiceCreateView: React.FC<PurchaseInvoiceCreateViewProps>
                       </div>
                     </td>
 
-                    {/* 6. توضیحات ردیف (اختیاری) */}
+                    {/* 6. توضیحات قلم کالا (چاپ در فاکتور) */}
                     <td className="p-2">
                       <input
                         type="text"
                         value={row.description}
                         onChange={e => handleUpdateRow(row.id, { description: e.target.value })}
-                        placeholder="توضیحات اختیاری این کالا"
-                        className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-700 focus:border-blue-500 outline-none"
+                        placeholder="توضیحات این قلم..."
+                        className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 focus:border-blue-500 outline-none font-medium"
                       />
                     </td>
 

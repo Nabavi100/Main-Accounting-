@@ -410,7 +410,7 @@ export const EditInvoiceModal: React.FC<EditInvoiceModalProps> = ({
             </div>
 
             {/* Inline Add Item Form */}
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3 items-end">
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-7 gap-3 items-end">
               <div className="md:col-span-2">
                 <label className="block text-[11px] font-bold text-slate-600 mb-1">کالا (انتخاب با تایپ و جستجو)</label>
                 <ProductSearchSelector
@@ -468,6 +468,19 @@ export const EditInvoiceModal: React.FC<EditInvoiceModalProps> = ({
               </div>
 
               <div>
+                <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                  توضیحات قلم
+                </label>
+                <input
+                  type="text"
+                  placeholder="توضیحات قلم..."
+                  value={itemDescription}
+                  onChange={e => setItemDescription(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs text-slate-800"
+                />
+              </div>
+
+              <div>
                 <button
                   type="button"
                   onClick={handleAddItem}
@@ -505,6 +518,7 @@ export const EditInvoiceModal: React.FC<EditInvoiceModalProps> = ({
                         </div>
                       </th>
                       <th className="p-3 text-center">مبلغ کل ({currency})</th>
+                      <th className="p-3 text-center">توضیحات</th>
                       <th className="p-3 text-center w-16">حذف</th>
                     </tr>
                   </thead>
@@ -525,6 +539,9 @@ export const EditInvoiceModal: React.FC<EditInvoiceModalProps> = ({
                         </td>
                         <td className="p-3 text-center font-mono font-bold text-blue-700">
                           {formatCurrency(it.totalPrice, currency)}
+                        </td>
+                        <td className="p-3 text-center text-slate-600 text-[11px] truncate max-w-[120px]">
+                          {it.description || '---'}
                         </td>
                         <td className="p-3 text-center">
                           <button

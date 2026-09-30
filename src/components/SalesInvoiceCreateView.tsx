@@ -791,14 +791,14 @@ export const SalesInvoiceCreateView: React.FC<SalesInvoiceCreateViewProps> = ({
         {/* ========================================================================= */}
         <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-2xs">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[850px] text-right text-xs border-collapse">
+            <table className="w-full text-right text-xs border-collapse">
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-700 font-bold">
-                  <th className="py-2.5 px-3 w-[24%]">نام یا کد کالا</th>
-                  <th className="py-2.5 px-3 w-[12%]">واحد اندازه‌گیری</th>
-                  <th className="py-2.5 px-3 w-[12%] text-center">موجود در گدام</th>
+                  <th className="py-2.5 px-3 w-[22%]">نام یا کد کالا</th>
+                  <th className="py-2.5 px-3 w-[10%]">واحد اندازه‌گیری</th>
+                  <th className="py-2.5 px-3 w-[10%] text-center">موجود در گدام</th>
                   <th className="py-2.5 px-3 w-[10%] text-center">تعداد فروش</th>
-                  <th className="py-2.5 px-3 w-[14%] text-center">
+                  <th className="py-2.5 px-3 w-[13%] text-center">
                     <div className="flex items-center justify-center gap-1">
                       <span>قیمت فروش (فی)</span>
                       <button
@@ -814,7 +814,12 @@ export const SalesInvoiceCreateView: React.FC<SalesInvoiceCreateViewProps> = ({
                     </div>
                   </th>
                   <th className="py-2.5 px-3 w-[13%] text-center">جمع کل ({currency})</th>
-                  <th className="py-2.5 px-3 w-[12%]">توضیحات ردیف (اختیاری)</th>
+                  <th className="py-2.5 px-3 w-[18%] text-slate-900 font-bold bg-emerald-50/50">
+                    <div className="flex items-center gap-1">
+                      <FileText className="w-3.5 h-3.5 text-emerald-700" />
+                      <span>توضیحات قلم کالا (چاپ در فاکتور)</span>
+                    </div>
+                  </th>
                   <th className="py-2.5 px-3 w-[4%] text-center">حذف</th>
                 </tr>
               </thead>
@@ -930,14 +935,14 @@ export const SalesInvoiceCreateView: React.FC<SalesInvoiceCreateViewProps> = ({
                         </div>
                       </td>
 
-                      {/* 7. توضیحات ردیف (اختیاری) */}
+                      {/* 7. توضیحات قلم کالا (چاپ در فاکتور) */}
                       <td className="p-2">
                         <input
                           type="text"
                           value={row.description}
                           onChange={e => handleUpdateRow(row.id, { description: e.target.value })}
-                          placeholder="توضیحات اختیاری"
-                          className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-700 focus:border-emerald-500 outline-none"
+                          placeholder="توضیحات این قلم..."
+                          className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs text-slate-800 focus:border-emerald-500 outline-none font-medium"
                         />
                       </td>
 
