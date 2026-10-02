@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Currency, Invoice, FinancialTransaction, ExpenseItem, StockTransfer } from '../types';
 import { formatCurrency, formatNumberEn, getPersianDate } from '../utils/formatters';
+import { ShamsiDatePickerInput } from './ShamsiDatePickerInput';
 
 interface ComprehensiveJournalViewProps {
   onViewInvoice?: (id: string) => void;
@@ -865,30 +866,30 @@ export const ComprehensiveJournalView: React.FC<ComprehensiveJournalViewProps> =
 
           {/* Date range inputs */}
           <div className="flex items-center gap-2 mr-2">
-            <div className="flex flex-col">
-              <span className="text-[10px] text-slate-500 font-bold mb-0.5">از تاریخ (شروع بازه)</span>
-              <input
-                type="text"
+            <div className="w-36">
+              <ShamsiDatePickerInput
+                id="journal-start-date"
                 value={startDate}
-                onChange={e => {
-                  setStartDate(e.target.value);
+                onChange={d => {
+                  setStartDate(d);
                   setDateQuickFilter('custom');
                 }}
-                className="w-28 text-center font-mono text-xs font-bold px-2 py-1 bg-white border border-slate-300 rounded-xl focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                label="از تاریخ:"
+                colorTheme="blue"
                 placeholder="1405/01/01"
               />
             </div>
 
-            <div className="flex flex-col">
-              <span className="text-[10px] text-slate-500 font-bold mb-0.5">تا تاریخ (پایان بازه)</span>
-              <input
-                type="text"
+            <div className="w-36">
+              <ShamsiDatePickerInput
+                id="journal-end-date"
                 value={endDate}
-                onChange={e => {
-                  setEndDate(e.target.value);
+                onChange={d => {
+                  setEndDate(d);
                   setDateQuickFilter('custom');
                 }}
-                className="w-28 text-center font-mono text-xs font-bold px-2 py-1 bg-white border border-slate-300 rounded-xl focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                label="تا تاریخ:"
+                colorTheme="blue"
                 placeholder="1405/12/29"
               />
             </div>

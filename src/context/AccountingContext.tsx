@@ -62,6 +62,7 @@ import {
 } from '../data/initialData';
 import { getCurrentTime, getPersianDate, getTodayDate } from '../utils/formatters';
 import { ExpenseCategory, ExpenseItem, IncomeCategory, IncomeItem } from '../types';
+import { syncPartiesToBackend } from '../services/telegramApiService';
 
 export interface ToastNotification {
   id: string;
@@ -575,6 +576,10 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   useEffect(() => {
     safeSetItem(LOCAL_STORAGE_KEY + '_parties', JSON.stringify(parties));
+    const timer = setTimeout(() => {
+      syncPartiesToBackend(parties).catch(() => {});
+    }, 1200);
+    return () => clearTimeout(timer);
   }, [parties]);
 
   useEffect(() => {

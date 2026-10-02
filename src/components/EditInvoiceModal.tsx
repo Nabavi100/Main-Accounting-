@@ -497,12 +497,12 @@ export const EditInvoiceModal: React.FC<EditInvoiceModalProps> = ({
                 <table className="w-full text-right text-xs">
                   <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
                     <tr>
-                      <th className="p-3 text-center w-12">#</th>
-                      <th className="p-3">شرح کالا</th>
-                      <th className="p-3">گدام</th>
-                      <th className="p-3 text-center">مقدار</th>
-                      <th className="p-3 text-center">معادل کیسه/تن</th>
-                      <th className="p-3 text-center">
+                      <th className="p-3 text-center w-10">#</th>
+                      <th className="p-3 w-[16%]">شرح کالا</th>
+                      <th className="p-3 w-[10%]">گدام</th>
+                      <th className="p-3 text-center w-[9%]">مقدار</th>
+                      <th className="p-3 text-center w-[11%]">معادل کیسه/تن</th>
+                      <th className="p-3 text-center w-[12%]">
                         <div className="flex items-center justify-center gap-1">
                           <span>قیمت فی</span>
                           <button
@@ -516,9 +516,9 @@ export const EditInvoiceModal: React.FC<EditInvoiceModalProps> = ({
                           </button>
                         </div>
                       </th>
-                      <th className="p-3 text-center">مبلغ کل ({currency})</th>
-                      <th className="p-3 text-center">توضیحات</th>
-                      <th className="p-3 text-center w-16">حذف</th>
+                      <th className="p-3 text-center w-[12%]">مبلغ کل ({currency})</th>
+                      <th className="p-3 text-right w-[25%]">توضیحات</th>
+                      <th className="p-3 text-center w-12">حذف</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">

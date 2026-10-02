@@ -198,6 +198,20 @@ function normalizePhone(raw: string): string {
   return s;
 }
 
+function extractPhoneFromText(text: string): string | null {
+  if (!text) return null;
+  const digits = normalizeDigits(text);
+  const match = digits.match(/(?:(?:\+|00)?93\s*|0)?(7\d{8})/);
+  if (match) {
+    return '0' + match[1];
+  }
+  const matchGen = digits.match(/(0\d{8,10})/);
+  if (matchGen) {
+    return matchGen[1];
+  }
+  return null;
+}
+
 function phonesMatch(p1: string, p2: string): boolean {
   const n1 = normalizePhone(p1);
   const n2 = normalizePhone(p2);
@@ -485,7 +499,7 @@ async function handleTelegramUpdate(update: any, botToken: string) {
       status: 'success',
       message: matchedParty
         ? `شماره تماس ${rawPhone} دریافت و فوراً با پرونده «${matchedParty.name}» متصل شد.`
-        : `شماره تماس ${rawPhone} دریافت شد. کد اتصال: ${connectionCode}`,
+        : `مشتری با شماره ${rawPhone} (${fullName}) منتظر تایید هست به حسابش لینک کنید. کد اتصال: ${connectionCode}`,
     });
 
     const replyText = matchedParty
@@ -531,6 +545,83 @@ async function handleTelegramUpdate(update: any, botToken: string) {
 
   // 2. TEXT MESSAGES & COMMANDS
   const text = (msg.text || '').trim();
+
+  // 2.1 Check if message contains a typed phone number
+  const extractedPhone = extractPhoneFromText(text);
+  if (extractedPhone && !text.includes('تماس با دفتر') && !text.includes('وضعیت حساب')) {
+    const parties = loadPartiesCache();
+    const matchedParty = parties.find(p => p.phone && phonesMatch(p.phone, extractedPhone));
+
+    let connectionCode = existingUser?.connectionCode || generateConnectionCode();
+
+    existingUser.phoneNumber = extractedPhone;
+    existingUser.firstName = firstName || existingUser.firstName;
+    existingUser.lastName = lastName || existingUser.lastName;
+    existingUser.username = username || existingUser.username;
+    if (!existingUser.connectionCode) existingUser.connectionCode = connectionCode;
+
+    if (matchedParty) {
+      existingUser.status = 'connected';
+      existingUser.partyId = matchedParty.id;
+      existingUser.partyName = matchedParty.name;
+      existingUser.linkedAt = new Date().toISOString();
+    } else {
+      existingUser.status = 'pending';
+    }
+
+    saveUsers(users);
+
+    addLog({
+      chatId,
+      partyName: matchedParty ? matchedParty.name : fullName,
+      type: matchedParty ? 'connected' : 'auth_pending',
+      status: 'success',
+      message: matchedParty
+        ? `شماره تماس ${extractedPhone} دریافت و فوراً با پرونده «${matchedParty.name}» متصل شد.`
+        : `مشتری با شماره ${extractedPhone} (${fullName}) منتظر تایید هست به حسابش لینک کنید. کد اتصال: ${connectionCode}`,
+    });
+
+    const replyText = matchedParty
+      ? `
+✅ <b>تبریک! شماره شما با موفقیت شناسایی و حسابتان متصل گردید.</b>
+━━━━━━━━━━━━━━━━━━━━
+👤 <b>طرف حساب متصل:</b> ${matchedParty.name}
+📞 <b>شماره شناسایی‌شده:</b> <code>${extractedPhone}</code>
+🔑 <b>کد اتصال شما:</b> <code>${connectionCode}</code>
+━━━━━━━━━━━━━━━━━━━━
+از این پس فاکتورها، رسیدها و صورت‌حساب اختصاصی شما مستقیماً در همین ربات برای شما ارسال خواهد شد.
+`.trim()
+      : `
+📱 <b>شماره تماس شما (${extractedPhone}) با موفقیت ثبت گردید.</b>
+━━━━━━━━━━━━━━━━━━━━
+👤 <b>نام:</b> ${fullName}
+📞 <b>شماره ثبت‌شده:</b> <code>${extractedPhone}</code>
+🔑 <b>کد اتصال یکتای شما:</b> <code>${connectionCode}</code>
+━━━━━━━━━━━━━━━━━━━━
+⏳ <b>پیغام به سیستم حسابداری ارسال گردید:</b>
+<i>«مشتری با شماره ${extractedPhone} منتظر تایید هست به حسابش لینک کنید»</i>
+
+به محض تأیید یا انتخاب توسط حسابدار شرکت، دسترسی حساب شما فعال خواهد شد.
+`.trim();
+
+    await telegramApiCall(botToken, 'sendMessage', {
+      chat_id: chatId,
+      text: replyText,
+      parse_mode: 'HTML',
+      reply_markup: {
+        keyboard: matchedParty
+          ? [
+              [{ text: '📋 دریافت خلاصه وضعیت حساب' }],
+              [{ text: '☎️ تماس با دفتر شرکت' }],
+            ]
+          : [
+              [{ text: '🔄 استعلام وضعیت اتصال' }, { text: '☎️ تماس با دفتر شرکت' }],
+            ],
+        resize_keyboard: true,
+      },
+    });
+    return;
+  }
 
   // If user clicked "☎️ تماس با دفتر شرکت"
   if (text.includes('تماس با دفتر') || text.includes('تماس با شرکت')) {
@@ -667,6 +758,15 @@ app.get('/api/telegram/status', (req: Request, res: Response) => {
     defaultChatId: config.defaultChatId || '',
     isPolling,
     pendingCount: pending.length,
+    pendingUsers: pending.map(u => ({
+      id: u.id,
+      phoneNumber: u.phoneNumber,
+      fullName: [u.firstName, u.lastName].filter(Boolean).join(' ') || 'کاربر تلگرام',
+      telegramChatId: u.telegramChatId,
+      connectionCode: u.connectionCode,
+      username: u.username,
+      registeredAt: u.registeredAt,
+    })),
     connectedCount: connected.length,
     lastTestStatus: config.lastTestStatus || 'idle',
     lastTestedAt: config.lastTestedAt,

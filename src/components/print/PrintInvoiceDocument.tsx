@@ -673,10 +673,314 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
     );
   };
 
+  // Full Page Majestic Official A4 Invoice (فاکتور تمام صفحه رسمی اداری لوکس)
+  const renderFullA4Invoice = () => {
+    // Fill up to at least 8 rows for visual balance if invoice has few items
+    const displayItems: (InvoiceItem | null)[] = [...items];
+    while (displayItems.length < 8) {
+      displayItems.push(null);
+    }
+
+    return (
+      <div
+        className="a4-print-page w-full bg-white text-slate-950 p-6 sm:p-8 border border-slate-300 rounded-sm relative flex flex-col justify-between select-text"
+        dir="rtl"
+        style={{
+          minHeight: '287mm',
+          boxSizing: 'border-box',
+        }}
+      >
+        {renderWatermark()}
+
+        <div className="space-y-4">
+          {/* Top Majestic Header */}
+          <div className="flex items-center justify-between border-b-2 border-slate-900 pb-3">
+            {/* Meta Information (Right in RTL) */}
+            <div className="text-right text-xs text-slate-800 space-y-1 min-w-[170px]">
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-500 font-bold">شماره فاکتور:</span>
+                <strong className="text-slate-950 font-mono font-black text-sm">
+                  #{inv.invoiceNumber}
+                </strong>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-500 font-bold">تاریخ صدور:</span>
+                <strong className="text-slate-950 font-mono font-bold">{inv.date}</strong>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-500 font-bold">ساعت ثبت:</span>
+                <strong className="text-slate-700 font-mono">{issueTime}</strong>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-slate-500 font-bold">شرایط معامله:</span>
+                <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-900 font-bold text-[11px] border border-slate-200">
+                  {inv.dealTypeLabel || (inv.paymentType ? `${inv.paymentType}` : 'قرضی (اعتباری)')}
+                </span>
+              </div>
+            </div>
+
+            {/* Central Title & Company Brand */}
+            <div className="text-center flex-1 px-4">
+              <h1 className="text-2xl sm:text-3xl font-black text-slate-950 tracking-tight">
+                {companySettings.name || 'شرکت تجارتی اسحاق هارون واسعی'}
+              </h1>
+              <div className="mt-1.5 flex items-center justify-center gap-2">
+                <span className="inline-block bg-slate-900 text-white text-xs font-black px-4 py-1 rounded-full shadow-2xs tracking-wider">
+                  {isReturnSell
+                    ? 'فاکتور رسمی برگشت از فروش کالا'
+                    : isReturnBuy
+                    ? 'فاکتور رسمی برگشت از خرید کالا'
+                    : isSale
+                    ? 'فاکتور رسمی فروش کالا و خدمات'
+                    : 'فاکتور رسمی خرید کالا'}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-500 mt-1 font-sans">
+                {companySettings.slogan || 'ارائه دهنده باکیفیت‌ترین خدمات تجارتی و تأمین کالا'}
+              </p>
+            </div>
+
+            {/* Circular Logo (Left in RTL) */}
+            <div className="flex items-center justify-end min-w-[170px]">
+              {companySettings.logoUrl ? (
+                <div className="w-20 h-20 rounded-2xl border-2 border-slate-300 p-1 overflow-hidden flex items-center justify-center bg-white shadow-xs">
+                  <img
+                    src={companySettings.logoUrl}
+                    alt={companySettings.name}
+                    className="max-h-full max-w-full object-contain rounded-xl"
+                  />
+                </div>
+              ) : (
+                <div className="w-20 h-20 rounded-2xl border-2 border-slate-800 p-1 flex flex-col items-center justify-center bg-white text-slate-800 shadow-xs text-center">
+                  <Building2 className="w-7 h-7 text-slate-800 mb-0.5" />
+                  <span className="text-[8px] font-black leading-tight text-slate-900 truncate max-w-[70px]">
+                    {companySettings.name?.slice(0, 16) || 'شرکت تجارتی'}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Symmetrical Seller & Buyer Cards */}
+          <div className="grid grid-cols-2 gap-3 text-xs">
+            {/* Seller */}
+            <div className="border border-slate-300 rounded-lg overflow-hidden bg-white shadow-2xs">
+              <div className="bg-slate-800 text-white px-3 py-1.5 flex items-center justify-between font-bold text-xs">
+                <span className="flex items-center gap-1.5">
+                  <Building2 className="w-3.5 h-3.5 text-slate-300" />
+                  <span>مشخصات فروشنده (صادرکننده)</span>
+                </span>
+                <span className="font-mono text-[10px] text-slate-300">
+                  کد: {companySettings.taxId || '1'}
+                </span>
+              </div>
+              <div className="p-2.5 space-y-1 text-slate-800 leading-normal">
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500 font-bold shrink-0">نام شرکت:</span>
+                  <span className="text-slate-950 font-black">{companySettings.name || 'شرکت تجارتی'}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500 font-bold shrink-0">تلفن:</span>
+                  <span className="text-slate-950 font-mono font-bold">{companySettings.phone || '---'}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500 font-bold shrink-0">آدرس:</span>
+                  <span className="text-slate-700 truncate">{companySettings.address || '---'}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Buyer */}
+            <div className="border border-slate-300 rounded-lg overflow-hidden bg-white shadow-2xs">
+              <div className="bg-slate-800 text-white px-3 py-1.5 flex items-center justify-between font-bold text-xs">
+                <span className="flex items-center gap-1.5">
+                  <User className="w-3.5 h-3.5 text-slate-300" />
+                  <span>مشخصات خریدار (طرف حساب)</span>
+                </span>
+                <span className="font-mono text-[10px] text-slate-300">
+                  کد حساب: {partyCode}
+                </span>
+              </div>
+              <div className="p-2.5 space-y-1 text-slate-800 leading-normal">
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500 font-bold shrink-0">مشتری محترم:</span>
+                  <span className="text-slate-950 font-black">{inv.partyName || 'مشتری آزاد'}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500 font-bold shrink-0">تلفن تماس:</span>
+                  <span className="text-slate-950 font-mono font-bold">{partyPhone}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-500 font-bold shrink-0">آدرس خریدار:</span>
+                  <span className="text-slate-700 truncate">{partyAddress}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Main Full Table */}
+          <div className="border border-slate-400 rounded-lg overflow-hidden bg-white shadow-2xs">
+            <table className="w-full text-right border-collapse text-xs table-fixed">
+              <colgroup>
+                <col className="w-[4%]" />
+                <col className="w-[22%]" />
+                <col className="w-[8%]" />
+                <col className="w-[9%]" />
+                <col className="w-[13%]" />
+                <col className="w-[14%]" />
+                <col className="w-[30%]" />
+              </colgroup>
+              <thead>
+                <tr className="bg-slate-900 text-white font-bold h-8 text-xs">
+                  <th className="py-1 px-1 border-l border-white/20 text-center">#</th>
+                  <th className="py-1 px-2.5 border-l border-white/20 text-right">نام و شرح کالا / خدمات</th>
+                  <th className="py-1 px-1 border-l border-white/20 text-center">تعداد</th>
+                  <th className="py-1 px-1 border-l border-white/20 text-center">واحد</th>
+                  <th className="py-1 px-1 border-l border-white/20 text-center">قیمت واحد ({inv.currency || 'AFN'})</th>
+                  <th className="py-1 px-1 border-l border-white/20 text-center">مبلغ کل ({inv.currency || 'AFN'})</th>
+                  <th className="py-1 px-2 text-center">توضیحات و مشخصات قلم</th>
+                </tr>
+              </thead>
+              <tbody>
+                {displayItems.map((it, idx) => {
+                  const unitDisplay = it ? formatItemUnit(it.unit) : '';
+
+                  return (
+                    <tr
+                      key={`full-row-${idx}`}
+                      className={`border-b border-slate-200 h-8 font-bold text-xs ${
+                        idx % 2 === 1 ? 'bg-slate-50/50' : 'bg-white'
+                      }`}
+                    >
+                      <td className="py-1 px-1 border-l border-slate-300 text-center font-mono text-slate-700">
+                        {idx + 1}
+                      </td>
+                      <td className="py-1 px-2 border-l border-slate-300 text-slate-950 font-black truncate">
+                        {it?.productName || ''}
+                      </td>
+                      <td className="py-1 px-1 border-l border-slate-300 text-center font-mono text-slate-900">
+                        {it ? formatNumber(it.quantity) : ''}
+                      </td>
+                      <td className="py-1 px-1 border-l border-slate-300 text-center text-slate-700 text-[11px]">
+                        {unitDisplay}
+                      </td>
+                      <td className="py-1 px-1 border-l border-slate-300 text-center font-mono text-slate-900">
+                        {it ? formatNumber(it.unitPrice) : ''}
+                      </td>
+                      <td className="py-1 px-1 border-l border-slate-300 text-center font-mono text-slate-950 font-black">
+                        {it ? formatNumber(it.totalPrice) : ''}
+                      </td>
+                      <td className="py-1 px-2 text-right text-slate-700 text-[11px] break-words whitespace-normal leading-relaxed">
+                        {it?.description || (it ? '---' : '')}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Bottom Financial & Terms Grid */}
+          <div className="grid grid-cols-12 gap-3 text-xs">
+            {/* Right: Terms & Notes (7 cols) */}
+            <div className="col-span-7 border border-slate-300 rounded-lg p-3 bg-slate-50/60 flex flex-col justify-between">
+              <div className="space-y-1.5">
+                <span className="font-bold text-slate-800 text-xs block border-b border-slate-200 pb-1">
+                  شرایط و ملاحظات فاکتور:
+                </span>
+                <p className="text-[11px] text-slate-700 leading-relaxed">
+                  {inv.notes || companySettings.invoiceTerms || 'اجناس فروخته شده پس از تحویل از گدام و امضای برگه، قابل استرداد یا تعویض نمی‌باشد. لطفاً قبل از خروج بار، مشخصات و تعداد اقلام را به دقت بررسی فرمایید.'}
+                </p>
+              </div>
+              <div className="pt-2 text-[10px] text-slate-500 font-mono">
+                صادرکننده: {companySettings.name} • ثبت سیستم حسابداری هوشمند
+              </div>
+            </div>
+
+            {/* Left: Financial Summary Card (5 cols) */}
+            <div className="col-span-5 border border-slate-400 rounded-lg overflow-hidden bg-white shadow-2xs">
+              <table className="w-full text-xs text-right border-collapse">
+                <tbody>
+                  <tr className="border-b border-slate-200">
+                    <td className="py-1.5 px-3 font-bold text-slate-600 border-l border-slate-200">مجموع اقلام:</td>
+                    <td className="py-1.5 px-3 text-left font-mono font-bold text-slate-950">
+                      {formatNumber(subtotalVal)} {inv.currency || 'AFN'}
+                    </td>
+                  </tr>
+
+                  {discountVal > 0 && (
+                    <tr className="border-b border-slate-200 text-rose-700">
+                      <td className="py-1 px-3 font-bold border-l border-slate-200">تخفیف:</td>
+                      <td className="py-1 px-3 text-left font-mono font-bold">
+                        {formatNumber(discountVal)} - {inv.currency || 'AFN'}
+                      </td>
+                    </tr>
+                  )}
+
+                  <tr className="bg-slate-100 border-b border-slate-300 font-black">
+                    <td className="py-2 px-3 text-slate-950 border-l border-slate-300">مبلغ خالص فاکتور:</td>
+                    <td className="py-2 px-3 text-left font-mono text-sm text-slate-950">
+                      {formatNumber(inv.totalAmount)} {inv.currency || 'AFN'}
+                    </td>
+                  </tr>
+
+                  {/* Previous Balance Row */}
+                  <tr className="border-b border-slate-200 text-slate-700">
+                    <td className="py-1 px-3 font-bold border-l border-slate-200">مانده حساب قبلی:</td>
+                    <td className="py-1 px-3 text-left font-mono font-bold">
+                      {formatNumber(prevBalance)} {inv.currency || 'AFN'}
+                    </td>
+                  </tr>
+
+                  {/* Remaining Customer Balance (قابلیت نمایش یا مخفی‌سازی با سوییچ چاپ) */}
+                  {showCustomerBalance && (
+                    <tr className="bg-rose-50 text-rose-800 font-black">
+                      <td className="py-2 px-3 border-l border-rose-200">الباقی کل حساب مشتری:</td>
+                      <td className="py-2 px-3 text-left font-mono text-sm">
+                        {formatNumber(finalBalance)} {inv.currency || 'AFN'}
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Signatures & Stamp */}
+        <div className="pt-6 border-t-2 border-slate-900 grid grid-cols-3 gap-4 text-center text-xs mt-6">
+          <div className="space-y-12">
+            <span className="font-bold text-slate-800 block">امضا و اثر انگشت خریدار:</span>
+            <div className="border-b border-dashed border-slate-400 w-3/4 mx-auto"></div>
+          </div>
+
+          <div className="space-y-12">
+            <span className="font-bold text-slate-800 block">امضای تحویل‌دهنده گدام:</span>
+            <div className="border-b border-dashed border-slate-400 w-3/4 mx-auto"></div>
+          </div>
+
+          <div className="space-y-3 relative">
+            <span className="font-bold text-slate-800 block">مهر و امضای صادرکننده:</span>
+            {showStamp && (
+              <div className="h-16 flex items-center justify-center">
+                <CompanyStampSeal />
+              </div>
+            )}
+            {!showStamp && <div className="border-b border-dashed border-slate-400 w-3/4 mx-auto mt-12"></div>}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (invoiceLayout === 'thermal') {
     return renderThermalReceipt();
   }
 
-  // Both combo_a4 and invoice_full use the exact single-page A4 design from user's image
+  if (invoiceLayout === 'invoice_full') {
+    return renderFullA4Invoice();
+  }
+
+  // Default: Combo A4 (Invoice + Warehouse Delivery Slip on 1 sheet)
   return renderComboA4Invoice();
 };

@@ -8,6 +8,15 @@ export interface TelegramStatusResponse {
   defaultChatId: string;
   isPolling: boolean;
   pendingCount: number;
+  pendingUsers?: Array<{
+    id: string;
+    phoneNumber: string;
+    fullName: string;
+    telegramChatId: string;
+    connectionCode: string;
+    username?: string;
+    registeredAt: string;
+  }>;
   connectedCount: number;
   lastTestStatus: 'connected' | 'error' | 'idle';
   lastTestedAt?: string;
@@ -355,6 +364,8 @@ export async function syncPartiesWithBackend(parties: Party[]): Promise<boolean>
     return false;
   }
 }
+
+export const syncPartiesToBackend = syncPartiesWithBackend;
 
 // ================= MESSAGE TEMPLATE BUILDERS =================
 

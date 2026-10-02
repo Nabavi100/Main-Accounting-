@@ -49,6 +49,9 @@ import { SecretLicenseModal } from './components/SecretLicenseModal';
 import { LicenseWarningModal } from './components/LicenseWarningModal';
 import { LicenseLockScreen } from './components/LicenseLockScreen';
 import { startTelegramBotListener, stopTelegramBotListener } from './services/telegramBotService';
+import { QuickDataBackupModal } from './components/QuickDataBackupModal';
+import { TelegramPendingApprovalModal } from './components/TelegramPendingApprovalModal';
+import { fetchTelegramStatus } from './services/telegramApiService';
 
 const MainApp: React.FC = () => {
   const {
@@ -111,6 +114,42 @@ const MainApp: React.FC = () => {
   const [isSecretLicenseModalOpen, setIsSecretLicenseModalOpen] = useState(false);
   const [isWarningModalOpen, setIsWarningModalOpen] = useState(false);
   const [isTelegramModalOpen, setIsTelegramModalOpen] = useState(false);
+  const [isQuickBackupModalOpen, setIsQuickBackupModalOpen] = useState(false);
+  const [isTelegramPendingModalOpen, setIsTelegramPendingModalOpen] = useState(false);
+  const [telegramPendingUsers, setTelegramPendingUsers] = useState<any[]>([]);
+  const previousPendingIdsRef = React.useRef<Set<string>>(new Set());
+
+  // Periodically check for Telegram users awaiting approval
+  useEffect(() => {
+    let isMounted = true;
+    const checkPendingTelegram = async () => {
+      try {
+        const status = await fetchTelegramStatus();
+        if (!isMounted) return;
+        const pending = status.pendingUsers || [];
+        setTelegramPendingUsers(pending);
+
+        // Alert user when new pending customers arrive
+        pending.forEach(u => {
+          if (!previousPendingIdsRef.current.has(u.id)) {
+            previousPendingIdsRef.current.add(u.id);
+            notify(
+              'warning',
+              '🔔 مشتری در انتظار تایید تلگرام',
+              `مشتری با شماره ${u.phoneNumber || u.fullName} ربات را استارت زده و منتظر تایید است. برای اتصال کلیک کنید.`
+            );
+          }
+        });
+      } catch {}
+    };
+
+    checkPendingTelegram();
+    const interval = setInterval(checkPendingTelegram, 8000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [notify]);
 
   const refreshLicense = async () => {
     try {
@@ -291,6 +330,9 @@ const MainApp: React.FC = () => {
         onOpenTransferModal={handleOpenTransferModal}
         onOpenAccessModal={handleOpenAccessModal}
         onOpenTelegramModal={() => setActiveTab('telegram_manager')}
+        onOpenQuickBackupModal={() => setIsQuickBackupModalOpen(true)}
+        onOpenTelegramPendingModal={() => setIsTelegramPendingModalOpen(true)}
+        telegramPendingCount={telegramPendingUsers.length}
       />
 
       {/* Main Content Area */}
@@ -302,6 +344,10 @@ const MainApp: React.FC = () => {
           onOpenPaymentModal={handleOpenPaymentModal}
           onOpenAccessModal={handleOpenAccessModal}
           onOpenTelegramModal={() => setActiveTab('telegram_manager')}
+          onOpenDataBackupModal={() => setIsQuickBackupModalOpen(true)}
+          onOpenTelegramPendingModal={() => setIsTelegramPendingModalOpen(true)}
+          telegramPendingCount={telegramPendingUsers.length}
+          telegramPendingPhone={telegramPendingUsers[0]?.phoneNumber}
         />
 
         {/* View Body */}
@@ -595,6 +641,22 @@ const MainApp: React.FC = () => {
       <TelegramBotModal
         isOpen={isTelegramModalOpen}
         onClose={() => setIsTelegramModalOpen(false)}
+      />
+
+      {/* Quick Data Backup & Restore Modal (جهت ارسال دیتا به چت و بازیابی آسان دیتابیس) */}
+      <QuickDataBackupModal
+        isOpen={isQuickBackupModalOpen}
+        onClose={() => setIsQuickBackupModalOpen(false)}
+      />
+
+      {/* Telegram Pending Approval Modal (تایید و اتصال فوری مشتریان جدید به حساب) */}
+      <TelegramPendingApprovalModal
+        isOpen={isTelegramPendingModalOpen}
+        onClose={() => setIsTelegramPendingModalOpen(false)}
+        onOpenQuickAddParty={(defaultName, defaultPhone) => {
+          setIsTelegramPendingModalOpen(false);
+          setActiveTab('customers');
+        }}
       />
     </div>
   );

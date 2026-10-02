@@ -452,6 +452,51 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
               </button>
             )}
 
+            {/* Invoice Layout Selector (فاکتور دو تکه، تمام صفحه رسمی، حرارتی) */}
+            {(document.type === 'invoice' || !!invData) && (
+              <div className="flex items-center bg-white/10 rounded-xl p-0.5 border border-white/10 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setInvoiceLayout('invoice_full')}
+                  className={`px-2.5 py-1.5 rounded-lg font-bold transition cursor-pointer flex items-center gap-1 ${
+                    invoiceLayout === 'invoice_full'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-slate-300 hover:text-white hover:bg-white/10'
+                  }`}
+                  title="فاکتور سرتاسری رسمی تمام صفحه A4"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>تمام صفحه A4</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInvoiceLayout('combo_a4')}
+                  className={`px-2.5 py-1.5 rounded-lg font-bold transition cursor-pointer flex items-center gap-1 ${
+                    invoiceLayout === 'combo_a4'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-slate-300 hover:text-white hover:bg-white/10'
+                  }`}
+                  title="فاکتور دو تکه (فاکتور + حواله برش‌دار گدام)"
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>دو تکه (با حواله)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInvoiceLayout('thermal')}
+                  className={`px-2.5 py-1.5 rounded-lg font-bold transition cursor-pointer flex items-center gap-1 ${
+                    invoiceLayout === 'thermal'
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'text-slate-300 hover:text-white hover:bg-white/10'
+                  }`}
+                  title="فیش پرینتر حرارتی 80 میلی‌متری"
+                >
+                  <Receipt className="w-3.5 h-3.5" />
+                  <span>حرارتی 80mm</span>
+                </button>
+              </div>
+            )}
+
             {/* Print Button */}
             <button
               id="doc-print-execute-btn"

@@ -71,6 +71,9 @@ interface SidebarProps {
   onOpenTransferModal?: () => void;
   onOpenAccessModal?: (tab?: 'roles' | 'reset' | 'backup') => void;
   onOpenTelegramModal?: () => void;
+  onOpenQuickBackupModal?: () => void;
+  onOpenTelegramPendingModal?: () => void;
+  telegramPendingCount?: number;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -83,6 +86,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onOpenTransferModal,
   onOpenAccessModal,
   onOpenTelegramModal,
+  onOpenQuickBackupModal,
+  onOpenTelegramPendingModal,
+  telegramPendingCount = 0,
 }) => {
   const { companySettings, logout } = useAccounting();
   const { theme, sidebarStyle } = useTheme();
@@ -944,7 +950,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }}
                 className="w-full text-right py-1 px-2 text-xs text-slate-500 hover:text-[#2563EB] hover:bg-slate-50 rounded-lg transition-colors font-medium"
               >
-                پشتیبان‌گیری از سیستم
+                پشتیبان‌گیری ابری گوگل درایو
+              </button>
+              <button
+                type="button"
+                id="sidebar-sub-quick-backup"
+                onClick={() => {
+                  if (onOpenQuickBackupModal) onOpenQuickBackupModal();
+                }}
+                className="w-full text-right py-1.5 px-2 text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 rounded-lg transition-colors font-bold flex items-center justify-between cursor-pointer"
+                title="ارسال سریع دیتا به هوش مصنوعی یا بازیابی اطلاعات قبلی"
+              >
+                <span>📦 ارسال / بازیابی دیتای عملیات</span>
+                <span className="text-[10px] px-1 bg-emerald-100 text-emerald-800 rounded font-mono font-bold">
+                  JSON
+                </span>
               </button>
               <button
                 type="button"
@@ -961,6 +981,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   ماژول اصلی
                 </span>
               </button>
+              {telegramPendingCount > 0 && (
+                <button
+                  type="button"
+                  id="sidebar-sub-telegram-pending"
+                  onClick={() => {
+                    if (onOpenTelegramPendingModal) onOpenTelegramPendingModal();
+                  }}
+                  className="w-full text-right py-1.5 px-2 text-xs bg-amber-500 text-white rounded-lg transition-all font-black flex items-center justify-between cursor-pointer animate-pulse shadow-xs"
+                >
+                  <span>🔔 تأیید مشتریان جدید تلگرام</span>
+                  <span className="text-[10px] px-1.5 py-0.5 bg-white text-slate-900 rounded-full font-mono font-black">
+                    {telegramPendingCount}
+                  </span>
+                </button>
+              )}
               <button
                 type="button"
                 id="sidebar-sub-telegram-bot"
