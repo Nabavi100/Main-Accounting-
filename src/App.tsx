@@ -48,7 +48,6 @@ import { LicenseStatusResult, verifyLicense } from './utils/licenseSecurity';
 import { SecretLicenseModal } from './components/SecretLicenseModal';
 import { LicenseWarningModal } from './components/LicenseWarningModal';
 import { LicenseLockScreen } from './components/LicenseLockScreen';
-import { startTelegramBotListener, stopTelegramBotListener } from './services/telegramBotService';
 import { QuickDataBackupModal } from './components/QuickDataBackupModal';
 import { TelegramPendingApprovalModal } from './components/TelegramPendingApprovalModal';
 import { fetchTelegramStatus } from './services/telegramApiService';
@@ -77,37 +76,37 @@ const MainApp: React.FC = () => {
   const companySettingsRef = React.useRef(companySettings);
   companySettingsRef.current = companySettings;
 
-  // Background Telegram Bot Polling Listener for real-time customer /start & balance requests
+  // Auto-sync client-side Telegram token with backend server polling engine
   useEffect(() => {
-    startTelegramBotListener({
-      getParties: () => partiesRef.current,
-      getInvoices: () => invoicesRef.current,
-      getCompanySettings: () => companySettingsRef.current,
-      onPartyLinked: (partyId, chatId, username) => {
-        updateParty(partyId, {
-          telegramChatId: chatId,
-          telegramUsername: username,
-          telegramLinkedAt: new Date().toISOString(),
-          telegramLastInquiry: new Date().toISOString(),
-        });
-        const party = partiesRef.current.find(p => p.id === partyId);
-        notify(
-          'success',
-          '📱 اتصال موفق مشتری به ربات تلگرام',
-          `مشتری محترم «${party?.name || ''}» با شماره تماس ثبت‌شده در سیستم به ربات متصل گردید.`
-        );
-      },
-      onNewLog: log => {
-        if (log.type === 'inquiry') {
-          notify('info', 'استعلام حساب از تلگرام', log.message);
+    try {
+      const rawClientSettings =
+        localStorage.getItem('accounting_telegram_settings_v1') ||
+        localStorage.getItem('telegram_bot_settings');
+      if (rawClientSettings) {
+        const parsed = JSON.parse(rawClientSettings);
+        if (parsed.botToken) {
+          fetch('/api/telegram/config')
+            .then(res => res.json())
+            .then(serverCfg => {
+              if (!serverCfg.botToken) {
+                fetch('/api/telegram/config', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    botToken: parsed.botToken,
+                    defaultChatId: parsed.defaultChatId || '',
+                    autoPolling: true,
+                    botUsername: parsed.botUsername,
+                    botFirstName: parsed.botFirstName,
+                  }),
+                }).catch(() => {});
+              }
+            })
+            .catch(() => {});
         }
-      },
-    });
-
-    return () => {
-      stopTelegramBotListener();
-    };
-  }, [updateParty, notify]);
+      }
+    } catch {}
+  }, []);
 
   // License Security & Expiration Management State
   const [licenseStatus, setLicenseStatus] = useState<LicenseStatusResult | null>(null);

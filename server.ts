@@ -322,12 +322,20 @@ let pollingAbortController: AbortController | null = null;
 
 async function startPolling() {
   const config = loadConfig();
-  if (!config.botToken || config.autoPolling === false || isPolling) {
+  const cleanToken = sanitizeBotToken(config.botToken);
+  if (!cleanToken || config.autoPolling === false || isPolling) {
     return;
   }
 
   isPolling = true;
   pollingAbortController = new AbortController();
+
+  // Clear any existing webhook so getUpdates doesn't return 409 Conflict
+  try {
+    await fetch(`https://api.telegram.org/bot${cleanToken}/deleteWebhook?drop_pending_updates=false`);
+  } catch (err) {
+    console.warn('Telegram deleteWebhook attempt warning:', err);
+  }
 
   let offset = 0;
   try {
@@ -342,18 +350,25 @@ async function startPolling() {
   (async () => {
     while (isPolling) {
       const currentConfig = loadConfig();
-      if (!currentConfig.botToken || currentConfig.autoPolling === false) {
+      const currentToken = sanitizeBotToken(currentConfig.botToken);
+      if (!currentToken || currentConfig.autoPolling === false) {
         isPolling = false;
         break;
       }
 
       try {
-        const url = `https://api.telegram.org/bot${currentConfig.botToken.trim()}/getUpdates?offset=${offset}&timeout=15`;
+        const url = `https://api.telegram.org/bot${currentToken}/getUpdates?offset=${offset}&timeout=15`;
         const res = await fetch(url, {
           signal: pollingAbortController?.signal,
         });
 
         if (!res.ok) {
+          if (res.status === 409) {
+            // Webhook conflict, delete webhook
+            try {
+              await fetch(`https://api.telegram.org/bot${currentToken}/deleteWebhook?drop_pending_updates=false`);
+            } catch {}
+          }
           await new Promise(r => setTimeout(r, 4000));
           continue;
         }
@@ -366,7 +381,11 @@ async function startPolling() {
               fs.writeFileSync(OFFSET_FILE, JSON.stringify({ offset }), 'utf-8');
             } catch {}
 
-            await handleTelegramUpdate(update, currentConfig.botToken);
+            try {
+              await handleTelegramUpdate(update, currentToken);
+            } catch (handleErr) {
+              console.error('Error handling single telegram update:', handleErr);
+            }
           }
         }
       } catch (err: any) {

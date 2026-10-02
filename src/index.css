@@ -228,46 +228,81 @@ body.gold table th {
 }
 
 /* ========================================================================= */
-/* EXECUTIVE NAVY THEME (تم اداری سرمه‌ای)                                    */
+/* EXECUTIVE NAVY THEME (تم شرکتی لوکس - Executive Luxury Corporate)          */
 /* ========================================================================= */
 body.theme-executive {
-  --bg-app: #0b132b;
-  --card-app: #1c2541;
-  --border-app: #3a506b;
-  --text-main: #edf2f4;
-  background-color: #0b132b !important;
-  color: #edf2f4 !important;
+  --bg-app: #080d1a;
+  --card-app: #0f172a;
+  --border-app: rgba(148, 163, 184, 0.14);
+  --text-main: #f8fafc;
+  background-color: #080d1a !important;
+  color: #f8fafc !important;
 }
 
 body.theme-executive header {
-  background-color: #131d3b !important;
-  border-color: #2e3e60 !important;
+  background: linear-gradient(90deg, #070b14 0%, #111a2e 50%, #070b14 100%) !important;
+  border-bottom: 1px solid rgba(245, 158, 11, 0.35) !important;
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.5) !important;
 }
 
 body.theme-executive aside {
-  background-color: #101935 !important;
-  border-color: #2e3e60 !important;
+  background: linear-gradient(180deg, #090e1d 0%, #0d1428 100%) !important;
+  border-left: 1px solid rgba(148, 163, 184, 0.12) !important;
+  box-shadow: -4px 0 25px -4px rgba(0, 0, 0, 0.4) !important;
+}
+
+body.theme-executive aside h1 {
+  color: #fef08a !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+body.theme-executive aside .sidebar-submenu-wrapper button {
+  color: #94a3b8;
+}
+
+body.theme-executive aside .sidebar-submenu-wrapper button:hover {
+  color: #fde68a !important;
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+body.theme-executive aside .sidebar-submenu-wrapper button[class*="font-bold"],
+body.theme-executive aside .sidebar-submenu-wrapper button[class*="font-black"] {
+  color: #f59e0b !important;
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.15) 0%, rgba(30, 58, 138, 0.25) 100%) !important;
+  border: 1px solid rgba(245, 158, 11, 0.35) !important;
+}
+
+body.theme-executive aside button[class*="bg-[#EEF2FF]"] {
+  background: linear-gradient(90deg, rgba(245, 158, 11, 0.16) 0%, rgba(30, 58, 138, 0.3) 100%) !important;
+  color: #fde68a !important;
+  border: 1px solid rgba(245, 158, 11, 0.4) !important;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.15) !important;
+}
+
+body.theme-executive aside button[class*="text-[#2563EB]"] {
+  color: #fde68a !important;
 }
 
 body.theme-executive main {
-  background-color: #0b132b !important;
+  background-color: #080d1a !important;
 }
 
 body.theme-executive .bg-white {
-  background-color: #162244 !important;
-  color: #edf2f4 !important;
-  border-color: #2e3e60 !important;
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+  border-color: rgba(148, 163, 184, 0.12) !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3) !important;
 }
 
 body.theme-executive .bg-slate-50,
 body.theme-executive .bg-slate-100 {
-  background-color: #101935 !important;
+  background-color: #0b1122 !important;
 }
 
 body.theme-executive .border-slate-100,
 body.theme-executive .border-slate-200,
 body.theme-executive .border-slate-300 {
-  border-color: #2e3e60 !important;
+  border-color: rgba(148, 163, 184, 0.14) !important;
 }
 
 body.theme-executive .text-slate-900 {
@@ -275,24 +310,37 @@ body.theme-executive .text-slate-900 {
 }
 
 body.theme-executive .text-slate-800 {
-  color: #e0e7ff !important;
+  color: #f1f5f9 !important;
 }
 
 body.theme-executive .text-slate-700 {
-  color: #c7d2fe !important;
+  color: #cbd5e1 !important;
 }
 
 body.theme-executive .text-slate-600,
 body.theme-executive .text-slate-500 {
-  color: #818cf8 !important;
+  color: #94a3b8 !important;
 }
 
 body.theme-executive input,
 body.theme-executive select,
 body.theme-executive textarea {
-  background-color: #0e1730 !important;
+  background-color: #0b1224 !important;
   color: #ffffff !important;
-  border-color: #3b4d75 !important;
+  border-color: rgba(148, 163, 184, 0.22) !important;
+}
+
+body.theme-executive input:focus,
+body.theme-executive select:focus,
+body.theme-executive textarea:focus {
+  border-color: #f59e0b !important;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.25) !important;
+}
+
+body.theme-executive table th {
+  background-color: #121b30 !important;
+  color: #94a3b8 !important;
+  border-color: rgba(148, 163, 184, 0.12) !important;
 }
 
 /* ========================================================================= */

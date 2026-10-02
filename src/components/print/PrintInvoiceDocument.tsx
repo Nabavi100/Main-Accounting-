@@ -84,6 +84,20 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
       ? inv.balanceAmount
       : inv.totalAmount - (inv.paidAmount || 0);
 
+  const prevBalance = Number(
+    inv.previousBalance !== undefined
+      ? inv.previousBalance
+      : partyInfo
+      ? (inv.currency === 'USD' ? partyInfo.balanceUSD || 0 : partyInfo.balanceAFN || 0)
+      : 0
+  );
+
+  const finalBalance = Number(
+    inv.customerRemainingBalance !== undefined
+      ? inv.customerRemainingBalance
+      : prevBalance + remainingBalance
+  );
+
   const items = inv.items || [];
   const warehouseName = getWarehouseName(inv.warehouseId) || 'انبار مرکزی';
   const invoiceNotes = (inv.notes || (inv as any).description || '').trim();

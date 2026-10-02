@@ -32,7 +32,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     ) {
       return saved;
     }
-    return 'light';
+    return 'executive';
   });
 
   const [sidebarStyle, setSidebarStyleState] = useState<SidebarStyle>(() => {
