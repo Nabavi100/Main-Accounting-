@@ -922,7 +922,13 @@ app.post('/api/telegram/test-connection', async (req: Request, res: Response) =>
       config.lastTestStatus = 'connected';
       config.lastTestedAt = new Date().toISOString();
       config.lastError = undefined;
+      config.autoPolling = true;
       saveConfig(config);
+
+      // Start polling immediately if not already polling
+      if (!isPolling) {
+        startPolling();
+      }
 
       res.json({
         success: true,

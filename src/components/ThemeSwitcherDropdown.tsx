@@ -37,6 +37,14 @@ export const ThemeSwitcherDropdown: React.FC<ThemeSwitcherDropdownProps> = ({ mi
 
   const themes: { id: AppTheme; name: string; desc: string; color: string; iconBg: string; symbol: string }[] = [
     {
+      id: 'novatech',
+      name: 'تم حساب یار نوواتک (NovaTech Stock)',
+      desc: 'دیزاین رسمی دیتابس حساب یار با هدر آبی فیروزه‌ای، سایدبار سفید مرتب و فونت چشم‌نواز',
+      color: 'bg-[#087bbd] border-[#056ca9]',
+      iconBg: 'bg-[#eaf5fc] text-[#0878df] border border-[#087bbd]/40 shadow-xs',
+      symbol: '🔷',
+    },
+    {
       id: 'executive',
       name: 'تم شرکتی لوکس (Executive Luxury Corporate)',
       desc: 'دیزاین مجلل شرکتی با پالت لاجوردی و کهربایی، کنتراست عمیق سازمانی و جلوه اشرافی',

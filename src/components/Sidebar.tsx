@@ -23,6 +23,9 @@ import {
   Receipt,
   LogOut,
   BookOpen,
+  Search,
+  X,
+  ChevronLeft,
 } from 'lucide-react';
 import { CompanySealLogo } from './CompanySealLogo';
 import { APP_VERSION, APP_FULL_VERSION_STRING } from '../config/version';
@@ -157,6 +160,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [showBranchModal, setShowBranchModal] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showProductionModal, setShowProductionModal] = useState(false);
+  const [sidebarSearch, setSidebarSearch] = useState('');
+
+  // Quick list of searchable items for instant navigation
+  const searchableMenuItems: { title: string; tab: NavTab; filter?: string; section: string; iconDesc: string }[] = [
+    { title: 'داشبورد مدیریتی', tab: 'dashboard', section: 'dashboard', iconDesc: 'آمار و شاخص‌های کلیدی' },
+    { title: 'روزنامچه جامع رویدادها', tab: 'journal', section: 'journal', iconDesc: 'گردش حساب‌ها و وقایع' },
+    { title: 'فاکتور فروش جدید', tab: 'trade_hub', filter: 'sell', section: 'tradeAndFinance', iconDesc: 'صدور فاکتور فروش' },
+    { title: 'فاکتور خرید جدید', tab: 'trade_hub', filter: 'buy', section: 'tradeAndFinance', iconDesc: 'صدور فاکتور خرید' },
+    { title: 'لیست فاکتورهای فروش', tab: 'sales_invoices', section: 'tradeAndFinance', iconDesc: 'آرشیو فروش' },
+    { title: 'لیست فاکتورهای خرید', tab: 'purchase_invoices', section: 'tradeAndFinance', iconDesc: 'آرشیو خرید' },
+    { title: 'دریافت از مشتری (رسید)', tab: 'new_receipt', section: 'tradeAndFinance', iconDesc: 'سند دریافت وجه' },
+    { title: 'پرداخت به فروشنده (پرداخت)', tab: 'new_payment', section: 'tradeAndFinance', iconDesc: 'سند پرداخت وجه' },
+    { title: 'مشتریان و طرف‌های حساب', tab: 'customers', section: 'definitions', iconDesc: 'دفتر حساب و کاردکس' },
+    { title: 'کالاها و اجناس', tab: 'products', section: 'definitions', iconDesc: 'تعریف کالا و قیمت‌ها' },
+    { title: 'گدام‌ها و انبارداری', tab: 'warehouses', section: 'definitions', iconDesc: 'کنترل موجودی انبارها' },
+    { title: 'صندوق‌ها و حساب‌های مالی', tab: 'cash', section: 'cashAccounts', iconDesc: 'موجودی نقدینگی و بانک' },
+    { title: 'مصارف و مخارج عمومی', tab: 'expenses', section: 'accountingAndPnL', iconDesc: 'هزینه‌های جاری شرکت' },
+    { title: 'عواید و درآمدهای متفرقه', tab: 'incomes', section: 'accountingAndPnL', iconDesc: 'درآمدهای غیرعملیاتی' },
+    { title: 'ارزها و نرخ تبادله صرافی', tab: 'currencies', section: 'definitions', iconDesc: 'تبدیل و تسعیر ارز' },
+    { title: 'گزارشات جامع و بیلان', tab: 'reports', section: 'systemReports', iconDesc: 'سود و زیان و ترازنامه' },
+    { title: 'دفتر ثبت رویدادها و ممیزی', tab: 'audit_log', section: 'systemManagement', iconDesc: 'لاگ و تاریخچه عملیات' },
+    { title: 'ربات تلگرام و استعلام آنلاین', tab: 'telegram_manager', section: 'systemManagement', iconDesc: 'پنل مدیریت ربات تلگرام' },
+  ];
+
+  const filteredNavItems = sidebarSearch.trim()
+    ? searchableMenuItems.filter(item =>
+        item.title.includes(sidebarSearch.trim()) ||
+        item.iconDesc.includes(sidebarSearch.trim())
+      )
+    : [];
 
   // When any menu header is clicked:
   // If already open, collapse it. If closed, open ONLY this menu and collapse all others!
@@ -229,8 +262,62 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <CompanySealLogo size={44} className="shadow-2xs" />
       </div>
 
+      {/* ---------------- NOVA TECH INSTANT SIDEBAR SEARCH ---------------- */}
+      <div className="px-3 pt-2 pb-1 bg-slate-50/50 border-b border-slate-100">
+        <div className="shell-sidebar-search">
+          <Search className="w-4 h-4 text-[#0878df] absolute right-3 pointer-events-none" />
+          <input
+            type="text"
+            value={sidebarSearch}
+            onChange={e => setSidebarSearch(e.target.value)}
+            placeholder="جستجوی سریع در منو..."
+            className="w-full h-full pr-9 pl-7 bg-transparent text-xs font-semibold text-slate-800 outline-none placeholder:text-slate-400 font-sans"
+          />
+          {sidebarSearch && (
+            <button
+              type="button"
+              onClick={() => setSidebarSearch('')}
+              className="absolute left-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* ---------------- 2. EXACT ORDER OF MENU ITEMS ---------------- */}
       <nav className="flex-1 px-3 py-3 space-y-1.5 overflow-y-auto custom-scrollbar">
+        {/* Filtered Search Results (if searching) */}
+        {sidebarSearch.trim() && (
+          <div className="space-y-1 mb-3 pb-3 border-b border-blue-200">
+            <span className="text-[10px] font-bold text-blue-600 block px-2">
+              نتایج جستجوی منو ({filteredNavItems.length} مورد):
+            </span>
+            {filteredNavItems.length === 0 ? (
+              <div className="text-center py-4 text-xs text-slate-400">
+                موردی یافت نشد
+              </div>
+            ) : (
+              filteredNavItems.map((item, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => {
+                    handleNavigate(item.tab, item.filter || 'all', item.section);
+                    setSidebarSearch('');
+                  }}
+                  className="w-full flex items-center justify-between p-2 rounded-xl bg-blue-50/80 hover:bg-blue-100 text-blue-900 text-xs font-bold transition text-right cursor-pointer"
+                >
+                  <div>
+                    <span className="block font-black">{item.title}</span>
+                    <span className="text-[10px] text-blue-600 font-normal">{item.iconDesc}</span>
+                  </div>
+                  <ChevronLeft className="w-3.5 h-3.5 text-blue-500" />
+                </button>
+              ))
+            )}
+          </div>
+        )}
         {/* 1. داشبورد مدیریتی و روزنامچه */}
         <div className="sidebar-section-container sidebar-card-block sidebar-card-dashboard space-y-1">
           <button
@@ -1022,27 +1109,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       </nav>
 
-      {/* ---------------- 3. FOOTER BUTTONS (MATCHING EXACT SCREENSHOT) ---------------- */}
-      <div className="p-3 border-t border-slate-100 space-y-2 bg-white">
-        {/* تغییر واحد شرکت (Bordered pill button) */}
+      {/* ---------------- 3. FOOTER BUTTONS (MATCHING NOVATECH) ---------------- */}
+      <div className="p-3 border-t border-slate-200/90 space-y-2 bg-slate-50/60">
+        {/* تغییر واحد شرکت (Bordered button) */}
         <button
           type="button"
           id="sidebar-btn-switch-branch"
           onClick={() => setShowBranchModal(true)}
-          className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-2xl border border-slate-200/90 text-[#2563EB] hover:bg-slate-50 transition-colors font-bold text-xs shadow-2xs cursor-pointer"
+          className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg border border-slate-300 bg-white text-[#0878df] hover:bg-sky-50 transition-colors font-bold text-xs shadow-2xs cursor-pointer"
         >
-          <Building2 className="w-4 h-4 text-[#2563EB]" />
+          <Building2 className="w-4 h-4 text-[#0878df]" />
           <span>تغییر واحد شرکت</span>
         </button>
 
-        {/* خروج از سیستم (Red power button) */}
+        {/* خروج از سیستم (Red NovaTech button) */}
         <button
           type="button"
           id="sidebar-btn-logout"
           onClick={() => setShowLogoutModal(true)}
-          className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-2xl text-rose-600 hover:bg-rose-50 transition-colors font-bold text-xs cursor-pointer"
+          className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg border border-red-200 bg-white text-red-600 hover:bg-red-50 hover:border-red-300 transition-colors font-bold text-xs cursor-pointer shadow-2xs"
         >
-          <Power className="w-4 h-4 text-rose-600" />
+          <LogOut className="w-4 h-4 text-red-600" />
           <span>خروج از سیستم</span>
         </button>
 

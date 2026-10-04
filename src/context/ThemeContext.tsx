@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-export type AppTheme = 'light' | 'dark' | 'gold' | 'executive' | 'classic' | 'vibrant' | 'sky-glass';
+export type AppTheme = 'novatech' | 'executive' | 'gold' | 'dark' | 'light' | 'classic' | 'vibrant' | 'sky-glass';
 export type SidebarStyle = 'modern-list' | 'colored-cards' | 'compact';
 
 interface ThemeContextType {
@@ -22,6 +22,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [theme, setThemeState] = useState<AppTheme>(() => {
     const saved = localStorage.getItem(THEME_STORAGE_KEY) as AppTheme | null;
     if (
+      saved === 'novatech' ||
       saved === 'light' ||
       saved === 'dark' ||
       saved === 'gold' ||
@@ -32,7 +33,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     ) {
       return saved;
     }
-    return 'executive';
+    return 'novatech';
   });
 
   const [sidebarStyle, setSidebarStyleState] = useState<SidebarStyle>(() => {
@@ -74,6 +75,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     // Clean previous theme classes
     body.classList.remove(
+      'theme-novatech',
       'theme-light',
       'theme-dark',
       'theme-gold',

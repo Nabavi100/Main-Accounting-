@@ -233,6 +233,7 @@ export interface CompanySettings {
   address: string; // آدرس دقیق دفتر و گدام
   email?: string;
   tagline?: string; // شعار تجارتی
+  slogan?: string; // شعار یا عنوان فرعی سازمان
   invoiceFooterNote?: string; // متن پاورقی فاکتورها و شرایط تسویه
   invoiceConditions?: string; // قوانین و شرایط عمومی معامله
   calendarType?: 'jalali' | 'gregorian'; // نوع تقویم پیش‌فرض (هجری شمسی یا میلادی)
@@ -268,6 +269,8 @@ export interface Invoice {
   finalAmount?: number; // مبلغ نهایی قابل پرداخت
   paidAmount: number; // مبلغ پرداخت شده نقدی
   balanceAmount: number; // باقیمانده (قرضه)
+  previousBalance?: number; // مانده حساب قبلی مشتری
+  customerRemainingBalance?: number; // الباقی کل مانده حساب مشتری
   paymentStatus: PaymentStatus;
   dealType?: 'regular' | 'consignment' | 'pre_order' | string; // نوع معامله: فروش/خرید قطعی (عادی)، ارسال/دریافت امانی، پیش‌فروش/پیش‌خرید
   dealTypeLabel?: string; // عنوان نمایشی نوع معامله

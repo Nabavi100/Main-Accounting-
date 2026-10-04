@@ -34,6 +34,423 @@
   }
 }
 
+/* ========================================================================= */
+/* NOVATECH SOFT / حساب یار (Signature Stock Manager Enterprise Theme)       */
+/* ========================================================================= */
+:root {
+  --theme-header: #087bbd;
+  --theme-header-deep: #056ca9;
+  --theme-header-text: #ffffff;
+  --theme-sidebar: #ffffff;
+  --theme-sidebar-text: #0878df;
+  --theme-sidebar-active: #eaf5fc;
+  --theme-sidebar-hover: #f2f8fd;
+  --theme-titlebar: #188fdc;
+  --theme-titlebar-end: #3b63e9;
+  --theme-titlebar-text: #ffffff;
+  --theme-table-header: #c7eafb;
+  --theme-table-header-text: #075fa9;
+  --theme-table-border: #d5dade;
+  --theme-primary: #168ed8;
+  --theme-primary-soft: #e8f5fc;
+  --theme-page-bg: #f5f7fa;
+  --shell-blue: #087bbd;
+  --shell-blue-deep: #056ca9;
+  --shell-link: #0878df;
+  --shell-line: #d5dade;
+  --shell-muted: #66717b;
+  --shell-header-height: 64px;
+  --shell-sidebar-width: 260px;
+}
+
+body.theme-novatech {
+  --bg-app: #f5f7fa;
+  --card-app: #ffffff;
+  --border-app: #d5dade;
+  --text-main: #0f172a;
+  background-color: #f5f7fa !important;
+  color: #0f172a !important;
+}
+
+body.theme-novatech header {
+  background: linear-gradient(90deg, #087bbd 0%, #056ca9 100%) !important;
+  color: #ffffff !important;
+  border-bottom: 1px solid rgba(4, 78, 124, 0.38) !important;
+  box-shadow: 0 2px 8px rgba(15, 55, 82, 0.18) !important;
+}
+
+body.theme-novatech aside {
+  background-color: #ffffff !important;
+  border-left: 1px solid #d5dade !important;
+  box-shadow: -2px 0 10px rgba(15, 23, 42, 0.04) !important;
+}
+
+body.theme-novatech main {
+  background-color: #f5f7fa !important;
+}
+
+/* NovaTech Table Styling */
+body.theme-novatech table th {
+  background-color: #c7eafb !important;
+  color: #075fa9 !important;
+  border-color: #d5dade !important;
+  font-weight: 800 !important;
+}
+
+body.theme-novatech table td {
+  border-color: #e2e8f0 !important;
+}
+
+body.theme-novatech table tr:hover {
+  background-color: #f0f9ff !important;
+}
+
+/* NovaTech Active Nav item */
+body.theme-novatech aside .is-active-novatech,
+body.theme-novatech aside button[class*="bg-[#EEF2FF]"] {
+  background-color: #eaf5fc !important;
+  color: #0878df !important;
+  border-right: 4px solid #087bbd !important;
+  font-weight: 900 !important;
+}
+
+body.theme-novatech aside .sidebar-submenu-wrapper button.font-bold {
+  color: #0878df !important;
+  background-color: #eaf5fc !important;
+}
+
+/* NovaTech Titlebar Banner */
+.novatech-titlebar {
+  background: linear-gradient(135deg, #188fdc 0%, #3b63e9 100%);
+  color: #ffffff;
+  border-radius: 12px;
+  padding: 14px 20px;
+  box-shadow: 0 4px 14px rgba(24, 143, 220, 0.22);
+}
+
+/* ========================================================================= */
+/* NOVATECH / HESABYAR OFFICIAL ERP DASHBOARD DESIGN SYSTEM                  */
+/* ========================================================================= */
+.dashboard-command-titlebar {
+  display: flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 18px;
+  border-radius: 8px 8px 0 0;
+  background: linear-gradient(100deg, #1599ca, #2587da 55%, #3b63e9);
+  color: #fff;
+  box-shadow: 0 5px 13px rgba(24, 113, 194, 0.2);
+}
+
+.dashboard-command-titlebar > div,
+.dashboard-command-titlebar > span {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.dashboard-command-titlebar h1 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 900;
+}
+
+.dashboard-command-titlebar > span {
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.dashboard-command-titlebar > span i {
+  width: 9px;
+  height: 9px;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  border-radius: 50%;
+  background: #59e5a2;
+  box-shadow: 0 0 0 4px rgba(89, 229, 162, 0.25);
+  display: inline-block;
+}
+
+.dashboard-command-body {
+  display: flex;
+  min-height: 84px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 14px 18px;
+  background: linear-gradient(90deg, rgba(234, 247, 255, 0.85), transparent 45%), #fff;
+  border: 1px solid #cbd5dc;
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+}
+
+.dashboard-welcome {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 14px;
+}
+
+.dashboard-welcome-mark {
+  display: grid;
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  place-items: center;
+  border: 1px solid #9dceec;
+  border-radius: 50%;
+  background: #e6f5fe;
+  color: #056ca9;
+  box-shadow: 0 2px 6px rgba(5, 108, 169, 0.12);
+}
+
+.dashboard-welcome h2 {
+  margin: 0;
+  color: #102535;
+  font-size: 18px;
+  font-weight: 900;
+  line-height: 1.25;
+}
+
+.dashboard-welcome p {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.dashboard-kpis {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 1400px) {
+  .dashboard-kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard-kpis {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dashboard-kpi {
+  position: relative;
+  min-width: 0;
+  min-height: 132px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid #d5dade;
+  padding: 13px 15px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+  transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.dashboard-kpi:after {
+  position: absolute;
+  inset: auto 0 0;
+  height: 4px;
+  background: var(--kpi-color, #168ed8);
+  content: "";
+}
+
+.dashboard-kpi:hover {
+  border-color: var(--kpi-color, #168ed8);
+  box-shadow: 0 7px 18px rgba(27, 58, 79, 0.12);
+  transform: translateY(-2px);
+}
+
+.dashboard-kpi.is-blue {
+  --kpi-color: #168ed8;
+  --kpi-soft: #e7f4fd;
+}
+
+.dashboard-kpi.is-emerald {
+  --kpi-color: #15905a;
+  --kpi-soft: #e8f8f0;
+}
+
+.dashboard-kpi.is-red {
+  --kpi-color: #cf273d;
+  --kpi-soft: #ffeaed;
+}
+
+.dashboard-kpi.is-purple {
+  --kpi-color: #7651d5;
+  --kpi-soft: #f3effe;
+}
+
+.dashboard-kpi.is-amber {
+  --kpi-color: #d97706;
+  --kpi-soft: #fef3c7;
+}
+
+.dashboard-kpi.is-teal {
+  --kpi-color: #0d9488;
+  --kpi-soft: #ccfbf1;
+}
+
+.dashboard-kpi-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.dashboard-kpi-icon {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--kpi-soft, #e7f4fd);
+  color: var(--kpi-color, #168ed8);
+}
+
+.dashboard-kpi > strong {
+  display: block;
+  overflow: hidden;
+  color: var(--kpi-color, #168ed8);
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 900;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-kpi h3 {
+  margin: 5px 0 0;
+  color: #253744;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.dashboard-kpi p {
+  margin: 2px 0 0;
+  overflow: hidden;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dashboard-operations {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@media (max-width: 900px) {
+  .dashboard-operations {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard-operations {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dashboard-operation {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 8px;
+  padding: 13px 16px;
+  background: #fff;
+  border: 1px solid #d5dade;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dashboard-operation:before {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 4px;
+  background: var(--operation-color, #168ed8);
+  content: "";
+}
+
+.dashboard-operation:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+  border-color: var(--operation-color, #168ed8);
+}
+
+.dashboard-operation.is-blue {
+  --operation-color: #168ed8;
+}
+
+.dashboard-operation.is-red {
+  --operation-color: #cf273d;
+}
+
+.dashboard-operation.is-green {
+  --operation-color: #15905a;
+}
+
+.dashboard-operation.is-violet {
+  --operation-color: #7651d5;
+}
+
+/* Sidebar Search Box (NovaTech Style) */
+.shell-sidebar-search {
+  position: relative;
+  display: flex;
+  height: 42px;
+  align-items: center;
+  margin: 10px 10px 6px;
+  border: 1px solid #d4d9de;
+  border-radius: 10px;
+  background: #ffffff;
+  transition: border-color 0.15s ease;
+}
+
+.shell-sidebar-search:focus-within {
+  border-color: #087bbd;
+  box-shadow: 0 0 0 3px rgba(8, 123, 189, 0.12);
+}
+
+.shell-sidebar-search input {
+  width: 100%;
+  height: 100%;
+  padding: 0 36px 0 32px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: right;
+}
+
+.shell-sidebar-search input::placeholder {
+  color: #94a3b8;
+}
+
 /* Application Theme Variants */
 body.theme-light {
   --bg-app: #f8fafc;

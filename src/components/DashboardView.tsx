@@ -27,6 +27,8 @@ import {
   DollarSign,
   Eye,
   BookOpen,
+  Building2,
+  Calendar,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -298,15 +300,108 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const afnPercent = totalCashBase > 0 ? 100 - usdPercent : 50;
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-7xl mx-auto overflow-y-auto font-sans select-none" dir="rtl">
-      {/* ---------------- 1. WELCOME GREETING SECTION ---------------- */}
-      <div className="space-y-1">
-        <h2 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">
-          خوش آمدید، جناب مدیر کل سیستم
-        </h2>
-        <p className="text-xs text-slate-500 font-medium">
-          خلاصه وضعیت مالی، گدام‌ها و فروش {companySettings.name || 'شرکت تجارتی برادران نبوی'} تا این لحظه
-        </p>
+    <div className="p-4 md:p-6 lg:p-8 space-y-5 max-w-7xl mx-auto overflow-y-auto font-sans select-none" dir="rtl">
+      {/* ---------------- 1. NOVATECH COMMAND TITLEBAR & COMMAND BODY ---------------- */}
+      <div className="space-y-0 shadow-xs">
+        <div className="dashboard-command-titlebar">
+          <div>
+            <Compass className="w-5 h-5 text-white" />
+            <h1>داشبورد مدیریتی و کنترل عملیات تجارتی</h1>
+          </div>
+          <span className="hidden sm:flex items-center gap-2">
+            <i></i>
+            <span>سیستم آنلاین و متصل | نسخه سازمانی ERP</span>
+          </span>
+        </div>
+
+        <div className="dashboard-command-body">
+          <div className="dashboard-welcome">
+            <div className="dashboard-welcome-mark">
+              <Building2 className="w-6 h-6" />
+            </div>
+            <div>
+              <h2>خوش آمدید، مدیریت سیستم</h2>
+              <p>خلاصه آمار جامع مالی، گدام‌ها و فروش {companySettings.name || 'شرکت تجارتی برادران نبوی'}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-1.5 px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-bold text-slate-700">
+              <Calendar className="w-4 h-4 text-blue-600" />
+              <span>{getPersianDate()}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="w-10 h-10 rounded-lg border border-slate-300 bg-white text-blue-600 hover:bg-sky-50 flex items-center justify-center transition shadow-2xs cursor-pointer"
+              title="بروزرسانی اطلاعات"
+            >
+              <ArrowRightLeft className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ---------------- 2. FOUR QUICK OPERATIONS (NOVATECH STYLE) ---------------- */}
+      <div className="dashboard-operations">
+        <div
+          onClick={() => onOpenNewInvoice('buy')}
+          className="dashboard-operation is-red"
+          title="صدور فاکتور خرید جدید"
+        >
+          <div className="w-10 h-10 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+            <Receipt className="w-5 h-5" />
+          </div>
+          <div className="min-w-0">
+            <h4 className="text-xs font-black text-slate-800">فاکتور خرید جدید</h4>
+            <p className="text-[11px] text-slate-500 truncate">ورود کالا به گدام و ثبت بدهی</p>
+          </div>
+        </div>
+
+        <div
+          onClick={() => onOpenNewInvoice('sell')}
+          className="dashboard-operation is-blue"
+          title="صدور فاکتور فروش جدید"
+        >
+          <div className="w-10 h-10 rounded-lg bg-sky-50 text-blue-600 flex items-center justify-center shrink-0">
+            <Plus className="w-5 h-5" />
+          </div>
+          <div className="min-w-0">
+            <h4 className="text-xs font-black text-slate-800">فاکتور فروش جدید</h4>
+            <p className="text-[11px] text-slate-500 truncate">فروش به مشتری و کسر از گدام</p>
+          </div>
+        </div>
+
+        <div
+          onClick={() => onOpenPaymentModal('receive_payment')}
+          className="dashboard-operation is-green"
+          title="دریافت و پرداخت نقدی جدید"
+        >
+          <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+            <Banknote className="w-5 h-5" />
+          </div>
+          <div className="min-w-0">
+            <h4 className="text-xs font-black text-slate-800">دریافت و پرداخت</h4>
+            <p className="text-[11px] text-slate-500 truncate">تسویه حساب مشتریان و صندوق</p>
+          </div>
+        </div>
+
+        <div
+          onClick={() => {
+            setActiveTab('journal');
+            setSubFilter?.('all');
+          }}
+          className="dashboard-operation is-violet"
+          title="مشاهده روزنامچه جامع رویدادها"
+        >
+          <div className="w-10 h-10 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+            <BookOpen className="w-5 h-5" />
+          </div>
+          <div className="min-w-0">
+            <h4 className="text-xs font-black text-slate-800">روزنامچه جامع</h4>
+            <p className="text-[11px] text-slate-500 truncate">گردش مالی و رویدادهای زنده</p>
+          </div>
+        </div>
       </div>
 
       {/* ---------------- 2. QUICK ACTIONS & SEARCH CARD ---------------- */}
@@ -523,117 +618,115 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
-      {/* ---------------- 3. FOUR TOP METRIC CARDS ---------------- */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1 (Rightmost): فروش کل ماه جاری */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-2xs hover:shadow-md transition-shadow flex flex-col justify-between">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-slate-500">فروش کل ماه جاری</span>
-            <div className="w-10 h-10 rounded-xl bg-[#2563EB] text-white flex items-center justify-center shadow-2xs">
+      {/* ---------------- 3. SIX NOVATECH KPI METRIC CARDS ---------------- */}
+      <div className="dashboard-kpis">
+        {/* Card 1: فروش کل ماه جاری (Blue) */}
+        <div className="dashboard-kpi is-blue">
+          <div className="dashboard-kpi-top">
+            <div className="dashboard-kpi-icon">
               <TrendingUp className="w-5 h-5" />
             </div>
+            <small>SALES-AFN</small>
           </div>
+          <strong>{formatNumber(currentMonthSalesAFN)} AFN</strong>
           <div>
-            <div className="flex items-baseline gap-1.5 font-mono">
-              <span className="text-xs font-bold text-slate-500">AFN</span>
-              <span className="text-2xl font-black text-slate-900 tracking-tight">
-                {formatNumber(currentMonthSalesAFN)}
-              </span>
-            </div>
-            <div className="mt-2">
-              <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-700 border border-slate-200 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                {invoices.filter(i => i.type === 'sell').length} فاکتور فروش ثبت‌شده
-              </span>
-            </div>
+            <h3>فروش کل ماه جاری</h3>
+            <p>{invoices.filter(i => i.type === 'sell').length} فاکتور فروش ثبت‌شده</p>
           </div>
         </div>
 
-        {/* Card 2 (Second from right): تنوع کالا در سیستم (کلیک جهت هدایت به بخش کالاها) */}
+        {/* Card 2: تنوع کالا در سیستم (Emerald) */}
         <div
           onClick={() => setActiveTab('products')}
-          className="bg-white p-5 rounded-2xl border border-slate-200/80 hover:border-emerald-400 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between cursor-pointer group"
+          className="dashboard-kpi is-emerald cursor-pointer"
           title="مشاهده و مدیریت لیست کالاها و اجناس"
         >
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-slate-500 group-hover:text-emerald-700 transition">تنوع کالا در سیستم</span>
-            <div className="w-10 h-10 rounded-xl bg-[#059669] text-white flex items-center justify-center shadow-2xs group-hover:scale-105 transition">
+          <div className="dashboard-kpi-top">
+            <div className="dashboard-kpi-icon">
               <Package className="w-5 h-5" />
             </div>
+            <small>STOCK-ITEMS</small>
           </div>
+          <strong>{products.length} قلم</strong>
           <div>
-            <div className="flex items-baseline gap-1 font-mono">
-              <span className="text-2xl font-black text-slate-900 tracking-tight">
-                {products.length}
-              </span>
-              <span className="text-xs font-bold text-slate-500 font-sans mr-1">قلم</span>
-            </div>
-            <div className="flex items-center justify-between mt-2 pt-1 border-t border-slate-100">
-              <span className="text-[11px] text-slate-400 font-medium">
-                {products.length === 0 ? 'هیچ کالایی ثبت نشده' : 'مشاهده لیست اقلام'}
-              </span>
-              <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-0.5 group-hover:translate-x-[-2px] transition">
-                <span>لیست اجناس</span>
-                <ChevronLeft className="w-3.5 h-3.5" />
-              </span>
-            </div>
+            <h3>تنوع و اقلام کالا</h3>
+            <p>{products.length === 0 ? 'هیچ کالایی ثبت نشده' : 'مشاهده موجودی انبارها'}</p>
           </div>
         </div>
 
-        {/* Card 3: Financial Health / Net Summary */}
+        {/* Card 3: سود ناخالص دوره (Purple) */}
         <div
           onClick={() => setActiveTab('reports')}
-          className="bg-white p-5 rounded-2xl border border-slate-200/80 hover:border-indigo-400 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between cursor-pointer group"
+          className="dashboard-kpi is-purple cursor-pointer"
           title="مشاهده گزارش سود و زیان (P&L)"
         >
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-slate-500 group-hover:text-indigo-700 transition">
-              سود ناخالص دوره ({baseCurrency.code})
-            </span>
-            <div className="w-10 h-10 rounded-xl bg-[#6366F1] text-white flex items-center justify-center shadow-2xs group-hover:scale-105 transition">
+          <div className="dashboard-kpi-top">
+            <div className="dashboard-kpi-icon">
               <Coins className="w-5 h-5" />
             </div>
+            <small>PROFIT-EST</small>
           </div>
+          <strong>{formatNumber(currentMonthGrossProfitBase)} {baseCurrency.code}</strong>
           <div>
-            <div className="flex items-baseline gap-1.5 font-mono">
-              <span className="text-xs font-bold text-slate-500">{baseCurrency.symbol || baseCurrency.code}</span>
-              <span className="text-2xl font-black text-slate-900 tracking-tight">
-                {formatNumber(currentMonthGrossProfitBase)}
-              </span>
-            </div>
-            <p className="text-[11px] text-indigo-600 mt-2 font-medium">
-              محاسبه به ارز مبنا: {baseCurrency.name}
-            </p>
+            <h3>سود ناخالص دوره</h3>
+            <p>محاسبه بر اساس ارز مبنا: {baseCurrency.name}</p>
           </div>
         </div>
 
-        {/* Card 4 (Leftmost): تعداد گدام‌های فعال (کلیک جهت هدایت به گدام‌ها) */}
+        {/* Card 4: تعداد گدام‌های فعال (Amber) */}
         <div
           onClick={() => setActiveTab('warehouses')}
-          className="bg-white p-5 rounded-2xl border border-slate-200/80 hover:border-amber-400 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between cursor-pointer group"
+          className="dashboard-kpi is-amber cursor-pointer"
           title="مشاهده وضعیت گدام‌ها و موجودی کالا"
         >
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-slate-500 group-hover:text-amber-700 transition">تعداد گدام‌های فعال</span>
-            <div className="w-10 h-10 rounded-xl bg-[#F59E0B] text-white flex items-center justify-center shadow-2xs group-hover:scale-105 transition">
+          <div className="dashboard-kpi-top">
+            <div className="dashboard-kpi-icon">
               <WarehouseIcon className="w-5 h-5" />
             </div>
+            <small>WAREHOUSE</small>
           </div>
+          <strong>{warehouses.length} گدام</strong>
           <div>
-            <div className="flex items-baseline gap-1 font-mono">
-              <span className="text-2xl font-black text-slate-900 tracking-tight">
-                {warehouses.length}
-              </span>
-              <span className="text-xs font-bold text-slate-500 font-sans mr-1">گدام</span>
+            <h3>گدام‌های فعال</h3>
+            <p>{warehouses.length === 0 ? 'تعریف نشده' : 'نظارت بر فیزیک کالاها'}</p>
+          </div>
+        </div>
+
+        {/* Card 5: صندوق و نقدینگی (Teal) */}
+        <div
+          onClick={() => setActiveTab('cash')}
+          className="dashboard-kpi is-teal cursor-pointer"
+          title="مشاهده صندوق‌ها و وضعیت نقدینگی"
+        >
+          <div className="dashboard-kpi-top">
+            <div className="dashboard-kpi-icon">
+              <Wallet className="w-5 h-5" />
             </div>
-            <div className="flex items-center justify-between mt-2 pt-1 border-t border-slate-100">
-              <span className="text-[11px] text-slate-400 font-medium">
-                {warehouses.length === 0 ? 'هیچ گدامی تعریف نشده' : 'نظارت بر فیزیک کالاها'}
-              </span>
-              <span className="text-[11px] font-bold text-amber-600 flex items-center gap-0.5 group-hover:translate-x-[-2px] transition">
-                <span>بخش گدام‌ها</span>
-                <ChevronLeft className="w-3.5 h-3.5" />
-              </span>
+            <small>CASH-BOX</small>
+          </div>
+          <strong>{formatNumber(totalCashAFN)} AFN</strong>
+          <div>
+            <h3>موجودی کل نقدینگی</h3>
+            <p>${formatNumber(totalCashUSD)} دالر در {cashAccounts.length} حساب</p>
+          </div>
+        </div>
+
+        {/* Card 6: طلب از مشتریان / بدهکاران (Red) */}
+        <div
+          onClick={() => setActiveTab('customers')}
+          className="dashboard-kpi is-red cursor-pointer"
+          title="مشاهده لیست بدهکاران و مانده حساب مشتریان"
+        >
+          <div className="dashboard-kpi-top">
+            <div className="dashboard-kpi-icon">
+              <ArrowDownLeft className="w-5 h-5" />
             </div>
+            <small>DEBTORS</small>
+          </div>
+          <strong>{formatNumber(totalCustomerDebtAFN)} AFN</strong>
+          <div>
+            <h3>طلب کل از مشتریان</h3>
+            <p>${formatNumber(totalCustomerDebtUSD)} دالر مانده حساب باز</p>
           </div>
         </div>
       </div>

@@ -76,7 +76,14 @@ export const TelegramPendingApprovalModal: React.FC<TelegramPendingApprovalModal
 
     setActionLoadingId(user.id);
     try {
-      const res = await linkTelegramUserToParty(user.id, partyId, party.name);
+      const res = await linkTelegramUserToParty({
+        chatId: user.telegramChatId,
+        identifier: user.id,
+        partyId,
+        partyName: party.name,
+        phone: user.phoneNumber,
+        connectionCode: user.connectionCode,
+      });
       if (res.success) {
         // Update local party in context
         updateParty(partyId, {
