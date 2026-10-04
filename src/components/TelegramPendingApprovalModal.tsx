@@ -116,7 +116,7 @@ export const TelegramPendingApprovalModal: React.FC<TelegramPendingApprovalModal
   const handleDismissUser = async (user: TelegramUser) => {
     setActionLoadingId(user.id);
     try {
-      const res = await unlinkTelegramUser(user.id);
+      const res = await unlinkTelegramUser(user.telegramChatId || user.id);
       if (res.success) {
         notify('info', 'درخواست رد شد', `درخواست کاربر ${user.firstName || user.phoneNumber} نادیده گرفته شد.`);
         setPendingUsers(prev => prev.filter(u => u.id !== user.id));

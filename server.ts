@@ -304,16 +304,45 @@ function explainTelegramError(status: number, desc?: string): string {
   return desc || 'توکن وارد شده توسط سرورهای رسمی تلگرام تایید نشد.';
 }
 
+export function escapeHtml(str: string): string {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 // ================= TELEGRAM SEND HELPERS =================
 async function telegramApiCall(token: string, method: string, body: any): Promise<any> {
   const cleanToken = sanitizeBotToken(token);
   const url = `https://api.telegram.org/bot${cleanToken}/${method}`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-  return await res.json();
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(18000),
+    });
+    const data: any = await res.json();
+    // If HTML parsing failed due to malformed entities, retry automatically as plain text
+    if (!data.ok && data.description?.toLowerCase().includes("can't parse entities") && body.parse_mode) {
+      console.warn('Telegram HTML parse failed, retrying message as plain text...');
+      const cleanBody = { ...body };
+      delete cleanBody.parse_mode;
+      cleanBody.text = (cleanBody.text || '').replace(/<[^>]*>?/gm, '');
+      const retryRes = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cleanBody),
+        signal: AbortSignal.timeout(18000),
+      });
+      return await retryRes.json();
+    }
+    return data;
+  } catch (err: any) {
+    console.error(`telegramApiCall error for ${method}:`, err?.message);
+    return { ok: false, error: err?.message };
+  }
 }
 
 // ================= SERVER-SIDE POLLING ENGINE =================
@@ -332,7 +361,9 @@ async function startPolling() {
 
   // Clear any existing webhook so getUpdates doesn't return 409 Conflict
   try {
-    await fetch(`https://api.telegram.org/bot${cleanToken}/deleteWebhook?drop_pending_updates=false`);
+    await fetch(`https://api.telegram.org/bot${cleanToken}/deleteWebhook?drop_pending_updates=false`, {
+      signal: AbortSignal.timeout(8000),
+    });
   } catch (err) {
     console.warn('Telegram deleteWebhook attempt warning:', err);
   }
@@ -359,14 +390,18 @@ async function startPolling() {
       try {
         const url = `https://api.telegram.org/bot${currentToken}/getUpdates?offset=${offset}&timeout=15`;
         const res = await fetch(url, {
-          signal: pollingAbortController?.signal,
+          signal: pollingAbortController
+            ? AbortSignal.any([pollingAbortController.signal, AbortSignal.timeout(28000)])
+            : AbortSignal.timeout(28000),
         });
 
         if (!res.ok) {
           if (res.status === 409) {
-            // Webhook conflict, delete webhook
+            // Webhook conflict or another getUpdates, delete webhook and wait
             try {
-              await fetch(`https://api.telegram.org/bot${currentToken}/deleteWebhook?drop_pending_updates=false`);
+              await fetch(`https://api.telegram.org/bot${currentToken}/deleteWebhook?drop_pending_updates=false`, {
+                signal: AbortSignal.timeout(6000),
+              });
             } catch {}
           }
           await new Promise(r => setTimeout(r, 4000));
@@ -389,7 +424,7 @@ async function startPolling() {
           }
         }
       } catch (err: any) {
-        if (err?.name === 'AbortError') break;
+        if (err?.name === 'AbortError' && !isPolling) break;
         await new Promise(r => setTimeout(r, 3500));
       }
     }
@@ -1082,7 +1117,7 @@ app.post('/api/telegram/unlink-user', async (req: Request, res: Response) => {
     if (!chatId) return res.status(400).json({ success: false, error: 'شناسه چت الزامی است.' });
 
     const users = loadUsers();
-    const target = users.find(u => u.telegramChatId === chatId);
+    const target = users.find(u => u.telegramChatId === chatId || u.id === chatId);
 
     if (!target) {
       return res.status(404).json({ success: false, error: 'کاربر یافت نشد.' });

@@ -1,5 +1,6 @@
 import { Party, Invoice, FinancialTransaction, CompanySettings } from '../types';
 import { formatNumber, getPersianDate } from '../utils/formatters';
+import { setServerListenerStatus } from './telegramBotService';
 
 export interface TelegramStatusResponse {
   isConfigured: boolean;
@@ -81,8 +82,11 @@ export async function fetchTelegramStatus(): Promise<TelegramStatusResponse> {
   try {
     const res = await fetch('/api/telegram/status');
     if (!res.ok) throw new Error('Network response not ok');
-    return await res.json();
+    const data: TelegramStatusResponse = await res.json();
+    setServerListenerStatus(!!data.isPolling && !!data.isConfigured);
+    return data;
   } catch (e: any) {
+    setServerListenerStatus(false);
     return {
       isConfigured: false,
       botUsername: '',

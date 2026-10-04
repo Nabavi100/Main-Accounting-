@@ -40,6 +40,7 @@ import {
 import {
   testTelegramBotConnection,
   fetchTelegramConfig,
+  fetchTelegramStatus,
   saveTelegramConfig,
   sendTelegramDirectMessage,
 } from '../services/telegramApiService';
@@ -103,7 +104,8 @@ export const TelegramBotModal: React.FC<TelegramBotModalProps> = ({
       setPinError('');
       setIsUnlocked(true);
 
-      // Fetch active config from backend server and sync
+      // Fetch active config and listener status from backend server and sync
+      fetchTelegramStatus().catch(() => {});
       fetchTelegramConfig().then(cfg => {
         if (cfg && cfg.botToken) {
           setSettings(prev => ({

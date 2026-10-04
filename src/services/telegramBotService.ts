@@ -738,7 +738,12 @@ export interface ListenerDependencies {
   onNewLog?: (log: TelegramLogEntry) => void;
 }
 
-export const isTelegramListenerRunning = (): boolean => listenerActive;
+let serverListenerActive = true;
+export const setServerListenerStatus = (active: boolean): void => {
+  serverListenerActive = active;
+};
+
+export const isTelegramListenerRunning = (): boolean => listenerActive || serverListenerActive;
 
 export const startTelegramBotListener = (deps: ListenerDependencies): void => {
   const settings = getTelegramSettings();
@@ -761,6 +766,11 @@ export const startTelegramBotListener = (deps: ListenerDependencies): void => {
     }
   } catch {}
 
+  // Clear any existing webhook so getUpdates doesn't return 409 Conflict
+  try {
+    fetch(`https://api.telegram.org/bot${settings.botToken.trim()}/deleteWebhook?drop_pending_updates=false`).catch(() => {});
+  } catch {}
+
   const runLoop = async () => {
     while (listenerActive) {
       const currentSettings = getTelegramSettings();
@@ -776,8 +786,13 @@ export const startTelegramBotListener = (deps: ListenerDependencies): void => {
         });
 
         if (!res.ok) {
-          // If 409 conflict or other, back off for 5 seconds
-          await new Promise(r => setTimeout(r, 5000));
+          if (res.status === 409) {
+            try {
+              await fetch(`https://api.telegram.org/bot${currentSettings.botToken.trim()}/deleteWebhook?drop_pending_updates=false`);
+            } catch {}
+          }
+          // If 409 conflict or other, back off for 4 seconds
+          await new Promise(r => setTimeout(r, 4000));
           continue;
         }
 
