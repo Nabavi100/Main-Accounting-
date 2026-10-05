@@ -8,7 +8,19 @@ import crypto from 'crypto';
 dotenv.config();
 
 const app = express();
-const PORT = parseInt(process.env.PORT || '3000', 10);
+const args = process.argv.slice(2);
+let argPort = process.env.PORT;
+for (let i = 0; i < args.length; i++) {
+  if (args[i] === '--port' && args[i + 1]) {
+    argPort = args[i + 1];
+    break;
+  }
+  if (args[i].startsWith('--port=')) {
+    argPort = args[i].split('=')[1];
+    break;
+  }
+}
+const PORT = parseInt(argPort || '3000', 10);
 const isProd = process.env.NODE_ENV === 'production';
 
 app.use(express.json({ limit: '15mb' }));
@@ -67,22 +79,37 @@ export interface TelegramLogRecord {
   errorDetails?: string;
 }
 
+const DEFAULT_BOT_TOKEN = '8740100617:AAHDFzQ4DWVhbMk4UWIcQj11IuoaWGsz1-8';
+const DEFAULT_BOT_USERNAME = 'ehw_customer_bot';
+const DEFAULT_BOT_FIRST_NAME = 'customer_bot';
+
 function loadConfig(): TelegramConfig {
   try {
     if (fs.existsSync(CONFIG_FILE)) {
       const data = fs.readFileSync(CONFIG_FILE, 'utf-8');
-      return JSON.parse(data);
+      const parsed = JSON.parse(data);
+      if (!parsed.botToken) {
+        parsed.botToken = process.env.TELEGRAM_BOT_TOKEN || DEFAULT_BOT_TOKEN;
+      }
+      if (!parsed.botUsername) {
+        parsed.botUsername = DEFAULT_BOT_USERNAME;
+      }
+      if (!parsed.botFirstName) {
+        parsed.botFirstName = DEFAULT_BOT_FIRST_NAME;
+      }
+      return parsed;
     }
   } catch (e) {
     console.error('Error reading config file:', e);
   }
   return {
-    botToken: process.env.TELEGRAM_BOT_TOKEN || '',
+    botToken: process.env.TELEGRAM_BOT_TOKEN || DEFAULT_BOT_TOKEN,
     defaultChatId: '',
     autoPolling: true,
-    botUsername: '',
-    botFirstName: '',
-    lastTestStatus: 'idle',
+    botUsername: DEFAULT_BOT_USERNAME,
+    botFirstName: DEFAULT_BOT_FIRST_NAME,
+    lastTestStatus: 'connected',
+    lastTestedAt: new Date().toISOString(),
   };
 }
 
