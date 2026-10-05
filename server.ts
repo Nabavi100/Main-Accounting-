@@ -59,6 +59,9 @@ export interface TelegramUserRecord {
   username?: string;
   connectionCode: string;
   registeredAt: string;
+  lastActiveAt?: string;
+  lastMessage?: string;
+  startCount?: number;
   status: 'pending' | 'connected';
   partyId?: string;
   partyName?: string;
@@ -375,6 +378,7 @@ async function telegramApiCall(token: string, method: string, body: any): Promis
 // ================= SERVER-SIDE POLLING ENGINE =================
 let isPolling = false;
 let pollingAbortController: AbortController | null = null;
+let lastTelegramActivityTimestamp = Date.now();
 
 async function startPolling() {
   const config = loadConfig();
@@ -485,6 +489,7 @@ async function handleTelegramUpdate(update: any, botToken: string) {
 
   const users = loadUsers();
   let existingUser = users.find(u => u.telegramChatId === chatId);
+  lastTelegramActivityTimestamp = Date.now();
 
   // If user is new to the bot, register immediately with a connection code
   if (!existingUser) {
@@ -499,6 +504,7 @@ async function handleTelegramUpdate(update: any, botToken: string) {
       username,
       connectionCode,
       registeredAt: new Date().toISOString(),
+      lastActiveAt: new Date().toISOString(),
       status: 'pending',
       inquiriesCount: 0,
     };
@@ -513,13 +519,29 @@ async function handleTelegramUpdate(update: any, botToken: string) {
       message: `کاربر تلگرام (${fullName}) ربات را استارت کرد. کد اتصال یکتا: ${connectionCode}`,
     });
   } else {
-    // Keep profile fresh
+    // Keep profile fresh and record latest user activity
     let changed = false;
     if (firstName && existingUser.firstName !== firstName) { existingUser.firstName = firstName; changed = true; }
     if (lastName && existingUser.lastName !== lastName) { existingUser.lastName = lastName; changed = true; }
     if (username && existingUser.username !== username) { existingUser.username = username; changed = true; }
     if (!existingUser.connectionCode) { existingUser.connectionCode = generateConnectionCode(); changed = true; }
+    
+    // Always mark activity time
+    existingUser.lastActiveAt = new Date().toISOString();
+    changed = true;
     if (changed) saveUsers(users);
+
+    // If user is still pending, notify in logs that they tried again
+    if (existingUser.status === 'pending') {
+      const incomingText = msg.text ? `پیام: «${msg.text}»` : msg.contact ? 'اشتراک‌گذاری شماره' : 'استارت ربات';
+      addLog({
+        chatId,
+        partyName: fullName,
+        type: 'auth_pending',
+        status: 'success',
+        message: `درخواست فعال‌سازی مجدد از طرف کاربر تلگرام (${fullName}) - ${incomingText} (کد اتصال: ${existingUser.connectionCode})`,
+      });
+    }
   }
 
   // 1. CONTACT SHARING (Official Telegram Contact Sharing Request)
@@ -838,6 +860,7 @@ app.get('/api/telegram/status', (req: Request, res: Response) => {
     botFirstName: config.botFirstName || '',
     defaultChatId: config.defaultChatId || '',
     isPolling,
+    latestActivityTimestamp: lastTelegramActivityTimestamp,
     pendingCount: pending.length,
     pendingUsers: pending.map(u => ({
       id: u.id,
@@ -847,6 +870,8 @@ app.get('/api/telegram/status', (req: Request, res: Response) => {
       connectionCode: u.connectionCode,
       username: u.username,
       registeredAt: u.registeredAt,
+      lastActiveAt: u.lastActiveAt || u.registeredAt,
+      lastMessage: u.lastMessage || '',
     })),
     connectedCount: connected.length,
     lastTestStatus: config.lastTestStatus || 'idle',

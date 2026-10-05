@@ -39,6 +39,7 @@ interface HeaderProps {
   onOpenTelegramPendingModal?: () => void;
   telegramPendingCount?: number;
   telegramPendingPhone?: string;
+  telegramPendingName?: string;
   onToggleSidebar?: () => void;
   onSelectNavTab?: (tab: NavTab, filter?: string) => void;
 }
@@ -53,6 +54,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenTelegramPendingModal,
   telegramPendingCount = 0,
   telegramPendingPhone = '',
+  telegramPendingName = '',
   onToggleSidebar,
   onSelectNavTab,
 }) => {
@@ -338,7 +340,9 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <Bell className="w-3.5 h-3.5 shrink-0" />
             <span className="hidden sm:inline">
-              {telegramPendingPhone
+              {telegramPendingName
+                ? `درخواست تلگرام: ${telegramPendingName}`
+                : telegramPendingPhone
                 ? `مشتری ${telegramPendingPhone}`
                 : `${telegramPendingCount} مشتری در انتظار`}
             </span>

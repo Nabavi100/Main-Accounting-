@@ -43,6 +43,7 @@ import {
 import { NavTab } from './Sidebar';
 import { Party } from '../types';
 import { PartyCardexModal } from './PartyCardexModal';
+import { DailyBusinessSummaryWidget } from './DailyBusinessSummaryWidget';
 
 interface DashboardViewProps {
   setActiveTab: (tab: NavTab) => void;
@@ -617,6 +618,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           )}
         </div>
       </div>
+
+      {/* ---------------- 2.5. DAILY BUSINESS SUMMARY (CASH INFLOWS, OUTFLOWS & NET PROFIT) ---------------- */}
+      <DailyBusinessSummaryWidget
+        invoices={invoices}
+        baseCurrency={baseCurrency}
+        convertToBase={convertToBase}
+        usdToAfnRate={cashRegister.usdToAfnRate}
+        onOpenNewInvoice={onOpenNewInvoice}
+        onViewInvoice={onViewInvoice}
+        setActiveTab={setActiveTab}
+      />
 
       {/* ---------------- 3. SIX NOVATECH KPI METRIC CARDS ---------------- */}
       <div className="dashboard-kpis">

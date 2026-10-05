@@ -30,12 +30,14 @@ import {
   Layers,
   Edit2,
   Package,
+  Boxes,
 } from 'lucide-react';
 import { EditInvoiceModal } from './EditInvoiceModal';
+import { ItemizedProductSalesView } from './ItemizedProductSalesView';
 
 interface TradeOperationsHubViewProps {
   initialType?: 'sell' | 'buy' | 'return_sell' | 'return_buy';
-  initialViewMode?: 'list' | 'create';
+  initialViewMode?: 'list' | 'create' | 'itemized';
   onViewInvoice: (id: string) => void;
   onOpenPaymentModal?: (type: 'receive_payment' | 'make_payment', partyId?: string) => void;
 }
@@ -51,8 +53,9 @@ export const TradeOperationsHubView: React.FC<TradeOperationsHubViewProps> = ({
   // Active category: 'sell' (فروش), 'buy' (خرید), 'return_sell' (برگشت از فروش), 'return_buy' (برگشت از خرید)
   const [activeCategory, setActiveCategory] = useState<'sell' | 'buy' | 'return_sell' | 'return_buy'>(initialType);
 
-  // Sub-view: 'list' (فهرست فاکتورها) or 'create' (ثبت فاکتور جدید)
-  const [viewMode, setViewMode] = useState<'list' | 'create'>(initialViewMode);
+  // Sub-view: 'list' (فهرست فاکتورها), 'create' (ثبت فاکتور جدید), or 'itemized' (تفکیک کالاها و خریداران)
+  const [viewMode, setViewMode] = useState<'list' | 'create' | 'itemized'>(initialViewMode || 'list');
+  const [itemizedProductId, setItemizedProductId] = useState<string>('all');
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
 
   // Sync state when props change (e.g. from sidebar or quick navigation)
@@ -61,7 +64,7 @@ export const TradeOperationsHubView: React.FC<TradeOperationsHubViewProps> = ({
   }, [initialType]);
 
   React.useEffect(() => {
-    setViewMode(initialViewMode);
+    setViewMode(initialViewMode || 'list');
   }, [initialViewMode]);
 
   // Filter and search states for the list view
@@ -241,6 +244,23 @@ export const TradeOperationsHubView: React.FC<TradeOperationsHubViewProps> = ({
                 }`}
               >
                 <span>لیست ({counts.sell})</span>
+              </button>
+              <button
+                type="button"
+                id="trade-tab-itemized-sell"
+                onClick={() => {
+                  setActiveCategory('sell');
+                  setViewMode('itemized');
+                }}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                  viewMode === 'itemized'
+                    ? 'bg-blue-600 text-white shadow-xs font-black'
+                    : 'text-blue-700 hover:bg-white/80'
+                }`}
+                title="تفکیک هر جنس فروخته‌شده امروز: مقدار فروش و لیست خریداران"
+              >
+                <Boxes className="w-3.5 h-3.5" />
+                <span>تفکیک کالاها و خریداران</span>
               </button>
             </div>
 
@@ -556,6 +576,69 @@ export const TradeOperationsHubView: React.FC<TradeOperationsHubViewProps> = ({
       </div>
 
       {/* ========================================================================= */}
+      {/* SALES VIEW MODE SWITCHER (فهرست فاکتورها | تفکیک کالاها و خریداران امروز | صدور فاکتور جدید) */}
+      {/* ========================================================================= */}
+      {activeCategory === 'sell' && (
+        <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 p-2 sm:p-2.5 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-white shadow-md border border-slate-800">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+            <button
+              type="button"
+              id="trade-btn-tab-list"
+              onClick={() => {
+                setItemizedProductId('all');
+                setViewMode('list');
+              }}
+              className={`px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer ${
+                viewMode === 'list'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'text-slate-300 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              <span>فهرست فاکتورهای فروش ({counts.sell})</span>
+            </button>
+
+            <button
+              type="button"
+              id="trade-btn-tab-itemized"
+              onClick={() => {
+                setItemizedProductId('all');
+                setViewMode('itemized');
+              }}
+              className={`px-3.5 py-2 rounded-xl text-xs font-black transition flex items-center gap-2 cursor-pointer ${
+                viewMode === 'itemized'
+                  ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 shadow-md font-black ring-2 ring-amber-300/50'
+                  : 'text-amber-300 hover:text-amber-200 hover:bg-white/10'
+              }`}
+              title="مشخص کردن اینکه امروز از هر جنس چقدر و به چه کسانی فروش شده است"
+            >
+              <Boxes className="w-4 h-4" />
+              <span>تفکیک کالاها و خریداران امروز</span>
+              <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold ${
+                viewMode === 'itemized' ? 'bg-slate-950 text-amber-300' : 'bg-amber-400/20 text-amber-300'
+              }`}>
+                کالا به کالا
+              </span>
+            </button>
+          </div>
+
+          <button
+            type="button"
+            id="trade-btn-tab-create"
+            onClick={() => setViewMode('create')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95 ${
+              viewMode === 'create'
+                ? 'bg-emerald-600 text-white shadow-md font-black'
+                : 'bg-emerald-600/90 hover:bg-emerald-600 text-white'
+            }`}
+          >
+            <Plus className="w-4 h-4" />
+            <span>+ صدور فاکتور فروش جدید</span>
+          </button>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
       {/* RENDER VIEW: LIST OR FORM */}
       {/* ========================================================================= */}
       {viewMode === 'create' ? (
@@ -580,6 +663,15 @@ export const TradeOperationsHubView: React.FC<TradeOperationsHubViewProps> = ({
             />
           )}
         </div>
+      ) : viewMode === 'itemized' ? (
+        <ItemizedProductSalesView
+          initialProductId={itemizedProductId}
+          onViewInvoice={onViewInvoice}
+          onOpenNewSale={() => {
+            setActiveCategory('sell');
+            setViewMode('create');
+          }}
+        />
       ) : (
         <div className="space-y-6">
           {/* Summary Financial Cards for Active Category */}
@@ -638,6 +730,39 @@ export const TradeOperationsHubView: React.FC<TradeOperationsHubViewProps> = ({
             </div>
           </div>
 
+          {/* Quick Notice Banner for Itemized Sales Breakdown */}
+          {activeCategory === 'sell' && (
+            <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-amber-50 border border-blue-200/90 rounded-3xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <Boxes className="w-6 h-6 text-amber-300" />
+                </div>
+                <div>
+                  <h4 className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-2">
+                    <span>گزارش تفکیکی اقلام فروخته‌شده امروز و خریداران</span>
+                    <span className="text-[10px] font-bold bg-amber-400 text-slate-950 px-2 py-0.5 rounded-full font-mono">
+                      امروز {getPersianDate()}
+                    </span>
+                  </h4>
+                  <p className="text-[11px] text-slate-600 mt-0.5 leading-relaxed">
+                    می‌توانید مشخص کنید امروز از یک جنس مشخص چه مقدار، با چه قیمتی و دقیقا به چه مشتریانی فروش انجام شده است.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setItemizedProductId('all');
+                  setViewMode('itemized');
+                }}
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-amber-300 text-xs font-black rounded-xl transition shadow-xs flex items-center justify-center gap-1.5 cursor-pointer shrink-0 active:scale-95"
+              >
+                <Boxes className="w-4 h-4 text-amber-400" />
+                <span>مشاهده تفکیک فروش کالاها و خریداران</span>
+              </button>
+            </div>
+          )}
+
           {/* Table Container */}
           <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
             {/* Table Filters & Actions Bar */}
@@ -676,7 +801,21 @@ export const TradeOperationsHubView: React.FC<TradeOperationsHubViewProps> = ({
                 </select>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                {activeCategory === 'sell' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setItemizedProductId('all');
+                      setViewMode('itemized');
+                    }}
+                    className="flex items-center gap-1.5 px-3.5 py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950 font-black rounded-xl text-xs transition shadow-xs cursor-pointer active:scale-95"
+                    title="تفکیک هر جنس فروخته‌شده امروز: مقدار فروش و لیست خریداران آن"
+                  >
+                    <Boxes className="w-4 h-4 text-slate-950" />
+                    <span>تفکیک کالاها و خریداران امروز</span>
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setViewMode('create')}
@@ -759,8 +898,19 @@ export const TradeOperationsHubView: React.FC<TradeOperationsHubViewProps> = ({
                                   inv.items.map((it, itemIdx) => (
                                     <span
                                       key={itemIdx}
-                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-100 hover:bg-slate-200/80 border border-slate-200/70 text-slate-800 text-[11px] transition-colors"
-                                      title={`${it.productName}: ${formatNumber(it.quantity)} ${it.unit === 'ton' ? 'تن' : 'کیسه'}${it.unitPrice ? ` • فی: ${formatNumber(it.unitPrice)}` : ''}`}
+                                      onClick={(e) => {
+                                        if (activeCategory === 'sell') {
+                                          e.stopPropagation();
+                                          setItemizedProductId(it.productId);
+                                          setViewMode('itemized');
+                                        }
+                                      }}
+                                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border text-[11px] transition-colors ${
+                                        activeCategory === 'sell'
+                                          ? 'bg-slate-100 hover:bg-blue-100 hover:border-blue-300 text-slate-800 hover:text-blue-900 cursor-pointer border-slate-200/70 group/item'
+                                          : 'bg-slate-100 border-slate-200/70 text-slate-800'
+                                      }`}
+                                      title={activeCategory === 'sell' ? `کلیک برای تفکیک فروش و خریداران جنس: ${it.productName}` : `${it.productName}: ${formatNumber(it.quantity)}`}
                                     >
                                       <Package className="w-3 h-3 text-blue-600 shrink-0" />
                                       <strong className="font-bold text-slate-900">{it.productName}</strong>

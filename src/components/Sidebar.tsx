@@ -167,6 +167,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { title: 'داشبورد مدیریتی', tab: 'dashboard', section: 'dashboard', iconDesc: 'آمار و شاخص‌های کلیدی' },
     { title: 'روزنامچه جامع رویدادها', tab: 'journal', section: 'journal', iconDesc: 'گردش حساب‌ها و وقایع' },
     { title: 'فاکتور فروش جدید', tab: 'trade_hub', filter: 'sell', section: 'tradeAndFinance', iconDesc: 'صدور فاکتور فروش' },
+    { title: 'تفکیک فروش کالاها و خریداران امروز', tab: 'trade_hub', filter: 'itemized', section: 'tradeAndFinance', iconDesc: 'چقدر و به چه کسانی فروش شده' },
     { title: 'فاکتور خرید جدید', tab: 'trade_hub', filter: 'buy', section: 'tradeAndFinance', iconDesc: 'صدور فاکتور خرید' },
     { title: 'لیست فاکتورهای فروش', tab: 'sales_invoices', section: 'tradeAndFinance', iconDesc: 'آرشیو فروش' },
     { title: 'لیست فاکتورهای خرید', tab: 'purchase_invoices', section: 'tradeAndFinance', iconDesc: 'آرشیو خرید' },
@@ -620,6 +621,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 }`}
               >
                 فاکتور فروش (صدور فروش جدید)
+              </button>
+              <button
+                type="button"
+                id="sidebar-sub-itemized-sales"
+                onClick={() => handleNavigate('trade_hub', 'itemized')}
+                className={`w-full text-right py-1 px-2 text-xs rounded-lg transition-colors font-medium cursor-pointer flex items-center justify-between ${
+                  activeTab === 'trade_hub' && subFilter === 'itemized'
+                    ? 'text-[#2563EB] font-bold bg-[#EEF2FF]'
+                    : 'text-slate-500 hover:text-[#2563EB] hover:bg-slate-50'
+                }`}
+              >
+                <span>تفکیک فروش کالاها و خریداران</span>
+                <span className="text-[10px] bg-blue-100 text-blue-700 px-1 py-0.2 rounded font-bold">امروز</span>
               </button>
               <button
                 type="button"

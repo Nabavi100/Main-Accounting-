@@ -51,6 +51,8 @@ import { LicenseLockScreen } from './components/LicenseLockScreen';
 import { QuickDataBackupModal } from './components/QuickDataBackupModal';
 import { TelegramPendingApprovalModal } from './components/TelegramPendingApprovalModal';
 import { fetchTelegramStatus } from './services/telegramApiService';
+import { playChimeSound } from './utils/audio';
+import { Bell } from 'lucide-react';
 
 const MainApp: React.FC = () => {
   const {
@@ -117,8 +119,10 @@ const MainApp: React.FC = () => {
   const [isTelegramPendingModalOpen, setIsTelegramPendingModalOpen] = useState(false);
   const [telegramPendingUsers, setTelegramPendingUsers] = useState<any[]>([]);
   const previousPendingIdsRef = React.useRef<Set<string>>(new Set());
+  const previousActivityTimeRef = React.useRef<number>(0);
+  const previousUserActiveTimesRef = React.useRef<Map<string, string>>(new Map());
 
-  // Periodically check for Telegram users awaiting approval
+  // Periodically check for Telegram users awaiting approval (fast 2.5s polling)
   useEffect(() => {
     let isMounted = true;
     const checkPendingTelegram = async () => {
@@ -128,22 +132,54 @@ const MainApp: React.FC = () => {
         const pending = status.pendingUsers || [];
         setTelegramPendingUsers(pending);
 
-        // Alert user when new pending customers arrive
+        // Alert user with chime and notification when new pending customers arrive or re-activate
+        let hasNewArrival = false;
+        let alertUser: any = null;
+
         pending.forEach(u => {
+          const prevActive = previousUserActiveTimesRef.current.get(u.id);
+          const currentActive = u.lastActiveAt || u.registeredAt;
+
           if (!previousPendingIdsRef.current.has(u.id)) {
             previousPendingIdsRef.current.add(u.id);
-            notify(
-              'warning',
-              '🔔 مشتری در انتظار تایید تلگرام',
-              `مشتری با شماره ${u.phoneNumber || u.fullName} ربات را استارت زده و منتظر تایید است. برای اتصال کلیک کنید.`
-            );
+            previousUserActiveTimesRef.current.set(u.id, currentActive);
+            hasNewArrival = true;
+            alertUser = u;
+          } else if (prevActive && currentActive && prevActive !== currentActive) {
+            previousUserActiveTimesRef.current.set(u.id, currentActive);
+            hasNewArrival = true;
+            alertUser = u;
           }
         });
+
+        // Also check if server detected general telegram activity
+        if (
+          status.latestActivityTimestamp &&
+          previousActivityTimeRef.current !== 0 &&
+          status.latestActivityTimestamp > previousActivityTimeRef.current &&
+          pending.length > 0
+        ) {
+          hasNewArrival = true;
+          if (!alertUser && pending.length > 0) alertUser = pending[0];
+        }
+        if (status.latestActivityTimestamp) {
+          previousActivityTimeRef.current = status.latestActivityTimestamp;
+        }
+
+        if (hasNewArrival && alertUser) {
+          playChimeSound();
+          const displayName = alertUser.fullName || alertUser.username || alertUser.phoneNumber || 'کاربر جدید تلگرام';
+          notify(
+            'warning',
+            '🔔 درخواست اتصال تلگرام',
+            `کاربر ${displayName} (${alertUser.username || 'کد: ' + alertUser.connectionCode}) ربات را استارت زده و منتظر اتصال به حساب است.`
+          );
+        }
       } catch {}
     };
 
     checkPendingTelegram();
-    const interval = setInterval(checkPendingTelegram, 8000);
+    const interval = setInterval(checkPendingTelegram, 2500);
     return () => {
       isMounted = false;
       clearInterval(interval);
@@ -347,7 +383,41 @@ const MainApp: React.FC = () => {
           onOpenTelegramPendingModal={() => setIsTelegramPendingModalOpen(true)}
           telegramPendingCount={telegramPendingUsers.length}
           telegramPendingPhone={telegramPendingUsers[0]?.phoneNumber}
+          telegramPendingName={telegramPendingUsers[0]?.fullName || telegramPendingUsers[0]?.username}
         />
+
+        {/* Telegram Pending Approval Global Alert Banner */}
+        {telegramPendingUsers.length > 0 && (
+          <div className="bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-300 text-slate-950 px-4 py-2.5 shadow-xs border-b border-amber-400/80 flex items-center justify-between gap-3 text-xs z-30 select-none animate-in slide-in-from-top duration-200">
+            <div className="flex items-center gap-2.5 truncate">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-600 animate-ping shrink-0" />
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-black bg-slate-900 text-amber-300 px-2 py-0.5 rounded text-[11px] shrink-0">
+                  🔔 درخواست اتصال تلگرام ({telegramPendingUsers.length})
+                </span>
+                <span className="font-bold text-slate-950 truncate">
+                  کاربر <strong>{telegramPendingUsers[0]?.fullName || telegramPendingUsers[0]?.username || 'جدید'}</strong>
+                  {telegramPendingUsers[0]?.username ? ` (${telegramPendingUsers[0]?.username})` : ''} ربات را استارت زده و منتظر تایید است.
+                </span>
+                {telegramPendingUsers[0]?.connectionCode && (
+                  <span className="hidden sm:inline font-mono bg-white/70 px-1.5 py-0.5 rounded text-[11px] font-bold text-slate-900 border border-amber-400/50">
+                    کد اتصال: {telegramPendingUsers[0]?.connectionCode}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIsTelegramPendingModalOpen(true)}
+                className="px-3.5 py-1.5 bg-slate-950 hover:bg-slate-800 text-amber-300 font-black rounded-xl text-xs transition shadow-xs cursor-pointer active:scale-95 flex items-center gap-1.5"
+              >
+                <span>مشاهده و اتصال به پرونده مشتری</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* View Body */}
         <main className="flex-1 overflow-y-auto bg-slate-50">
@@ -410,6 +480,8 @@ const MainApp: React.FC = () => {
                 initialViewMode={
                   activeTab === 'new_sale' || activeTab === 'new_purchase' || activeTab === 'new_return_sell' || activeTab === 'new_return_buy'
                     ? 'create'
+                    : subFilter === 'itemized' || subFilter === 'product_sales'
+                    ? 'itemized'
                     : 'list'
                 }
                 onViewInvoice={handleViewInvoice}
@@ -647,6 +719,49 @@ const MainApp: React.FC = () => {
         isOpen={isQuickBackupModalOpen}
         onClose={() => setIsQuickBackupModalOpen(false)}
       />
+
+      {/* Floating alert card when there are pending Telegram customer requests */}
+      {telegramPendingUsers.length > 0 && !isTelegramPendingModalOpen && (
+        <aside
+          role="region"
+          aria-label="درخواست‌های جدید ربات تلگرام"
+          className="fixed bottom-6 left-6 z-[9990] max-w-sm bg-slate-900/95 backdrop-blur-md text-white border-2 border-amber-400 p-4 rounded-2xl shadow-2xl animate-in slide-in-from-bottom duration-300"
+        >
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-bold shrink-0 animate-bounce">
+              <Bell className="w-5 h-5" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-xs font-black text-amber-300">🔔 مشتری جدید تلگرام منتظر تایید</span>
+                <span className="text-[10px] bg-amber-400/20 text-amber-300 px-1.5 py-0.5 rounded font-mono font-bold">
+                  {telegramPendingUsers.length} مورد
+                </span>
+              </div>
+              <p className="text-xs font-bold text-white mt-1 truncate">
+                {telegramPendingUsers[0]?.fullName || telegramPendingUsers[0]?.username || 'کاربر جدید'}
+                {telegramPendingUsers[0]?.connectionCode && (
+                  <span className="text-amber-300 font-mono text-[11px] mr-1">
+                    (کد: {telegramPendingUsers[0]?.connectionCode})
+                  </span>
+                )}
+              </p>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                ربات را استارت زده و در انتظار اتصال به حساب مالی است.
+              </p>
+              <div className="flex items-center gap-2 mt-3">
+                <button
+                  type="button"
+                  onClick={() => setIsTelegramPendingModalOpen(true)}
+                  className="flex-1 py-1.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950 font-black rounded-xl text-xs transition cursor-pointer text-center shadow-md active:scale-95"
+                >
+                  مشاهده و اتصال به پرونده
+                </button>
+              </div>
+            </div>
+          </div>
+        </aside>
+      )}
 
       {/* Telegram Pending Approval Modal (تایید و اتصال فوری مشتریان جدید به حساب) */}
       <TelegramPendingApprovalModal

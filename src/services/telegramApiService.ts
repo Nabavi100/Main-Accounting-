@@ -8,6 +8,7 @@ export interface TelegramStatusResponse {
   botFirstName: string;
   defaultChatId: string;
   isPolling: boolean;
+  latestActivityTimestamp?: number;
   pendingCount: number;
   pendingUsers?: Array<{
     id: string;
@@ -17,6 +18,8 @@ export interface TelegramStatusResponse {
     connectionCode: string;
     username?: string;
     registeredAt: string;
+    lastActiveAt?: string;
+    lastMessage?: string;
   }>;
   connectedCount: number;
   lastTestStatus: 'connected' | 'error' | 'idle';
