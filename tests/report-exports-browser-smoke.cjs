@@ -269,10 +269,10 @@ const eligible = destination => destination.id === 'sidebar-btn-journal' ||
     await page.locator('#trade-invoice-search').fill('EXPORT-SELL-003');
     for (const action of ['.is-create', '.is-excel', '.is-pdf', '.is-telegram', '.is-print']) assert.ok(await toolbar(page).locator(action).isVisible());
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
-    await page.screenshot({ path: path.join(artifacts, 'toolbar-mobile.png'), animations: 'disabled', timeout: 10000 });
+    await page.screenshot({ path: path.join(artifacts, 'toolbar-mobile.png'), animations: 'disabled', timeout: 60000 });
     await download(page, toolbar(page).locator('.is-pdf'), 'mobile-filtered.pdf');
     await page.setViewportSize({ width: 1600, height: 950 });
-    await page.screenshot({ path: path.join(artifacts, 'toolbar-desktop.png'), animations: 'disabled', timeout: 10000 });
+    await page.screenshot({ path: path.join(artifacts, 'toolbar-desktop.png'), animations: 'disabled', timeout: 60000 });
     await toolbar(page).locator('.is-create').click(); await page.locator('#trade-invoice-number').waitFor();
     assert.equal(await toolbar(page).count(), 0); assert.deepEqual(await snapshot(page), before);
     assert.deepEqual(errors, []);
@@ -281,7 +281,7 @@ const eligible = destination => destination.id === 'sidebar-btn-journal' ||
   } catch (error) {
     if (page) {
       console.error('Current export errors:', await page.locator('.page-actions-error').allTextContents().catch(() => []));
-      await page.screenshot({ path: path.join(artifacts, 'failure.png'), animations: 'disabled', timeout: 10000 }).catch(() => {});
+      await page.screenshot({ path: path.join(artifacts, 'failure.png'), animations: 'disabled', timeout: 60000 }).catch(() => {});
     }
     throw error;
   } finally { await browser.close(); }

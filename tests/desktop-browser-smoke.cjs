@@ -105,6 +105,7 @@ async function exportFile(page, kind) {
     assert.ok(workbook.worksheets[0].views.some(view => view.rightToLeft));
     const cells = []; workbook.worksheets[0].eachRow(row => cells.push(...row.values));
     assert.ok(cells.includes('طرف حساب آزمایشی نصب'));
+    assert.ok(cells.includes(-120) && cells.includes(35), 'Native Excel keeps financial balances as numeric cells');
     const pdf = await exportFile(page, 'pdf');
     assert.ok(pdf.subarray(0, 8).toString().startsWith('%PDF-'));
     assert.ok(pdf.subarray(-80).toString().includes('%%EOF'));

@@ -76,6 +76,8 @@ async function closeApplication(page) {
     await completed(installation);
     const executable = findExecutable(path.join(process.env.LOCALAPPDATA, 'Programs'));
     assert.ok(executable, 'The NSIS installer did not install the application');
+    assert.ok(fs.existsSync(path.join(process.env.USERPROFILE, 'Desktop', 'حسابداری برادران نبوی.lnk')), 'The Persian desktop shortcut must be installed');
+    assert.ok(fs.existsSync(path.join(process.env.APPDATA, 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'حسابداری برادران نبوی.lnk')), 'The Persian Start Menu shortcut must be installed');
     // Silent setup is not supposed to auto-launch the UI. If it did, close that exact
     // test executable so the next launch can supply a renderer-only CDP switch.
     const cleanup = spawn('powershell.exe', ['-NoProfile', '-Command', `Get-Process -Name 'Nabavi Accounting' -ErrorAction SilentlyContinue | ForEach-Object { $_.CloseMainWindow() | Out-Null }; exit 0`], { stdio: 'ignore' });
