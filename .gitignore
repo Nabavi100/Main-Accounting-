@@ -7,3 +7,10 @@ coverage/
 .env*
 !.env.example
 server_data/
+
+# Desktop build intermediates and downloadable installers (not source code).
+out/
+desktop-release/
+
+.cache/
+__pycache__/

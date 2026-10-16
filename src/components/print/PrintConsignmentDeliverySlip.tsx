@@ -1,6 +1,7 @@
 import React from 'react';
 import { ConsignmentMovement, CompanySettings, Party } from '../../types';
-import { formatNumber, getPersianDate } from '../../utils/formatters';
+import { getPersianDate } from '../../utils/formatters';
+import { formatConsignmentQuantity as formatNumber } from '../../utils/consignment';
 
 interface PrintConsignmentDeliverySlipProps {
   movement: ConsignmentMovement;

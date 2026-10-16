@@ -1,0 +1,36 @@
+/* Fixed intrinsic action sizes: wider pages add space, never bigger buttons. */
+@media screen {
+  .center-page-nav { display: flex; flex-wrap: nowrap; align-items: center; gap: 6px; min-width: 0; max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; scroll-padding-inline: 12px; }
+  .center-page-nav > button.center-page-action { display: inline-flex; flex: 0 0 auto; width: max-content; min-width: 0; min-height: 32px; height: 32px; padding: 5px 10px; gap: 6px; white-space: nowrap; font-size: 11px; line-height: 1.5; }
+  .center-page-nav > button.center-page-action > svg { width: 14px; height: 14px; flex: none; }
+  .center-page-nav .trade-center-count { min-width: 17px; height: 18px; padding: 0 4px; font-size: 10px; }
+  .treasury-center-header { margin-bottom: 16px; overflow: hidden; border: 1px solid var(--ui-border, #dce4ee); border-radius: 15px; background: var(--ui-surface, #fff); }
+  .treasury-center-heading { display: flex; align-items: center; gap: 8px; padding: 16px 18px 12px; color: var(--ui-text, #334155); }
+  .treasury-center-heading > svg { width: 21px; height: 21px; color: var(--ui-primary, #15779b); }
+  .treasury-center-heading h1 { margin: 0; font-size: 17px; line-height: 1.7; font-weight: 750; }
+  .treasury-center-primary { padding: 4px 18px 12px; }
+  .treasury-center-action, .treasury-center-more { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 32px; padding: 5px 9px; border: 1px solid var(--ui-border, #dce4ee); border-radius: 8px; background: var(--ui-surface, #fff); color: var(--ui-text, #334155); font-size: 11px; cursor: pointer; }
+  .treasury-center-action > svg, .treasury-center-more > svg { width: 14px; height: 14px; flex: none; }
+  .treasury-center-supporting { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding: 10px 18px; border-top: 1px solid var(--ui-border, #dce4ee); }
+  .treasury-center-related { display: flex; gap: 6px; flex-wrap: wrap; }
+  .treasury-center-more > svg:last-child { transition: transform .15s; }
+  .treasury-center-more > svg.is-open { transform: rotate(180deg); }
+  .treasury-center-advanced { display: flex; flex-wrap: wrap; gap: 7px; padding: 12px 18px; border-top: 1px dashed var(--ui-border, #dce4ee); background: var(--ui-surface-muted, #f6f8fb); }
+  .workspace-page-view.is-treasury-center { padding: 20px 24px 26px; }
+  .is-treasury-center > .workspace-report-scope > .page-actions-toolbar { border: 1px solid var(--ui-border, #dce4ee); border-radius: 12px; margin-bottom: 14px; }
+  .is-treasury-center .treasury-page-heading { padding: 0 2px 12px; min-height: 0; }
+  .is-treasury-center .treasury-page-heading :is(h1,h2) { font-size: 16px; }
+  .is-treasury-center .treasury-page-heading p { display: none; }
+  .is-treasury-center .treasury-panel { margin-inline: 0; }
+  @media (max-width: 700px) {
+    .workspace-page-view.is-treasury-center { padding: 12px 10px 22px; }
+    .center-page-nav > button.center-page-action { min-height: 36px; height: 36px; }
+    .treasury-center-heading { padding: 13px 12px 10px; }
+    .treasury-center-heading h1 { font-size: 16px; }
+    .treasury-center-primary { padding-inline: 12px; }
+    .treasury-center-supporting, .treasury-center-advanced { padding-inline: 12px; }
+    .treasury-center-supporting { gap: 7px; }
+    .treasury-center-advanced .treasury-center-action { justify-content: flex-start; }
+  }
+}
+@media print { .treasury-center-header { display: none !important; } }

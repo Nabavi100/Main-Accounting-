@@ -1,4 +1,7 @@
-import React, { useState } from 'react';
+import { usePageReport } from './PageActionsToolbar';
+import { tableReport } from '../utils/reportData';
+import { projectCompanyCashTransactions } from '../utils/companyCash';
+import React, { useState, useMemo } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import { Currency, CashRegisterAccount } from '../types';
 import { formatNumber, formatCurrency, getPersianDate } from '../utils/formatters';
@@ -32,26 +35,31 @@ interface CashAndExchangeViewProps {
   onOpenPaymentModal?: (type: 'receive_payment' | 'make_payment' | 'cash_transfer' | 'currency_exchange') => void;
   defaultActiveTab?: 'registers' | 'exchange_ops' | 'transactions_log';
   initialSelectedAccountId?: string;
+  onSelectAccount?: (id?: string) => void;
 }
 
 export const CashAndExchangeView: React.FC<CashAndExchangeViewProps> = ({
   onOpenPaymentModal,
   defaultActiveTab = 'registers',
   initialSelectedAccountId,
+  onSelectAccount,
 }) => {
   const {
     cashRegister,
     cashAccounts,
     deleteCashAccount,
-    transactions,
+    transactions: storedTransactions,
+    incomes,
+    expenses,
     createTransaction,
     updateExchangeRate,
     openPrintModal,
     companySettings,
   } = useAccounting();
+  const transactions = useMemo(() => projectCompanyCashTransactions(storedTransactions, incomes, expenses), [storedTransactions, incomes, expenses]);
 
   // Active view tab: 'registers' | 'exchange_ops' | 'transactions_log'
-  const [activeTab, setActiveTab] = useState<'registers' | 'exchange_ops' | 'transactions_log'>(defaultActiveTab);
+  const activeTab = defaultActiveTab;
 
   // Modals state
   const [selectedAccountForCardex, setSelectedAccountForCardex] = useState<CashRegisterAccount | null>(() => {
@@ -99,14 +107,41 @@ export const CashAndExchangeView: React.FC<CashAndExchangeViewProps> = ({
 
   const totalCombinedAFN = totalAFN + totalUSD * (cashRegister.usdToAfnRate || 65);
 
+
+  const handlePrintTransactions = () => openPrintModal({
+    title: 'دفتر کل گردش وجوه و نقدینگی شرکت',
+    subtitle: `تاریخ گزارش: ${getPersianDate()} | تعداد کل اسناد: ${filteredTransactions.length}`,
+    table: {
+      headers: ['شماره سند', 'تاریخ', 'نوع سند', 'صندوق', 'طرف حساب / شرح', 'مبلغ'],
+      rows: filteredTransactions.map(t => [
+        t.transactionNumber,
+        t.date,
+        t.type,
+        t.cashRegister || '-',
+        t.partyName ? `${t.partyName} - ${t.description}` : t.description,
+        formatCurrency(t.amount, t.currency),
+      ]),
+    },
+    footerNote: companySettings.name,
+  });
+
+  usePageReport({
+    title: activeTab === 'transactions_log' ? 'دفتر گردش وجوه' : 'صندوق‌ها و حساب‌های مالی', enabled: !selectedAccountForCardex && activeTab !== 'exchange_ops',
+    onCreate: activeTab === 'registers' ? () => { setAccountToEdit(null); setIsAddAccountOpen(true); } : undefined, createLabel: 'ایجاد صندوق جدید',
+    search: activeTab === 'transactions_log' ? { value: searchQuery, onChange: setSearchQuery, placeholder: "جستجو در تمام اسناد مالی، شماره سند، طرف حساب..." } : undefined,
+    onPrint: activeTab === 'transactions_log' ? handlePrintTransactions : undefined,
+    filters: activeTab === 'transactions_log' ? [{ id: 'type', label: 'نوع عملیات', value: filterType, onChange: setFilterType, options: [{ value: 'all', label: 'همه' }, { value: 'receive_payment', label: 'دریافت' }, { value: 'make_payment', label: 'پرداخت' }, { value: 'cash_transfer', label: 'انتقال' }, { value: 'currency_exchange', label: 'تبدیل ارز' }, { value: 'expense', label: 'هزینه‌ها و مصارف' }] }] : undefined,
+    getReport: () => activeTab === 'registers'
+      ? tableReport('صندوق‌ها و حساب‌های مالی', ['نام حساب', 'ارز', 'تراز افتتاحیه', 'موجودی فعلی'], cashAccounts.map(account => [account.name, account.currency, account.initialBalance, account.balance]))
+      : tableReport('دفتر گردش وجوه', ['شماره سند', 'تاریخ', 'نوع عملیات', 'طرف حساب', 'شرح', 'صندوق', 'مبلغ', 'ارز'], filteredTransactions.map(tx => [tx.transactionNumber, tx.date, tx.type, tx.partyName, tx.description, tx.cashRegisterName, tx.amount, tx.currency])),
+  });
   // If a specific cash register is selected for its transaction ledger (کاردکس ریزتراکنش‌ها)
   if (selectedAccountForCardex) {
     return (
       <div className="p-4 md:p-8 max-w-7xl mx-auto overflow-y-auto">
         <CashRegisterLedgerView
           account={selectedAccountForCardex}
-          onBack={() => setSelectedAccountForCardex(null)}
-          onSwitchAccount={acc => setSelectedAccountForCardex(acc)}
+          onSwitchAccount={acc => onSelectAccount ? onSelectAccount(acc.id) : setSelectedAccountForCardex(acc)}
         />
       </div>
     );
@@ -122,7 +157,7 @@ export const CashAndExchangeView: React.FC<CashAndExchangeViewProps> = ({
               <Wallet className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-black text-slate-900">مدیریت صندوق‌ها، صرافی و عملیات ارزی</h2>
+              <h2 className="text-lg font-black text-slate-900">{activeTab === 'transactions_log' ? 'دفتر گردش وجوه' : 'صندوق‌ها و حساب‌های مالی'}</h2>
               <p className="text-xs text-slate-500">
                 صندوق‌های نقدی افغانی، شرکت دالری، صرافی دالری، تبدیل ارز و تاریخچه تراکنش‌ها
               </p>
@@ -130,45 +165,9 @@ export const CashAndExchangeView: React.FC<CashAndExchangeViewProps> = ({
           </div>
         </div>
 
-        {/* View Switcher Tabs */}
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => setActiveTab('registers')}
-            className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-              activeTab === 'registers'
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-            }`}
-          >
-            <Wallet className="w-4 h-4" />
-            <span>صندوق‌ها ({cashAccounts.length})</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('exchange_ops')}
-            className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-              activeTab === 'exchange_ops'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-            }`}
-          >
-            <ArrowRightLeft className="w-4 h-4" />
-            <span>عملیات تبدیل و انتقال ارز</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('transactions_log')}
-            className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer ${
-              activeTab === 'transactions_log'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-            }`}
-          >
-            <History className="w-4 h-4" />
-            <span>دفتر گردش وجوه</span>
-          </button>
-
-          <button
+        {/* The summary already has Create in its toolbar; keep the quick action only on the log. */}
+        {activeTab !== 'registers' && <div className="flex flex-wrap items-center gap-2">
+          <button type="button"
             onClick={() => {
               setAccountToEdit(null);
               setIsAddAccountOpen(true);
@@ -178,7 +177,7 @@ export const CashAndExchangeView: React.FC<CashAndExchangeViewProps> = ({
             <Plus className="w-4 h-4" />
             <span>تعریف صندوق جدید</span>
           </button>
-        </div>
+        </div>}
       </div>
 
       {/* Top 3 Summary Cards */}
@@ -254,7 +253,7 @@ export const CashAndExchangeView: React.FC<CashAndExchangeViewProps> = ({
                 <div
                   key={account.id}
                   className="bg-white rounded-3xl border border-slate-200 hover:border-emerald-400 hover:shadow-lg transition-all flex flex-col justify-between overflow-hidden group cursor-pointer"
-                  onClick={() => setSelectedAccountForCardex(account)}
+                  onClick={() => onSelectAccount ? onSelectAccount(account.id) : setSelectedAccountForCardex(account)}
                 >
                   <div className="p-6">
                     <div className="flex items-start justify-between">
@@ -318,7 +317,7 @@ export const CashAndExchangeView: React.FC<CashAndExchangeViewProps> = ({
                     onClick={e => e.stopPropagation()}
                   >
                     <button
-                      onClick={() => setSelectedAccountForCardex(account)}
+                      onClick={() => onSelectAccount ? onSelectAccount(account.id) : setSelectedAccountForCardex(account)}
                       className="text-emerald-600 font-bold hover:underline flex items-center gap-1 cursor-pointer"
                     >
                       <History className="w-3.5 h-3.5" />
@@ -370,61 +369,6 @@ export const CashAndExchangeView: React.FC<CashAndExchangeViewProps> = ({
       {/* ========================================================================= */}
       {activeTab === 'transactions_log' && (
         <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
-          <div className="p-5 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4 bg-slate-50/50">
-            <div className="flex items-center gap-2 flex-1 min-w-[240px]">
-              <div className="relative flex-1">
-                <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  placeholder="جستجو در تمام اسناد مالی، شماره سند، طرف حساب..."
-                  className="w-full pr-9 pl-4 py-2 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:border-emerald-500"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <select
-                value={filterType}
-                onChange={e => setFilterType(e.target.value)}
-                className="px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none cursor-pointer"
-              >
-                <option value="all">همه انواع تراکنش‌ها</option>
-                <option value="receive_payment">دریافت‌های نقدی</option>
-                <option value="make_payment">پرداخت‌های نقدی</option>
-                <option value="currency_exchange">تبادله اسعار</option>
-                <option value="cash_transfer">انتقال بین صندوق‌ها</option>
-                <option value="expense">هزینه‌ها و مصارف</option>
-              </select>
-
-              <button
-                onClick={() => {
-                  openPrintModal({
-                    title: 'دفتر کل گردش وجوه و نقدینگی شرکت',
-                    subtitle: `تاریخ گزارش: ${getPersianDate()} | تعداد کل اسناد: ${filteredTransactions.length}`,
-                    table: {
-                      headers: ['شماره سند', 'تاریخ', 'نوع سند', 'صندوق', 'طرف حساب / شرح', 'مبلغ'],
-                      rows: filteredTransactions.map(t => [
-                        t.transactionNumber,
-                        t.date,
-                        t.type,
-                        t.cashRegister || '-',
-                        t.partyName ? `${t.partyName} - ${t.description}` : t.description,
-                        formatCurrency(t.amount, t.currency),
-                      ]),
-                    },
-                    footerNote: 'شرکت تجارتی و وارداتی برادران نبوی',
-                  });
-                }}
-                className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition cursor-pointer"
-              >
-                <Printer className="w-4 h-4 text-emerald-400" />
-                <span>چاپ کل دفتر</span>
-              </button>
-            </div>
-          </div>
-
           <div className="overflow-x-auto">
             <table className="w-full text-right text-xs">
               <thead className="bg-slate-50 text-slate-600 font-bold border-b border-slate-200">

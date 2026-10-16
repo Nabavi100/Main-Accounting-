@@ -1,3 +1,5 @@
+import { usePageReport } from './PageActionsToolbar';
+import { tableReport } from '../utils/reportData';
 import React, { useState, useMemo } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import { Warehouse, WarehouseType, Product } from '../types';
@@ -268,6 +270,25 @@ export const WarehousesView: React.FC<WarehousesViewProps> = ({
     setDeliveryInitialPartyId(partyId || '');
     setIsDeliveryModalOpen(true);
   };
+
+  usePageReport({
+    title: 'گزارش گدام‌ها و موجودی', onCreate: () => openAddModal(consignmentOnly || filterType === 'consignment' ? 'consignment' : 'standard'), createLabel: 'ایجاد گدام جدید',
+    search: activeTab === 'customer_consignment_ledger' ? { value: customerSearch, onChange: setCustomerSearch, placeholder: "جستجوی نام مشتری..." } : activeTab === 'overview' ? { value: productSearch, onChange: setProductSearch, placeholder: "جستجوی کالا..." } : undefined,
+    filters: [
+      { id: 'type', label: 'نوع گدام', value: filterType, onChange: setFilterType, options: [{ value: 'all', label: 'همه گدام‌ها' }, { value: 'standard', label: 'ملکی' }, { value: 'consignment', label: 'امانی' }] },
+      { id: 'warehouse', label: 'گدام انتخابی', value: selectedWarehouseId, onChange: setSelectedWarehouseId, resetValue: filteredWarehouses[0]?.id || '', options: filteredWarehouses.map(warehouse => ({ value: warehouse.id, label: warehouse.name })) },
+    ],
+    getReport: () => {
+      if (activeTab === 'customer_consignment_ledger') return tableReport('دفتر امانت مشتریان', ['مشتری', 'شماره تماس', 'کالا', 'موجودی تن', 'موجودی کیسه'], filteredCustomerBalances.flatMap(customer => customer.products.map(product => [customer.partyName, customer.partyPhone, product.productName, product.remainingTons, product.remainingBags])));
+      if (activeTab === 'delivery_history') return tableReport('تاریخچه تحویل امانی', ['شماره سند', 'تاریخ', 'مشتری', 'کالا', 'گدام', 'مقدار تن', 'مقدار کیسه', 'شرح'], consignmentDeliveriesHistory.map(movement => [movement.documentNumber, movement.date, movement.partyName, movement.productName, movement.warehouseName, movement.quantityTons, movement.quantityBags, movement.notes]));
+      if (activeTab === 'graphical_breakdown') return tableReport('تفکیک موجودی ملکی و امانی', ['کالا', 'موجودی ملکی تن', 'موجودی ملکی کیسه', 'موجودی امانی تن', 'موجودی امانی کیسه', 'جمع تن', 'جمع کیسه'], productComparisons.map(item => [item.product.name, item.stdTons, item.stdBags, item.csgTons, item.csgBags, item.totalTons, item.totalBags]));
+      const details = currentStockDetails.filter(item => !productSearch.trim() || `${item.product.name} ${item.product.code} ${item.product.category}`.toLowerCase().includes(productSearch.trim().toLowerCase()));
+      return { title: 'گزارش گدام‌ها و موجودی', sections: [
+        { title: 'فهرست گدام‌ها', headers: ['کد', 'نام', 'نوع', 'موقعیت', 'مسئول', 'شماره تماس'], rows: filteredWarehouses.map(warehouse => [warehouse.code, warehouse.name, warehouse.type === 'standard' ? 'ملکی' : 'امانی', warehouse.location, warehouse.ownerName, warehouse.contactPhone]) },
+        { title: `موجودی ${selectedWh?.name || 'گدام'}`, headers: ['کد کالا', 'نام کالا', 'گروه', 'موجودی تن', 'موجودی کیسه'], rows: details.map(item => [item.product.code, item.product.name, item.product.category, item.tons, item.bags]) },
+      ] };
+    },
+  });
 
   return (
     <div className="p-4 sm:p-6 md:p-8 space-y-6 max-w-7xl mx-auto overflow-y-auto" dir="rtl">
@@ -697,16 +718,7 @@ export const WarehousesView: React.FC<WarehousesViewProps> = ({
                       </div>
 
                       <div className="flex flex-wrap items-center gap-2">
-                        <div className="relative">
-                          <Search className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                          <input
-                            type="text"
-                            placeholder="جستجوی کالا..."
-                            value={productSearch}
-                            onChange={e => setProductSearch(e.target.value)}
-                            className="w-36 sm:w-44 pr-8 pl-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-500"
-                          />
-                        </div>
+
 
                         <button
                           type="button"
@@ -1007,16 +1019,7 @@ export const WarehousesView: React.FC<WarehousesViewProps> = ({
             </div>
 
             <div className="flex items-center gap-2">
-              <div className="relative">
-                <Search className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="جستجوی نام مشتری..."
-                  value={customerSearch}
-                  onChange={e => setCustomerSearch(e.target.value)}
-                  className="w-48 sm:w-56 pr-9 pl-3 py-2 text-xs bg-white border border-amber-300 rounded-xl focus:outline-none focus:border-amber-500 shadow-2xs font-bold text-slate-900"
-                />
-              </div>
+
 
               <button
                 type="button"

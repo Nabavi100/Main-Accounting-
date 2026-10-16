@@ -1,3 +1,6 @@
+import { CloseButton } from './CloseButton';
+import { usePageReport } from './PageActionsToolbar';
+import { tableReport } from '../utils/reportData';
 import React, { useState } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import { Shareholder } from '../types';
@@ -186,6 +189,11 @@ export const ShareholdersView: React.FC = () => {
       footerNote: `هیات مدیره و امور حقوقی شرکت ${companySettings.name}`,
     });
   };
+
+  usePageReport({
+    title: 'لیست شرکا و سهامداران', onCreate: () => handleOpenModal(), createLabel: 'ایجاد شریک جدید', search: { value: searchQuery, onChange: setSearchQuery },
+    getReport: () => tableReport('لیست شرکا و سهامداران', ['نام', 'نقش', 'شماره تماس', 'سرمایه USD', 'سرمایه AFN', 'سهم سود AFN', 'برداشت USD', 'یادداشت'], filtered.map(partner => [partner.name, partner.role, partner.phone, partner.capitalUSD, partner.capitalAFN, partner.profitShareAFN, partner.withdrawalsUSD, partner.notes])),
+  });
 
   return (
     <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto overflow-y-auto">
@@ -440,7 +448,7 @@ export const ShareholdersView: React.FC = () => {
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden">
-            <div className="p-6 bg-slate-900 text-white flex items-center justify-between">
+            <div className="p-6 bg-slate-900 text-white flex items-center justify-between app-modal-heading">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center">
                   <Users className="w-5 h-5" />
@@ -452,12 +460,8 @@ export const ShareholdersView: React.FC = () => {
                   <p className="text-xs text-slate-400">محاسبه آنی فیصدی سهم بر اساس کل سرمایه شرکت</p>
                 </div>
               </div>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="p-2 hover:bg-slate-800 text-slate-400 hover:text-white rounded-xl transition cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <CloseButton onClick={() => setIsModalOpen(false)}
+                className="p-2 hover:bg-slate-800 text-slate-400 hover:text-white rounded-xl transition cursor-pointer" />
             </div>
 
             <form onSubmit={handleSaveShareholder} className="p-6 space-y-4">

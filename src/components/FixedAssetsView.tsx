@@ -1,3 +1,6 @@
+import { CloseButton } from './CloseButton';
+import { usePageReport } from './PageActionsToolbar';
+import { tableReport } from '../utils/reportData';
 import React, { useState } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import { AssetGroup, FixedAsset, Currency } from '../types';
@@ -258,6 +261,12 @@ export const FixedAssetsView: React.FC = () => {
     });
   };
 
+  usePageReport({
+    title: 'لیست دارایی‌های ثابت', onCreate: () => handleOpenAssetModal(), createLabel: 'ایجاد دارایی جدید', search: { value: searchQuery, onChange: setSearchQuery, placeholder: "جستجو در نام جنس، کد، مسئول..." },
+    filters: [{ id: 'group', label: 'گروه دارایی', value: selectedGroupId, onChange: setSelectedGroupId, options: [{ value: 'all', label: 'همه گروه‌ها' }, ...assetGroups.map(group => ({ value: group.id, label: group.name }))] }],
+    getReport: () => tableReport('لیست دارایی‌های ثابت', ['کد', 'نام', 'گروه', 'تاریخ خرید', 'بهای خرید', 'ارز', 'عمر مفید (سال)', 'استهلاک روزانه', 'استهلاک انباشته', 'ارزش دفتری', 'محل', 'مسئول'], filteredAssets.map(asset => { const dep = calculateAssetDepreciation(asset); return [asset.code, asset.name, asset.groupName, asset.buyDate, asset.cost, asset.currency, asset.usefulLifeYears, dep.dailyDepreciation, dep.accumulatedDepreciation, dep.currentBookValue, asset.location, asset.inCharge]; })),
+  });
+
   return (
     <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto overflow-y-auto">
       {/* Top Banner */}
@@ -342,7 +351,7 @@ export const FixedAssetsView: React.FC = () => {
       <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-bold text-slate-500 ml-2">گروه‌های اموال:</span>
-          <button
+          <button aria-pressed={selectedGroupId === 'all'}
             onClick={() => setSelectedGroupId('all')}
             className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
               selectedGroupId === 'all'
@@ -357,7 +366,7 @@ export const FixedAssetsView: React.FC = () => {
             const count = fixedAssets.filter(a => a.groupId === grp.id).length;
             return (
               <div key={grp.id} className="flex items-center">
-                <button
+                <button aria-pressed={selectedGroupId === grp.id}
                   onClick={() => setSelectedGroupId(grp.id)}
                   className={`px-3.5 py-1.5 rounded-r-xl text-xs font-bold transition cursor-pointer ${
                     selectedGroupId === grp.id
@@ -393,16 +402,7 @@ export const FixedAssetsView: React.FC = () => {
         </div>
 
         {/* Search */}
-        <div className="relative min-w-[240px]">
-          <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            placeholder="جستجو در نام جنس، کد، مسئول..."
-            className="w-full pr-9 pl-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:bg-white focus:border-violet-500"
-          />
-        </div>
+
       </div>
 
       {/* Fixed Assets Grid / Table */}
@@ -577,7 +577,7 @@ export const FixedAssetsView: React.FC = () => {
       {isAssetModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl max-w-xl w-full shadow-2xl border border-slate-200 overflow-hidden">
-            <div className="p-6 bg-slate-900 text-white flex items-center justify-between">
+            <div className="p-6 bg-slate-900 text-white flex items-center justify-between app-modal-heading">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-violet-500/20 text-violet-400 flex items-center justify-center">
                   <Layers className="w-5 h-5" />
@@ -589,12 +589,8 @@ export const FixedAssetsView: React.FC = () => {
                   <p className="text-xs text-slate-400">محاسبه خودکار کسر استهلاک روزانه بر اساس سال و قیمت خرید</p>
                 </div>
               </div>
-              <button
-                onClick={() => setIsAssetModalOpen(false)}
-                className="p-2 hover:bg-slate-800 text-slate-400 hover:text-white rounded-xl transition cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <CloseButton onClick={() => setIsAssetModalOpen(false)}
+                className="p-2 hover:bg-slate-800 text-slate-400 hover:text-white rounded-xl transition cursor-pointer" />
             </div>
 
             <form onSubmit={handleSaveAsset} className="p-6 space-y-4">
@@ -779,7 +775,7 @@ export const FixedAssetsView: React.FC = () => {
       {isGroupModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden">
-            <div className="p-6 bg-slate-900 text-white flex items-center justify-between">
+            <div className="p-6 bg-slate-900 text-white flex items-center justify-between app-modal-heading">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-violet-500/20 text-violet-400 flex items-center justify-center">
                   <Layers className="w-5 h-5" />
@@ -791,12 +787,8 @@ export const FixedAssetsView: React.FC = () => {
                   <p className="text-xs text-slate-400">دسته‌بندی اموال و دارایی‌های ثابت شرکت</p>
                 </div>
               </div>
-              <button
-                onClick={() => setIsGroupModalOpen(false)}
-                className="p-2 hover:bg-slate-800 text-slate-400 hover:text-white rounded-xl transition cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <CloseButton onClick={() => setIsGroupModalOpen(false)}
+                className="p-2 hover:bg-slate-800 text-slate-400 hover:text-white rounded-xl transition cursor-pointer" />
             </div>
 
             <form onSubmit={handleSaveGroup} className="p-6 space-y-4">

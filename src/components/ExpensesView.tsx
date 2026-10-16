@@ -1,3 +1,6 @@
+import { CloseButton } from './CloseButton';
+import { usePageReport } from './PageActionsToolbar';
+import { tableReport } from '../utils/reportData';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import { ExpenseItem, ExpenseCategory, Currency } from '../types';
@@ -84,7 +87,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
     setExpCategoryId(expenseCategories[0]?.id || 'cat-1');
     setExpAmount(0);
     setExpCurrency('AFN');
-    setExpCashRegisterId('afn_cash');
+    setExpCashRegisterId(cashAccounts.find(account => account.currency === 'AFN')?.id || '');
     setExpPayee('');
     setExpReceiptNumber('');
     setExpDate(new Date().toLocaleDateString('fa-AF'));
@@ -106,7 +109,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
     setExpAmount(expense.amount);
     setExpCurrency(expense.currency);
     setExpCashRegisterId(expense.cashRegisterId || (expense.currency === 'USD' ? 'usd_cash' : 'afn_cash'));
-    setExpPayee(expense.payee || '');
+    setExpPayee(expense.recipient || expense.payee || '');
     setExpReceiptNumber(expense.receiptNumber || '');
     setExpDate(expense.date);
     setExpNotes(expense.notes || '');
@@ -116,46 +119,51 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
   // Save Expense (Create or Update)
   const handleSaveExpense = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!expTitle || expAmount <= 0) {
-      alert('لطفاً عنوان هزینه و مبلغ معتبر را وارد نمایید.');
-      return;
-    }
+    e.stopPropagation();
+    try {
+      if (!expTitle || expAmount <= 0) {
+        alert('لطفاً عنوان هزینه و مبلغ معتبر را وارد نمایید.');
+        return;
+      }
 
-    const cat = expenseCategories.find(c => c.id === expCategoryId);
-    const cashAcc = cashAccounts.find(a => a.id === expCashRegisterId);
+      const cat = expenseCategories.find(c => c.id === expCategoryId);
+      const cashAcc = cashAccounts.find(a => a.id === expCashRegisterId);
 
-    if (editingExpense) {
-      updateExpense(editingExpense.id, {
-        title: expTitle,
-        categoryId: expCategoryId,
-        categoryName: cat?.name || 'مصارف عمومی',
-        amount: expAmount,
-        currency: expCurrency,
-        cashRegisterId: expCashRegisterId,
-        cashRegisterName: cashAcc?.name || (expCashRegisterId === 'usd_cash' ? 'صندوق شرکت دالری' : 'صندوق پولی افغانی'),
-        payee: expPayee,
-        receiptNumber: expReceiptNumber,
-        date: expDate,
-        notes: expNotes,
-      });
-    } else {
-      createExpense({
-        title: expTitle,
-        categoryId: expCategoryId,
-        categoryName: cat?.name || 'مصارف عمومی',
-        amount: expAmount,
-        currency: expCurrency,
-        cashRegisterId: expCashRegisterId,
-        cashRegisterName: cashAcc?.name || (expCashRegisterId === 'usd_cash' ? 'صندوق شرکت دالری' : 'صندوق پولی افغانی'),
-        payee: expPayee,
-        receiptNumber: expReceiptNumber,
-        date: expDate,
-        notes: expNotes,
-      });
-    }
+      if (editingExpense) {
+        updateExpense(editingExpense.id, {
+          title: expTitle,
+          categoryId: expCategoryId,
+          categoryName: cat?.name || 'مصارف عمومی',
+          amount: expAmount,
+          currency: expCurrency,
+          cashRegisterId: expCashRegisterId,
+          cashRegisterName: cashAcc?.name || (expCashRegisterId === 'usd_cash' ? 'صندوق شرکت دالری' : 'صندوق پولی افغانی'),
+          payee: expPayee,
+          recipient: expPayee,
+          receiptNumber: expReceiptNumber,
+          date: expDate,
+          notes: expNotes,
+        });
+      } else {
+        createExpense({
+          title: expTitle,
+          categoryId: expCategoryId,
+          categoryName: cat?.name || 'مصارف عمومی',
+          amount: expAmount,
+          currency: expCurrency,
+          cashRegisterId: expCashRegisterId,
+          cashRegisterName: cashAcc?.name || (expCashRegisterId === 'usd_cash' ? 'صندوق شرکت دالری' : 'صندوق پولی افغانی'),
+          payee: expPayee,
+          recipient: expPayee,
+          receiptNumber: expReceiptNumber,
+          date: expDate,
+          notes: expNotes,
+        });
+      }
 
-    setIsNewExpenseModalOpen(false);
-    setEditingExpense(null);
+      setIsNewExpenseModalOpen(false);
+      setEditingExpense(null);
+    } catch (error) { window.alert(error instanceof Error ? error.message : 'ذخیرهٔ سند انجام نشد.'); }
   };
 
   // Category save
@@ -189,8 +197,9 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
       const matchQuery =
         !searchQuery ||
         item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.expenseNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (item.payee && item.payee.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (item.expenseNumber && item.expenseNumber.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (item.receiptNumber && item.receiptNumber.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        ((item.recipient || item.payee || '').toLowerCase().includes(searchQuery.toLowerCase())) ||
         (item.categoryName && item.categoryName.toLowerCase().includes(searchQuery.toLowerCase()));
       return matchCat && matchCurr && matchQuery;
     });
@@ -208,6 +217,15 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
       .filter(e => e.currency === 'USD')
       .reduce((sum, e) => sum + e.amount, 0);
   }, [filteredExpenses]);
+
+  usePageReport({
+    title: 'لیست هزینه‌ها', enabled: expenseTab === 'payments', onCreate: handleOpenNewExpense, createLabel: 'ایجاد هزینه جدید', search: { value: searchQuery, onChange: setSearchQuery, placeholder: "جستجو در عنوان، شماره سند، گیرنده..." },
+    filters: [
+      { id: 'category', label: 'دسته‌بندی', value: selectedCategoryId, onChange: setSelectedCategoryId, options: [{ value: 'all', label: 'همه دسته‌ها' }, ...expenseCategories.map(category => ({ value: category.id, label: category.name }))] },
+      { id: 'currency', label: 'ارز', value: currencyFilter, onChange: value => setCurrencyFilter(value as typeof currencyFilter), resetValue: 'ALL', options: [{ value: 'ALL', label: 'همه ارزها' }, { value: 'AFN', label: 'AFN' }, { value: 'USD', label: 'USD' }] },
+    ],
+    getReport: () => tableReport('لیست هزینه‌ها', ['شماره سند', 'شماره رسید', 'تاریخ', 'عنوان', 'دسته‌بندی', 'دریافت‌کننده', 'صندوق', 'مبلغ', 'ارز', 'شرح'], filteredExpenses.map(expense => [expense.expenseNumber, expense.receiptNumber, expense.date, expense.title, expense.categoryName, expense.recipient || expense.payee, expense.cashRegisterName, expense.amount, expense.currency, expense.notes])),
+  });
 
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto font-sans" dir="rtl">
@@ -312,7 +330,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
               </div>
 
               <div className="space-y-1.5 max-h-[500px] overflow-y-auto custom-scrollbar">
-                <button
+                <button aria-pressed={selectedCategoryId === 'all'}
                   onClick={() => setSelectedCategoryId('all')}
                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition text-right cursor-pointer ${
                     selectedCategoryId === 'all'
@@ -407,34 +425,25 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
             <div className="lg:col-span-3 space-y-4">
               {/* Filter Bar */}
               <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="relative w-full sm:w-72">
-                  <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    placeholder="جستجو در عنوان، شماره سند، گیرنده..."
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    className="w-full pl-3 pr-9 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition"
-                  />
-                </div>
+
 
                 <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                   <div className="flex bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs font-bold">
-                    <button
+                    <button aria-pressed={currencyFilter === 'ALL'}
                       type="button"
                       onClick={() => setCurrencyFilter('ALL')}
                       className={`px-3 py-1.5 rounded-lg transition ${currencyFilter === 'ALL' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}`}
                     >
                       همه اسعار
                     </button>
-                    <button
+                    <button aria-pressed={currencyFilter === 'AFN'}
                       type="button"
                       onClick={() => setCurrencyFilter('AFN')}
                       className={`px-3 py-1.5 rounded-lg transition ${currencyFilter === 'AFN' ? 'bg-white text-emerald-700 shadow-xs' : 'text-slate-600'}`}
                     >
                       افغانی (AFN)
                     </button>
-                    <button
+                    <button aria-pressed={currencyFilter === 'USD'}
                       type="button"
                       onClick={() => setCurrencyFilter('USD')}
                       className={`px-3 py-1.5 rounded-lg transition ${currencyFilter === 'USD' ? 'bg-white text-blue-700 shadow-xs' : 'text-slate-600'}`}
@@ -584,20 +593,16 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
       {isNewExpenseModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="p-4 bg-gradient-to-r from-amber-600 to-amber-700 text-white flex items-center justify-between">
+            <div className="p-4 bg-gradient-to-r from-amber-600 to-amber-700 text-white flex items-center justify-between app-modal-heading">
               <div className="flex items-center gap-2.5">
                 <Receipt className="w-5 h-5" />
                 <h3 className="font-black text-sm">
                   {editingExpense ? 'ویرایش سند هزینه' : 'ثبت سند هزینه جدید'}
                 </h3>
               </div>
-              <button
-                type="button"
+              <CloseButton type="button"
                 onClick={() => setIsNewExpenseModalOpen(false)}
-                className="p-1.5 rounded-lg hover:bg-white/20 text-white/90 hover:text-white transition cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
+                className="p-1.5 rounded-lg hover:bg-white/20 text-white/90 hover:text-white transition cursor-pointer" />
             </div>
 
             <form onSubmit={handleSaveExpense} className="p-5 space-y-4 text-xs">
@@ -664,7 +669,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
                     onChange={e => {
                       const curr = e.target.value as 'AFN' | 'USD';
                       setExpCurrency(curr);
-                      setExpCashRegisterId(curr === 'USD' ? 'usd_cash' : 'afn_cash');
+                      setExpCashRegisterId(cashAccounts.find(account => account.currency === curr)?.id || '');
                     }}
                     className="w-full px-3 py-2.5 rounded-xl border border-slate-200 bg-white font-bold text-xs focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none"
                   >
@@ -678,7 +683,7 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
                 <label className="font-bold text-slate-700">کسر مستقیم از صندوق / بانک *</label>
                 <select
                   value={expCashRegisterId}
-                  onChange={e => setExpCashRegisterId(e.target.value)}
+                  onChange={e => { setExpCashRegisterId(e.target.value); const account = cashAccounts.find(account => account.id === e.target.value); if (account) setExpCurrency(account.currency); }}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white font-bold text-xs focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none"
                 >
                   {cashAccounts.map(acc => (
@@ -748,20 +753,16 @@ export const ExpensesView: React.FC<ExpensesViewProps> = ({
       {isCategoryModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="p-4 bg-slate-800 text-white flex items-center justify-between">
+            <div className="p-4 bg-slate-800 text-white flex items-center justify-between app-modal-heading">
               <div className="flex items-center gap-2">
                 <FolderPlus className="w-4 h-4 text-amber-400" />
                 <h3 className="font-bold text-sm">
                   {editingCategory ? 'ویرایش دسته‌بندی هزینه' : 'تعریف دسته‌بندی جدید'}
                 </h3>
               </div>
-              <button
-                type="button"
+              <CloseButton type="button"
                 onClick={() => setIsCategoryModalOpen(false)}
-                className="p-1 rounded hover:bg-white/20 text-white/90"
-              >
-                <X className="w-4 h-4" />
-              </button>
+                className="p-1 rounded hover:bg-white/20 text-white/90" />
             </div>
 
             <form onSubmit={handleSaveCategory} className="p-4 space-y-3.5 text-xs">

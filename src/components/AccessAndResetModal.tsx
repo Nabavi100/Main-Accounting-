@@ -1,3 +1,5 @@
+import { CloseButton } from './CloseButton';
+import { workspacePageTitle } from '../utils/navigation';
 import React, { useState, useEffect } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import { AppUser, UserRole, CompanySettings } from '../types';
@@ -66,6 +68,7 @@ import { verifyLicense } from '../utils/licenseSecurity';
 
 interface AccessAndResetModalProps {
   isOpen: boolean;
+  embedded?: boolean;
   onClose: () => void;
   initialTab?: 'company' | 'roles' | 'reset' | 'backup' | 'telegram';
 }
@@ -74,6 +77,7 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
   isOpen,
   onClose,
   initialTab = 'company',
+  embedded = false,
 }) => {
   const {
     companySettings,
@@ -285,8 +289,9 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
     }
   }, [initialTab]);
 
-  // Escape key handler
+  // Escape is a dialog action, not page navigation.
   useEffect(() => {
+    if (embedded) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
         onClose();
@@ -294,7 +299,7 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, embedded]);
 
   // Handle Logo Upload to Base64
   const handleLogoFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -571,23 +576,23 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
 
   return (
     <div
-      id="access-modal-backdrop"
-      className="fixed inset-0 bg-slate-950/75 backdrop-blur-xs flex items-start sm:items-center justify-center p-2 sm:p-4 md:p-6 z-50 overflow-y-auto"
+      id={embedded ? "access-settings-page" : "access-modal-backdrop"}
+      className={embedded ? "workspace-settings-page" : "fixed inset-0 bg-slate-950/75 backdrop-blur-xs flex items-start sm:items-center justify-center p-2 sm:p-4 md:p-6 z-50 overflow-y-auto"}
       onClick={e => {
-        if (e.target === e.currentTarget) onClose();
+        if (!embedded && e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="bg-white rounded-3xl max-w-4xl w-full shadow-2xl border border-slate-200 my-auto flex flex-col max-h-[92vh] overflow-hidden">
+      <div className={embedded ? "bg-white rounded-3xl w-full border border-slate-200 flex flex-col" : "bg-white rounded-3xl max-w-4xl w-full shadow-2xl border border-slate-200 my-auto flex flex-col max-h-[92vh] overflow-hidden"}>
         {/* Sticky Header */}
         <div className="p-4 sm:p-6 pb-4 border-b border-slate-200 bg-white shrink-0 space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between app-modal-heading">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-slate-900 text-emerald-400 rounded-xl flex items-center justify-center shadow-xs shrink-0">
                 <Shield className="w-5 h-5" />
               </div>
               <div>
                 <h2 className="text-base sm:text-lg font-black text-slate-900">
-                  تنظیمات سیستم، مشخصات شرکت و امنیت
+                  {embedded ? workspacePageTitle('settings', activeSubTab) : 'تنظیمات سیستم، مشخصات شرکت و امنیت'}
                 </h2>
                 <p className="text-xs text-slate-500">
                   مشخصات برند، سربرگ فاکتور، اندازه قلم، نقش‌های کاربری، بستن سال مالی و بکاپ
@@ -595,20 +600,15 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
               </div>
             </div>
 
-            <button
-              id="access-modal-close-btn"
+            {!embedded && (<CloseButton id="access-modal-close-btn"
               type="button"
               onClick={onClose}
               className="px-3.5 py-2 bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 rounded-xl transition border border-slate-200 hover:border-rose-200 cursor-pointer flex items-center gap-1.5 text-xs font-bold shrink-0 shadow-2xs"
-              title="بستن فرم (ESC)"
-            >
-              <X className="w-4 h-4" />
-              <span>بستن (ESC)</span>
-            </button>
+              title="بستن فرم (ESC)" />)}
           </div>
 
           {/* Sub-Tabs Nav */}
-          <div className="flex flex-wrap items-center bg-slate-100 p-1.5 rounded-2xl gap-1 text-xs font-bold">
+          {!embedded && <div className="flex flex-wrap items-center bg-slate-100 p-1.5 rounded-2xl gap-1 text-xs font-bold">
             <button
               type="button"
               onClick={() => setActiveSubTab('company')}
@@ -671,10 +671,10 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
               }`}
             >
               <Send className="w-4 h-4 text-sky-500 -rotate-45" />
-              <span>تنظیمات محرمانه تلگرام</span>
+              <span>تنظیمات ربات تلگرام</span>
               <Lock className="w-3 h-3 text-amber-500" />
             </button>
-          </div>
+          </div>}
         </div>
 
         {/* Scrollable Body */}
@@ -824,10 +824,10 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
                     type="button"
                     onClick={() => setActiveSubTab('telegram')}
                     className="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 text-sky-300 border border-slate-700 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer shadow-xs"
-                    title="تنظیمات محرمانه ربات تلگرام و ارسال حسابات مشتریان (محافظت‌شده با رمز مدیر)"
+                    title="تنظیمات ربات تلگرام و ارسال حسابات مشتریان (محافظت‌شده با رمز مدیر)"
                   >
                     <Send className="w-4 h-4 text-sky-400 -rotate-45" />
-                    <span>تنظیمات محرمانه ربات تلگرام</span>
+                    <span>تنظیمات ربات تلگرام</span>
                   </button>
                 </div>
               </div>
@@ -1057,7 +1057,7 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
 
                   {/* Company Name */}
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                    <label htmlFor="company-name-input" className="block text-xs font-bold text-slate-700 mb-1.5">
                       نام شرکت یا تجارتخانه <span className="text-rose-500">*</span>
                       {isCompanyLocked && <span className="text-amber-600 text-[10px] mr-1">(جهت تغییر، ابتدا رمز را وارد کنید)</span>}
                     </label>
@@ -1065,6 +1065,7 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
                       type="text"
                       required
                       disabled={isCompanyLocked}
+                      id="company-name-input"
                       value={compForm.name}
                       onChange={e => setCompForm(prev => ({ ...prev, name: e.target.value }))}
                       placeholder="مثلاً: شرکت تجارتی برادران نبوی"
@@ -1101,12 +1102,12 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
                       <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1">
                         <Phone className="w-3.5 h-3.5 text-emerald-600" />
                         <span>شماره تماس اصلی</span>
-                        <span className="text-rose-500">*</span>
+
                       </label>
                       <input
                         type="text"
-                        required
                         disabled={isCompanyLocked}
+                        id="company-phone-input"
                         value={compForm.phone}
                         onChange={e => setCompForm(prev => ({ ...prev, phone: e.target.value }))}
                         placeholder="0794006460"
@@ -1226,13 +1227,12 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
                   <div>
                     <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1">
                       <MapPin className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>آدرس دقیق دفتر مرکزی و محل گدام‌ها</span>
-                      <span className="text-rose-500">*</span>
+                      <span>آدرس دقیق دفتر مرکزی و محل گدام‌ها (اختیاری)</span>
                     </label>
                     <textarea
                       rows={2}
-                      required
                       disabled={isCompanyLocked}
+                      id="company-address-input"
                       value={compForm.address}
                       onChange={e => setCompForm(prev => ({ ...prev, address: e.target.value }))}
                       placeholder="کابل، سرای شهزاده، مارکیت رحیم‌داد، منزل ۲، دفتر شماره ۱۲"
@@ -1337,6 +1337,8 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
                       <input
                         type="url"
                         disabled={isCompanyLocked}
+                        id="company-logo-url"
+                        aria-label="نشانی لوگوی شرکت"
                         value={compForm.logoUrl || ''}
                         onChange={e => setCompForm(prev => ({ ...prev, logoUrl: e.target.value }))}
                         placeholder="https://example.com/logo.png"
@@ -2348,7 +2350,7 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
                     <span>بخش فوق‌محرمانه سیستم</span>
                   </div>
                   <h3 className="text-base sm:text-lg font-black text-white">
-                    تنظیمات محرمانه ربات تلگرام
+                    ورود مدیر
                   </h3>
                   <p className="text-xs text-slate-300 leading-relaxed max-w-md mx-auto">
                     این بخش حاوی توکن محرمانه ربات تلگرام، لاگ‌های ارتباطی و اطلاعات استعلام حساب مشتریان می‌باشد.
@@ -2501,7 +2503,7 @@ export const AccessAndResetModal: React.FC<AccessAndResetModalProps> = ({
                           dir="ltr"
                           value={tgSettings.botToken}
                           onChange={e => setTgSettings({ ...tgSettings, botToken: e.target.value.trim() })}
-                          placeholder="مثال: 123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ"
+                          placeholder="توکن ربات را از BotFather دریافت کنید"
                           className="w-full pl-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-300 focus:border-sky-500 rounded-xl text-xs font-mono text-slate-900 outline-none transition"
                         />
                         <button

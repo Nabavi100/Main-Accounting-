@@ -1,13 +1,27 @@
+import { TradeInvoiceCenterHeader } from './components/TradeInvoiceCenterHeader';
+import { TreasuryCenterHeader } from './components/TreasuryCenterHeader';
+import { isTreasuryCenterLocation } from './utils/treasuryCenter';
+import { isTradeCenterLocation } from './utils/tradeCenter';
+import { PageReportScope } from './components/PageActionsToolbar';
+import { LegacyTradeOperationsHubView } from './components/LegacyTradeOperationsHubView';
+import { workspacePageKey, workspacePageTitle, itemizedSalesFilter, itemizedSalesProductId } from './utils/navigation';
+import { CashToCashTransferView } from './components/CashToCashTransferView';
+import { IncomeReceiptDesk } from './components/IncomeReceiptDesk';
+import { ExpensePaymentDesk } from './components/ExpensePaymentDesk';
+import type { TelegramSection } from './components/TelegramManagementView';
 import React, { useState, useEffect } from 'react';
 import { AccountingProvider, useAccounting } from './context/AccountingContext';
 import { ThemeProvider } from './context/ThemeContext';
-import { Sidebar, NavTab } from './components/Sidebar';
-import { Header } from './components/Header';
+import { AppearanceSettingsDialog } from './components/AppearanceSettingsDialog';
+import type { NavTab } from './components/Sidebar';
+import { WorkspaceHeader, WorkspaceSidebar } from './components/WorkspaceShell';
+import { PartyCardexModal } from './components/PartyCardexModal';
 import { DashboardView } from './components/DashboardView';
 import { SalesPurchaseView } from './components/SalesPurchaseView';
 import { CustomersView } from './components/CustomersView';
 import { InitialDefinitionsView } from './components/InitialDefinitionsView';
 import { WarehousesView } from './components/WarehousesView';
+import { ReferenceConsignmentView } from './components/ReferenceConsignmentView';
 import { CashAndExchangeView } from './components/CashAndExchangeView';
 import { ProductsView } from './components/ProductsView';
 import { CurrenciesView } from './components/CurrenciesView';
@@ -69,6 +83,22 @@ const MainApp: React.FC = () => {
   } = useAccounting();
   const [activeTab, setActiveTab] = useState<NavTab>('dashboard');
   const [subFilter, setSubFilter] = useState<string>('all');
+  const [pageVisit, setPageVisit] = useState(0);
+  const [headerPartyId, setHeaderPartyId] = useState<string | null>(null);
+  const headerParty = parties.find(party => party.id === headerPartyId) || null;
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isAppearanceOpen, setIsAppearanceOpen] = useState(false);
+  const closeSidebar = React.useCallback(() => setIsSidebarOpen(false), []);
+  const mainContentRef = React.useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    mainContentRef.current?.scrollTo({ top: 0 });
+    closeSidebar();
+  }, [activeTab, subFilter, pageVisit, closeSidebar]);
+
+  useEffect(() => {
+    document.title = companySettings.name;
+  }, [companySettings.name]);
 
   // References for live Telegram Bot listener
   const partiesRef = React.useRef(parties);
@@ -261,14 +291,21 @@ const MainApp: React.FC = () => {
   const [transferFromWarehouseId, setTransferFromWarehouseId] = useState<string | undefined>(undefined);
 
   const [salesInitialType, setSalesInitialType] = useState<InvoiceType>('sell');
-  const [selectedCashAccountId, setSelectedCashAccountId] = useState<string | undefined>(undefined);
+  const stayOnPage = React.useCallback(() => {}, []);
+  const navigateToPage = (tab: NavTab, filter = 'all') => {
+    setPaymentPartyId(undefined);
+    setSubFilter(filter);
+    setActiveTab(tab);
+    setPageVisit(visit => visit + 1);
+    closeSidebar();
+  };
 
   const handleSelectCashAccount = (accountId: string) => {
-    setSelectedCashAccountId(accountId);
-    setActiveTab('cash');
+    navigateToPage('cash', accountId);
   };
 
   const handleOpenNewInvoice = (type: InvoiceType = 'sell') => {
+    setSubFilter('all');
     if (type === 'buy') {
       setActiveTab('new_purchase');
     } else if (type === 'return_sell') {
@@ -286,6 +323,7 @@ const MainApp: React.FC = () => {
     type: 'receive_payment' | 'make_payment' | 'cash_transfer' | 'currency_exchange' = 'receive_payment',
     partyId?: string
   ) => {
+    setSubFilter('all');
     if (type === 'receive_payment') {
       setPaymentPartyId(partyId);
       setActiveTab('new_receipt');
@@ -353,37 +391,32 @@ const MainApp: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen w-screen bg-slate-100 text-slate-800 font-sans overflow-hidden select-none" dir="rtl">
-      {/* Sidebar with Hierarchical Submenus and Dynamic Theme/Style */}
-      <Sidebar
+    <div className="accounting-workspace" dir="rtl">
+      <WorkspaceSidebar
         activeTab={activeTab}
-        setActiveTab={setActiveTab}
+        setActiveTab={tab => { setPaymentPartyId(undefined); setActiveTab(tab); setPageVisit(visit => visit + 1); }}
         subFilter={subFilter}
         setSubFilter={setSubFilter}
-        onOpenNewInvoice={handleOpenNewInvoice}
-        onOpenPaymentModal={handleOpenPaymentModal}
-        onOpenTransferModal={handleOpenTransferModal}
+        isOpen={isSidebarOpen}
+        onClose={closeSidebar}
         onOpenAccessModal={handleOpenAccessModal}
-        onOpenTelegramModal={() => setActiveTab('telegram_manager')}
         onOpenQuickBackupModal={() => setIsQuickBackupModalOpen(true)}
         onOpenTelegramPendingModal={() => setIsTelegramPendingModalOpen(true)}
         telegramPendingCount={telegramPendingUsers.length}
+        onOpenAppearance={() => setIsAppearanceOpen(true)}
       />
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-slate-50">
-        {/* Top Header */}
-        <Header
-          activeTab={activeTab}
-          onOpenNewInvoice={handleOpenNewInvoice}
-          onOpenPaymentModal={handleOpenPaymentModal}
+      <div className="workspace-content">
+        <WorkspaceHeader
+          isSidebarOpen={isSidebarOpen}
+          onToggleSidebar={() => setIsSidebarOpen(open => !open)}
           onOpenAccessModal={handleOpenAccessModal}
-          onOpenTelegramModal={() => setActiveTab('telegram_manager')}
           onOpenDataBackupModal={() => setIsQuickBackupModalOpen(true)}
-          onOpenTelegramPendingModal={() => setIsTelegramPendingModalOpen(true)}
-          telegramPendingCount={telegramPendingUsers.length}
-          telegramPendingPhone={telegramPendingUsers[0]?.phoneNumber}
-          telegramPendingName={telegramPendingUsers[0]?.fullName || telegramPendingUsers[0]?.username}
+          onOpenAppearance={() => setIsAppearanceOpen(true)}
+          onGoDashboard={() => navigateToPage('dashboard')}
+          onNavigate={navigateToPage}
+          onSelectParty={id => { closeSidebar(); setHeaderPartyId(id); }}
+          locationKey={`${workspacePageKey(activeTab, subFilter)}:${pageVisit}`}
         />
 
         {/* Telegram Pending Approval Global Alert Banner */}
@@ -420,8 +453,10 @@ const MainApp: React.FC = () => {
         )}
 
         {/* View Body */}
-        <main className="flex-1 overflow-y-auto bg-slate-50">
-          <ErrorBoundary onReset={() => setActiveTab('dashboard')}>
+        <main ref={mainContentRef} className="workspace-main" id="workspace-main-content">
+          <ErrorBoundary key={`${activeTab}:${subFilter}:${pageVisit}`} onReset={() => navigateToPage('dashboard')}>
+          <div className={`workspace-page-view ${isTradeCenterLocation(activeTab) ? 'is-trade-center' : isTreasuryCenterLocation(activeTab, subFilter) ? 'is-treasury-center' : ''}`} data-workspace-page={workspacePageKey(activeTab, subFilter)}>
+          <PageReportScope header={isTradeCenterLocation(activeTab) ? <TradeInvoiceCenterHeader activeTab={activeTab} subFilter={subFilter} onNavigate={navigateToPage} /> : isTreasuryCenterLocation(activeTab, subFilter) ? <TreasuryCenterHeader activeTab={activeTab} subFilter={subFilter} onNavigate={navigateToPage} /> : undefined}>
             {/* Dashboard */}
             {activeTab === 'dashboard' && (
               <DashboardView
@@ -432,6 +467,7 @@ const MainApp: React.FC = () => {
                 onOpenTransferModal={handleOpenTransferModal}
                 onViewInvoice={handleViewInvoice}
                 onSelectCashAccount={handleSelectCashAccount}
+                onOpenDataBackup={() => setIsQuickBackupModalOpen(true)}
               />
             )}
 
@@ -467,46 +503,71 @@ const MainApp: React.FC = () => {
               activeTab === 'new_return_buy' ||
               activeTab === 'invoices') && (
               <TradeOperationsHubView
+                embeddedInCenter
                 key={`${activeTab}-${subFilter}`}
                 initialType={
-                  activeTab === 'new_return_sell' || activeTab === 'return_sell' || (activeTab === 'trade_hub' && subFilter === 'return_sell')
+                  activeTab === 'new_return_sell' || activeTab === 'return_sell' || ((activeTab === 'trade_hub' || activeTab === 'invoices') && subFilter === 'return_sell')
                     ? 'return_sell'
-                    : activeTab === 'new_return_buy' || activeTab === 'return_buy' || (activeTab === 'trade_hub' && subFilter === 'return_buy')
+                    : activeTab === 'new_return_buy' || activeTab === 'return_buy' || ((activeTab === 'trade_hub' || activeTab === 'invoices') && subFilter === 'return_buy')
                     ? 'return_buy'
-                    : activeTab === 'new_purchase' || activeTab === 'purchase_invoices' || (activeTab === 'trade_hub' && subFilter === 'buy')
+                    : activeTab === 'new_purchase' || activeTab === 'purchase_invoices' || ((activeTab === 'trade_hub' || activeTab === 'invoices') && subFilter === 'buy')
                     ? 'buy'
                     : 'sell'
                 }
                 initialViewMode={
                   activeTab === 'new_sale' || activeTab === 'new_purchase' || activeTab === 'new_return_sell' || activeTab === 'new_return_buy'
                     ? 'create'
-                    : subFilter === 'itemized' || subFilter === 'product_sales'
+                    : subFilter === 'itemized' || subFilter.startsWith('itemized:') || subFilter === 'product_sales'
                     ? 'itemized'
                     : 'list'
                 }
                 onViewInvoice={handleViewInvoice}
                 onOpenPaymentModal={handleOpenPaymentModal}
+                initialItemizedProductId={itemizedSalesProductId(subFilter)}
+                onNavigate={(tab, filter) => navigateToPage(tab, filter || (tab === 'trade_hub' ? 'itemized' : 'all'))}
               />
             )}
 
+          {activeTab === 'legacy_trade' && (
+            <LegacyTradeOperationsHubView
+              embeddedInCenter
+              initialType={subFilter.startsWith('buy-') ? 'buy' : 'sell'}
+              initialViewMode={subFilter.endsWith('-create') ? 'create' : 'list'}
+              pageTitle={workspacePageTitle('legacy_trade', subFilter)}
+              onViewInvoice={handleViewInvoice}
+              onOpenPaymentModal={handleOpenPaymentModal}
+              onNavigate={(type, mode, productId) => mode === 'itemized'
+                ? navigateToPage('trade_hub', itemizedSalesFilter(productId))
+                : navigateToPage('legacy_trade', `${type}-${mode}`)}
+            />
+          )}
+
           {/* RECEIPTS & PAYMENTS HUB (دریافت، لیست دریافتی‌ها، پرداخت، لیست پرداختی‌ها) */}
-          {(activeTab === 'receipt_payment_hub' ||
+          {((activeTab === 'receipt_payment_hub' && subFilter !== 'cash_transfer') ||
             activeTab === 'receipts_list' ||
             activeTab === 'payments_list' ||
             activeTab === 'new_receipt' ||
             activeTab === 'new_payment') && (
             <ReceiptPaymentHubView
+              embeddedInCenter
+              key={`${activeTab}:${subFilter}`}
               initialTab={
+                subFilter === 'cash_transfer'
+                  ? 'cash_transfer'
+                  :
                 activeTab === 'new_receipt'
                   ? 'create_receipt'
                   : activeTab === 'new_payment'
                   ? 'create_payment'
                   : activeTab === 'payments_list'
                   ? 'list_payments'
-                  : 'list_receipts'
+                  : activeTab === 'receipts_list'
+                  ? 'list_receipts'
+                  : 'create_receipt'
               }
               initialPartyId={paymentPartyId}
               onViewInvoice={handleViewInvoice}
+              onNavigate={tab => navigateToPage(tab)}
             />
           )}
 
@@ -559,10 +620,10 @@ const MainApp: React.FC = () => {
           )}
 
           {activeTab === 'consignment' && (
-            <WarehousesView
-              onOpenTransferModal={handleOpenTransferModal}
-              consignmentOnly={true}
-              initialFilterType="consignment"
+            <ReferenceConsignmentView
+              onBackToInvoices={() => { setSubFilter('all'); setActiveTab('sales_invoices'); }}
+              onManageWarehouses={() => { setSubFilter('consignment'); setActiveTab('warehouses'); }}
+              onViewInvoice={handleViewInvoice}
             />
           )}
 
@@ -570,9 +631,19 @@ const MainApp: React.FC = () => {
           {activeTab === 'cash' && (
             <CashAndExchangeView
               onOpenPaymentModal={handleOpenPaymentModal}
-              initialSelectedAccountId={subFilter && subFilter !== 'all' ? subFilter : selectedCashAccountId}
+              initialSelectedAccountId={subFilter && subFilter !== 'all' ? subFilter : undefined}
+              onSelectAccount={id => navigateToPage('cash', id || 'all')}
             />
           )}
+
+          {activeTab === 'cash_log' && <CashAndExchangeView defaultActiveTab="transactions_log" onOpenPaymentModal={handleOpenPaymentModal} />}
+          {(activeTab === 'cash_transfer' || activeTab === 'cash_exchange' || activeTab === 'cash_transfer_history' || (activeTab === 'receipt_payment_hub' && subFilter === 'cash_transfer')) && <div className="workspace-standalone-page"><CashToCashTransferView initialTab={activeTab === 'cash_exchange' ? 'exchange' : activeTab === 'cash_transfer_history' ? 'history' : 'transfer'} onNavigateTab={tab => navigateToPage(tab === 'exchange' ? 'cash_exchange' : tab === 'history' ? 'cash_transfer_history' : 'cash_transfer')} /></div>}
+          {activeTab === 'income_receipt' && <div className="workspace-standalone-page"><header className="workspace-section-heading"><h1>دریافت عواید</h1></header><IncomeReceiptDesk onSuccess={() => navigateToPage('receipts_list')} onViewList={() => navigateToPage('incomes')} /></div>}
+          {activeTab === 'expense_payment' && <div className="workspace-standalone-page"><header className="workspace-section-heading"><h1>پرداخت هزینه</h1></header><ExpensePaymentDesk onSuccess={() => navigateToPage('payments_list')} onViewList={() => navigateToPage('expenses')} /></div>}
+          {activeTab === 'legacy_receipt' && <div className="workspace-standalone-page"><header className="workspace-section-heading"><h1>فرم پیشرفتهٔ دریافت</h1></header><ReceiptCreateView initialPartyId={paymentPartyId} onBackToList={() => navigateToPage('legacy_receipts_list')} onCashTransfer={() => navigateToPage('cash_transfer')} /></div>}
+          {activeTab === 'legacy_payment' && <div className="workspace-standalone-page"><header className="workspace-section-heading"><h1>فرم پیشرفتهٔ پرداخت</h1></header><PaymentCreateView initialPartyId={paymentPartyId} onBackToList={() => navigateToPage('legacy_payments_list')} onCashTransfer={() => navigateToPage('cash_transfer')} /></div>}
+          {activeTab === 'legacy_receipts_list' && <ReceiptsListView onNewReceipt={() => navigateToPage('legacy_receipt')} onCashTransfer={() => navigateToPage('cash_transfer')} onViewInvoice={handleViewInvoice} />}
+          {activeTab === 'legacy_payments_list' && <PaymentsListView onNewPayment={() => navigateToPage('legacy_payment')} onCashTransfer={() => navigateToPage('cash_transfer')} onViewInvoice={handleViewInvoice} />}
 
           {/* Products & Price list */}
           {activeTab === 'products' && <ProductsView onViewInvoice={handleViewInvoice} />}
@@ -580,6 +651,7 @@ const MainApp: React.FC = () => {
           {/* Expenses */}
           {activeTab === 'expenses' && (
             <ExpensesView
+              initialMode="payments"
               onOpenPaymentModal={handleOpenPaymentModal}
               autoOpenCreate={subFilter === 'create' || subFilter === 'new_expense'}
             />
@@ -606,6 +678,7 @@ const MainApp: React.FC = () => {
           {activeTab === 'reports' && (
             <ReportsView
               initialSection={subFilter}
+              onNavigateSection={section => navigateToPage('reports', section)}
               onViewInvoice={handleViewInvoice}
               onOpenPaymentModal={handleOpenPaymentModal}
               onOpenTransferModal={handleOpenTransferModal}
@@ -618,9 +691,16 @@ const MainApp: React.FC = () => {
           {/* Telegram Management View / ماژول جامع مدیریت تلگرام */}
           {activeTab === 'telegram_manager' && (
             <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-              <TelegramManagementView />
+              <TelegramManagementView initialSection={(['pending', 'connected', 'send_hub', 'logs', 'settings', 'guide'].includes(subFilter) ? subFilter : 'pending') as TelegramSection} onNavigateSection={section => navigateToPage('telegram_manager', section)} />
             </div>
           )}
+          {activeTab === 'settings' && <AccessAndResetModal key={subFilter} embedded isOpen onClose={stayOnPage} initialTab={subFilter === 'roles' || subFilter === 'reset' || subFilter === 'backup' || subFilter === 'telegram' ? subFilter : 'company'} />}
+          {activeTab === 'appearance' && <div className="workspace-standalone-page"><AppearanceSettingsDialog embedded isOpen onClose={stayOnPage} companyName={companySettings.name} /></div>}
+          {activeTab === 'quick_backup' && <QuickDataBackupModal key={subFilter} embedded isOpen onClose={stayOnPage} initialTab={subFilter === 'import' ? 'import' : 'export'} />}
+          {activeTab === 'production' && <section className="workspace-standalone-page"><div className="workspace-information-page"><h1>فرآیند تولید</h1><p>بخش تولید در نسخهٔ موجود هنوز پیاده‌سازی نشده است. هیچ ثبت تولید یا تغییر موجودی ساختگی در این صفحه انجام نمی‌شود.</p></div></section>}
+          {activeTab === 'company_units' && <section className="workspace-standalone-page"><div className="workspace-information-page"><h1>تغییر واحد شرکت</h1><p>واحد فعال شرکت:</p><strong>{companySettings.name}</strong><p>در این نسخه فقط همین واحد تعریف شده است. مشخصات آن از گزینهٔ «مشخصات شرکت» در سایدبار قابل تنظیم است.</p></div></section>}
+          </PageReportScope>
+          </div>
           </ErrorBoundary>
         </main>
       </div>
@@ -661,6 +741,8 @@ const MainApp: React.FC = () => {
         document={activePrintDoc}
         onClose={closePrintModal}
       />
+
+      <AppearanceSettingsDialog isOpen={isAppearanceOpen} onClose={() => setIsAppearanceOpen(false)} companyName={companySettings.name} />
 
       {/* Access Control & Reset Modal */}
       <AccessAndResetModal
@@ -762,6 +844,14 @@ const MainApp: React.FC = () => {
           </div>
         </aside>
       )}
+
+      {headerParty && <PartyCardexModal
+        party={headerParty}
+        isOpen={true}
+        onClose={() => setHeaderPartyId(null)}
+        onViewInvoice={handleViewInvoice}
+        onOpenPaymentModal={handleOpenPaymentModal}
+      />}
 
       {/* Telegram Pending Approval Modal (تایید و اتصال فوری مشتریان جدید به حساب) */}
       <TelegramPendingApprovalModal

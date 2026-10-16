@@ -149,13 +149,18 @@ export function saveLicenseToStorage(lic: AppLicenseData): void {
   }
 }
 
+// React StrictMode can run first-mount verification twice before the asynchronous signature is saved.
+// Share only initial creation; existing licenses still go through every integrity and clock check below.
+let initialLicenseCreation: Promise<AppLicenseData> | null = null;
+
 /**
  * Validate the license, anti-tamper signature, clock status, and calculate expiration metrics.
  */
 export async function verifyLicense(): Promise<LicenseStatusResult> {
   let lic = getStoredLicenseRaw();
   if (!lic) {
-    lic = await createDefaultLicense();
+    initialLicenseCreation ??= createDefaultLicense().finally(() => { initialLicenseCreation = null; });
+    lic = await initialLicenseCreation;
   }
 
   // Clear legacy plaintext PINs to ensure master cryptographic hash is used

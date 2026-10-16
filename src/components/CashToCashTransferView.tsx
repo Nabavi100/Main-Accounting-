@@ -1,7 +1,11 @@
+import { usePageReport } from './PageActionsToolbar';
+import { tableReport } from '../utils/reportData';
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import { Currency, FinancialTransaction } from '../types';
-import { formatNumber, formatCurrency, getPersianDate } from '../utils/formatters';
+import { formatNumber as formatShortNumber, formatCurrency as formatShortCurrency, getPersianDate } from '../utils/formatters';
+import { documentConversionRate, preferredCashAccountId, systemUsdAfnQuote } from '../utils/documentDefaults';
+import { parseTradeNumber, roundTradeAmount } from '../utils/tradeInvoices';
 import { ShamsiDatePickerInput } from './ShamsiDatePickerInput';
 import {
   ArrowLeftRight,
@@ -28,17 +32,26 @@ import {
   Info,
 } from 'lucide-react';
 
+// Do not hide fractional converted cash behind a two-decimal preview.
+const formatNumber = (value: number) => formatShortNumber(value, 6);
+const formatCurrency = (value: number, currency: Currency) => formatShortCurrency(value, currency, 6);
+
 interface CashToCashTransferViewProps {
   onBackToList?: () => void;
+  initialTab?: MainTab;
+  onNavigateTab?: (tab: MainTab) => void;
 }
 
 type MainTab = 'transfer' | 'exchange' | 'history';
 
 export const CashToCashTransferView: React.FC<CashToCashTransferViewProps> = ({
   onBackToList,
+  initialTab = 'transfer',
+  onNavigateTab,
 }) => {
   const {
     cashRegister,
+    currencies,
     cashAccounts,
     parties,
     transactions,
@@ -49,18 +62,20 @@ export const CashToCashTransferView: React.FC<CashToCashTransferViewProps> = ({
     openPrintModal,
   } = useAccounting();
 
+  const systemQuote = systemUsdAfnQuote(currencies, cashRegister.usdToAfnRate);
+
   // Active Main Tab
-  const [activeTab, setActiveTab] = useState<MainTab>('transfer');
+  const [activeTab, setActiveTab] = useState<MainTab>(initialTab);
 
   // Editing state
   const [editingTxId, setEditingTxId] = useState<string | null>(null);
 
   // TAB 1: CASH-TO-CASH TRANSFER STATE
-  const [transferFromReg, setTransferFromReg] = useState<string>('afn_cash');
-  const [transferToReg, setTransferToReg] = useState<string>('usd_cash');
+  const [transferFromReg, setTransferFromReg] = useState<string>(() => preferredCashAccountId(cashAccounts, 'AFN') || 'afn_cash');
+  const [transferToReg, setTransferToReg] = useState<string>(() => preferredCashAccountId(cashAccounts, 'USD') || 'usd_cash');
   const [transferAmountInput, setTransferAmountInput] = useState<string>('');
   const [transferCrossRateInput, setTransferCrossRateInput] = useState<string>(() =>
-    (cashRegister.usdToAfnRate || 68.5).toString()
+    Number.isFinite(systemQuote) ? String(systemQuote) : ''
   );
   const [transferDate, setTransferDate] = useState<string>(getPersianDate());
   const [transferTrackingNumber, setTransferTrackingNumber] = useState<string>(
@@ -72,11 +87,11 @@ export const CashToCashTransferView: React.FC<CashToCashTransferViewProps> = ({
   // TAB 2: CURRENCY EXCHANGE STATE
   // Direction: 'afn_to_usd' (Buy USD) or 'usd_to_afn' (Sell USD)
   const [exchangeDirection, setExchangeDirection] = useState<'afn_to_usd' | 'usd_to_afn'>('afn_to_usd');
-  const [exchangeFromReg, setExchangeFromReg] = useState<string>('afn_cash');
-  const [exchangeToReg, setExchangeToReg] = useState<string>('usd_cash');
+  const [exchangeFromReg, setExchangeFromReg] = useState<string>(() => preferredCashAccountId(cashAccounts, 'AFN') || 'afn_cash');
+  const [exchangeToReg, setExchangeToReg] = useState<string>(() => preferredCashAccountId(cashAccounts, 'USD') || 'usd_cash');
   const [exchangeAmountInput, setExchangeAmountInput] = useState<string>('');
   const [exchangeRateInput, setExchangeRateInput] = useState<string>(() =>
-    (cashRegister.usdToAfnRate || 68.5).toString()
+    Number.isFinite(systemQuote) ? String(systemQuote) : ''
   );
   const [exchangeTargetAmountInput, setExchangeTargetAmountInput] = useState<string>('');
   const [selectedSarafiPartyId, setSelectedSarafiPartyId] = useState<string>('');
@@ -157,31 +172,31 @@ export const CashToCashTransferView: React.FC<CashToCashTransferViewProps> = ({
 
   // Sync exchange rate on direction change or initial rate
   useEffect(() => {
-    if (cashRegister.usdToAfnRate && !editingTxId) {
-      setTransferCrossRateInput(cashRegister.usdToAfnRate.toString());
-      setExchangeRateInput(cashRegister.usdToAfnRate.toString());
+    if (!editingTxId) {
+      setTransferCrossRateInput(Number.isFinite(systemQuote) ? String(systemQuote) : '');
+      setExchangeRateInput(Number.isFinite(systemQuote) ? String(systemQuote) : '');
     }
-  }, [cashRegister.usdToAfnRate, editingTxId]);
+  }, [systemQuote, editingTxId]);
 
   // Adjust defaults when exchange direction toggles
   const handleExchangeDirectionChange = (dir: 'afn_to_usd' | 'usd_to_afn') => {
     setExchangeDirection(dir);
     setFormError('');
     if (dir === 'afn_to_usd') {
-      setExchangeFromReg('afn_cash');
-      setExchangeToReg('usd_cash');
+      setExchangeFromReg(preferredCashAccountId(allRegisters, 'AFN'));
+      setExchangeToReg(preferredCashAccountId(allRegisters, 'USD'));
     } else {
-      setExchangeFromReg('usd_cash');
-      setExchangeToReg('afn_cash');
+      setExchangeFromReg(preferredCashAccountId(allRegisters, 'USD'));
+      setExchangeToReg(preferredCashAccountId(allRegisters, 'AFN'));
     }
     // Recompute target amount with current source
-    const numAmt = parseFloat(exchangeAmountInput.replace(/,/g, ''));
-    const rate = parseFloat(exchangeRateInput) || cashRegister.usdToAfnRate || 68.5;
-    if (!isNaN(numAmt) && numAmt > 0 && rate > 0) {
+    const numAmt = parseTradeNumber(exchangeAmountInput);
+    const rate = parseTradeNumber(exchangeRateInput);
+    if (Number.isFinite(numAmt) && numAmt > 0 && Number.isFinite(rate) && rate > 0) {
       if (dir === 'afn_to_usd') {
-        setExchangeTargetAmountInput((numAmt / rate).toFixed(2));
+        setExchangeTargetAmountInput(String(roundTradeAmount(numAmt / rate)));
       } else {
-        setExchangeTargetAmountInput((numAmt * rate).toFixed(2));
+        setExchangeTargetAmountInput(String(roundTradeAmount(numAmt * rate)));
       }
     } else {
       setExchangeTargetAmountInput('');
@@ -191,45 +206,45 @@ export const CashToCashTransferView: React.FC<CashToCashTransferViewProps> = ({
   // Exchange amount change handler
   const handleExchangeAmountChange = (val: string) => {
     setExchangeAmountInput(val);
-    const num = parseFloat(val.replace(/,/g, ''));
-    const rate = parseFloat(exchangeRateInput) || cashRegister.usdToAfnRate || 68.5;
-    if (isNaN(num) || num <= 0 || rate <= 0) {
+    const num = parseTradeNumber(val);
+    const rate = parseTradeNumber(exchangeRateInput);
+    if (!Number.isFinite(num) || num <= 0 || !Number.isFinite(rate) || rate <= 0) {
       setExchangeTargetAmountInput('');
       return;
     }
     if (exchangeDirection === 'afn_to_usd') {
-      setExchangeTargetAmountInput((num / rate).toFixed(2));
+      setExchangeTargetAmountInput(String(roundTradeAmount(num / rate)));
     } else {
-      setExchangeTargetAmountInput((num * rate).toFixed(2));
+      setExchangeTargetAmountInput(String(roundTradeAmount(num * rate)));
     }
   };
 
   // Exchange rate change handler
   const handleExchangeRateChange = (rateStr: string) => {
     setExchangeRateInput(rateStr);
-    const rate = parseFloat(rateStr) || 0;
-    const num = parseFloat(exchangeAmountInput.replace(/,/g, ''));
-    if (isNaN(num) || num <= 0 || rate <= 0) {
+    const rate = parseTradeNumber(rateStr);
+    const num = parseTradeNumber(exchangeAmountInput);
+    if (!Number.isFinite(num) || num <= 0 || !Number.isFinite(rate) || rate <= 0) {
       setExchangeTargetAmountInput('');
       return;
     }
     if (exchangeDirection === 'afn_to_usd') {
-      setExchangeTargetAmountInput((num / rate).toFixed(2));
+      setExchangeTargetAmountInput(String(roundTradeAmount(num / rate)));
     } else {
-      setExchangeTargetAmountInput((num * rate).toFixed(2));
+      setExchangeTargetAmountInput(String(roundTradeAmount(num * rate)));
     }
   };
 
   // Exchange target amount change handler
   const handleExchangeTargetAmountChange = (targetStr: string) => {
     setExchangeTargetAmountInput(targetStr);
-    const targetNum = parseFloat(targetStr.replace(/,/g, ''));
-    const num = parseFloat(exchangeAmountInput.replace(/,/g, ''));
+    const targetNum = parseTradeNumber(targetStr);
+    const num = parseTradeNumber(exchangeAmountInput);
     if (!isNaN(num) && num > 0 && !isNaN(targetNum) && targetNum > 0) {
       if (exchangeDirection === 'afn_to_usd') {
-        setExchangeRateInput((num / targetNum).toFixed(2));
+        setExchangeRateInput(String(roundTradeAmount(num / targetNum)));
       } else {
-        setExchangeRateInput((targetNum / num).toFixed(2));
+        setExchangeRateInput(String(roundTradeAmount(targetNum / num)));
       }
     }
   };
@@ -273,26 +288,21 @@ export const CashToCashTransferView: React.FC<CashToCashTransferViewProps> = ({
   const transferTargetAcc = getRegisterObj(transferToReg);
   const isTransferCrossCurrency = transferSourceAcc.currency !== transferTargetAcc.currency;
 
-  const transferNumAmount = parseFloat(transferAmountInput.replace(/,/g, '')) || 0;
-  const transferCrossRate = parseFloat(transferCrossRateInput) || cashRegister.usdToAfnRate || 68.5;
+  const transferNumAmount = parseTradeNumber(transferAmountInput) || 0;
+  const transferCrossRate = parseTradeNumber(transferCrossRateInput);
 
   const transferTargetCalculatedAmount = useMemo(() => {
     if (!isTransferCrossCurrency) return transferNumAmount;
-    if (transferSourceAcc.currency === 'AFN' && transferTargetAcc.currency === 'USD') {
-      return transferCrossRate > 0 ? Number((transferNumAmount / transferCrossRate).toFixed(2)) : 0;
-    }
-    if (transferSourceAcc.currency === 'USD' && transferTargetAcc.currency === 'AFN') {
-      return Number((transferNumAmount * transferCrossRate).toFixed(2));
-    }
-    return transferNumAmount;
-  }, [isTransferCrossCurrency, transferNumAmount, transferCrossRate, transferSourceAcc.currency, transferTargetAcc.currency]);
+    const ratio = documentConversionRate(currencies, transferSourceAcc.currency, transferTargetAcc.currency, transferCrossRate);
+    return Number.isFinite(ratio) && ratio > 0 ? roundTradeAmount(transferNumAmount * ratio) : 0;
+  }, [currencies, isTransferCrossCurrency, transferNumAmount, transferCrossRate, transferSourceAcc.currency, transferTargetAcc.currency]);
 
   // Tab 2 (Exchange) objects
   const exchangeSourceAcc = getRegisterObj(exchangeFromReg);
   const exchangeTargetAcc = getRegisterObj(exchangeToReg);
-  const exchangeNumAmount = parseFloat(exchangeAmountInput.replace(/,/g, '')) || 0;
-  const exchangeNumTarget = parseFloat(exchangeTargetAmountInput.replace(/,/g, '')) || 0;
-  const exchangeNumRate = parseFloat(exchangeRateInput) || cashRegister.usdToAfnRate || 68.5;
+  const exchangeNumAmount = parseTradeNumber(exchangeAmountInput) || 0;
+  const exchangeNumTarget = parseTradeNumber(exchangeTargetAmountInput) || 0;
+  const exchangeNumRate = parseTradeNumber(exchangeRateInput);
 
   // Print voucher helper
   const handlePrintVoucher = (tx: FinancialTransaction) => {
@@ -414,6 +424,11 @@ export const CashToCashTransferView: React.FC<CashToCashTransferViewProps> = ({
       return;
     }
 
+    if (isTransferCrossCurrency && (!Number.isFinite(transferCrossRate) || transferCrossRate <= 0 || !Number.isFinite(transferTargetCalculatedAmount) || transferTargetCalculatedAmount <= 0)) {
+      setFormError('نرخ تبدیل باید معتبر و بیشتر از صفر باشد.');
+      return;
+    }
+
     if (!editingTxId && transferNumAmount > transferSourceAcc.balance) {
       setFormError(
         `موجودی ${transferSourceAcc.name} (${formatCurrency(transferSourceAcc.balance, transferSourceAcc.currency)}) برای انتقال ${formatCurrency(transferNumAmount, transferSourceAcc.currency)} کافی نیست!`
@@ -439,6 +454,7 @@ export const CashToCashTransferView: React.FC<CashToCashTransferViewProps> = ({
         cashRegister: transferFromReg,
         isExchange: isTransferCrossCurrency,
         exchangeRate: isTransferCrossCurrency ? transferCrossRate : undefined,
+        usdToAfnRate: Number.isFinite(transferCrossRate) ? transferCrossRate : undefined,
         targetAmount: isTransferCrossCurrency ? transferTargetCalculatedAmount : undefined,
         targetCurrency: isTransferCrossCurrency ? transferTargetAcc.currency : undefined,
         date: transferDate || getPersianDate(),
@@ -459,6 +475,7 @@ export const CashToCashTransferView: React.FC<CashToCashTransferViewProps> = ({
         savedTx = updated;
         setFormSuccess('سند انتقال با موفقیت ویرایش و اعمال شد.');
         setEditingTxId(null);
+        if (initialTab === 'history') setActiveTab('history');
       } else {
         savedTx = createTransaction(txPayload);
         setFormSuccess('انتقال وجه بین صندوق‌ها با موفقیت ثبت شد.');
@@ -500,6 +517,11 @@ export const CashToCashTransferView: React.FC<CashToCashTransferViewProps> = ({
       return;
     }
 
+    if (!Number.isFinite(exchangeNumRate) || exchangeNumRate <= 0) {
+      setFormError('نرخ تبدیل باید معتبر و بیشتر از صفر باشد.');
+      return;
+    }
+
     if (!editingTxId && exchangeNumAmount > exchangeSourceAcc.balance) {
       setFormError(
         `موجودی ${exchangeSourceAcc.name} (${formatCurrency(exchangeSourceAcc.balance, exchangeSourceAcc.currency)}) برای پرداخت ${formatCurrency(exchangeNumAmount, exchangeSourceAcc.currency)} کافی نیست!`
@@ -526,6 +548,7 @@ export const CashToCashTransferView: React.FC<CashToCashTransferViewProps> = ({
         cashRegister: exchangeFromReg,
         isExchange: true,
         exchangeRate: exchangeNumRate,
+        usdToAfnRate: exchangeNumRate,
         targetAmount: exchangeNumTarget,
         targetCurrency: exchangeTargetAcc.currency,
         partyId: selectedSarafiPartyId || undefined,
@@ -548,6 +571,7 @@ export const CashToCashTransferView: React.FC<CashToCashTransferViewProps> = ({
         savedTx = updated;
         setFormSuccess('سند اکسچنج با موفقیت ویرایش و موجودی‌ها به‌روزرسانی شد.');
         setEditingTxId(null);
+        if (initialTab === 'history') setActiveTab('history');
       } else {
         savedTx = createTransaction(txPayload);
         setFormSuccess('سند تبدیل اسعار و اکسچنج با موفقیت ثبت شد.');
@@ -609,11 +633,12 @@ export const CashToCashTransferView: React.FC<CashToCashTransferViewProps> = ({
       setTransferNotes(tx.notes || '');
     }
 
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    document.getElementById('workspace-main-content')?.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleCancelEdit = () => {
     setEditingTxId(null);
+    setActiveTab(initialTab);
     setFormError('');
     setFormSuccess('');
     setTransferAmountInput('');
@@ -664,6 +689,12 @@ export const CashToCashTransferView: React.FC<CashToCashTransferViewProps> = ({
   const transferCount = transactions.filter(t => t.type === 'cash_transfer').length;
   const exchangeCount = transactions.filter(t => t.type === 'currency_exchange' || t.isExchange).length;
 
+  usePageReport({
+    title: 'تاریخچه انتقالات و تبدیل اسعار', enabled: activeTab === 'history', search: { value: historySearch, onChange: setHistorySearch, placeholder: "جستجو در شرح، شماره پیگیری، صراف..." },
+    filters: [{ id: 'type', label: 'نوع عملیات', value: historyFilter, onChange: value => setHistoryFilter(value as typeof historyFilter), options: [{ value: 'all', label: 'همه' }, { value: 'transfer', label: 'انتقال' }, { value: 'exchange', label: 'تبدیل ارز' }, { value: 'sarafi', label: 'صرافی' }] }],
+    getReport: () => tableReport('تاریخچه انتقالات و تبدیل اسعار', ['شماره سند', 'تاریخ', 'نوع عملیات', 'حساب مبدأ', 'حساب مقصد', 'طرف حساب', 'مبلغ مبدأ', 'ارز مبدأ', 'مبلغ مقصد', 'ارز مقصد', 'نرخ', 'شماره پیگیری', 'شرح'], relevantTransactions.map(tx => [tx.transactionNumber, tx.date, tx.type, getRegisterLabel(tx.fromCashRegister), getRegisterLabel(tx.toCashRegister), tx.partyName, tx.amount, tx.currency, tx.targetAmount, tx.targetCurrency, tx.exchangeRate, tx.trackingNumber, tx.description])),
+  });
+
   return (
     <div className="space-y-6 font-sans text-slate-800 pb-12 max-w-7xl mx-auto" dir="rtl">
       {/* 1. Header Card with Live Balances */}
@@ -674,7 +705,7 @@ export const CashToCashTransferView: React.FC<CashToCashTransferViewProps> = ({
           </div>
           <div>
             <h2 className="text-lg font-black text-slate-900">
-              عملیات صندوق به صندوق و تبدیل اسعار
+              {activeTab === 'transfer' ? 'عملیه صندوق به صندوق' : activeTab === 'exchange' ? 'تبدیل و اکسچنج اسعار' : 'تاریخچهٔ انتقال و صرافی'}
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
               انتقال مستقیم وجه بین صندوق‌های شرکت یا تبادله و تبدیل ارز (افغانی و دالر) با نرخ صرافی
@@ -701,7 +732,7 @@ export const CashToCashTransferView: React.FC<CashToCashTransferViewProps> = ({
           <div className="px-3.5 py-1.5 rounded-xl bg-amber-50 border border-amber-200/70 text-amber-950">
             <span className="text-[10px] text-amber-700 font-medium block">نرخ روز صرافی:</span>
             <span className="font-mono font-black text-sm text-amber-900">
-              $۱ = {formatNumber(cashRegister.usdToAfnRate || 68.5)} AFN
+              $۱ = {Number.isFinite(systemQuote) ? formatNumber(systemQuote) : '—'} AFN
             </span>
           </div>
         </div>
@@ -723,57 +754,6 @@ export const CashToCashTransferView: React.FC<CashToCashTransferViewProps> = ({
           </button>
         </div>
       )}
-
-      {/* 2. Main Action Tabs */}
-      <div className="flex items-center gap-2 bg-slate-200/80 p-1.5 rounded-2xl w-full sm:w-fit">
-        <button
-          type="button"
-          onClick={() => {
-            setActiveTab('transfer');
-            setFormError('');
-          }}
-          className={`flex-1 sm:flex-initial px-5 py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
-            activeTab === 'transfer'
-              ? 'bg-white text-blue-700 shadow-xs'
-              : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <ArrowLeftRight className="w-4 h-4 text-blue-600" />
-          <span>انتقال بین صندوق‌ها (صندوق به صندوق)</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            setActiveTab('exchange');
-            setFormError('');
-          }}
-          className={`flex-1 sm:flex-initial px-5 py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
-            activeTab === 'exchange'
-              ? 'bg-white text-indigo-700 shadow-xs'
-              : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <Repeat className="w-4 h-4 text-indigo-600" />
-          <span>تبدیل و اکسچنج اسعار (صرافی)</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            setActiveTab('history');
-            setFormError('');
-          }}
-          className={`flex-1 sm:flex-initial px-5 py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer ${
-            activeTab === 'history'
-              ? 'bg-white text-slate-900 shadow-xs'
-              : 'text-slate-600 hover:text-slate-900'
-          }`}
-        >
-          <Clock className="w-4 h-4 text-slate-600" />
-          <span>تاریخچه اسناد ({relevantTransactions.length})</span>
-        </button>
-      </div>
 
       {/* Global Form Alerts */}
       {formError && (
@@ -903,17 +883,18 @@ export const CashToCashTransferView: React.FC<CashToCashTransferViewProps> = ({
               {/* Cross currency note or rate */}
               {isTransferCrossCurrency ? (
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-indigo-900 flex items-center justify-between">
+                  <label htmlFor="transfer-cross-rate" className="text-xs font-bold text-indigo-900 flex items-center justify-between">
                     <span>نرخ تبدیل ارز روز (۱ دالر = چند افغانی)</span>
                     <span className="text-[10.5px] text-slate-500">ارز مبدا با مقصد متفاوت است</span>
                   </label>
                   <div className="relative">
                     <input
+                      id="transfer-cross-rate"
                       type="number"
                       step="any"
                       value={transferCrossRateInput}
                       onChange={e => setTransferCrossRateInput(e.target.value)}
-                      placeholder="68.5"
+                      placeholder="نرخ دلار به افغانی"
                       className="w-full text-sm font-bold font-mono p-3 rounded-2xl border border-indigo-300 bg-indigo-50/40 focus:border-indigo-600 outline-none text-left pl-14"
                       dir="ltr"
                     />
@@ -943,9 +924,9 @@ export const CashToCashTransferView: React.FC<CashToCashTransferViewProps> = ({
                 <span>
                   مبلغ معادل جهت واریز به {transferTargetAcc.name}:
                 </span>
-                <span className="font-mono text-sm text-indigo-800">
+                <output id="transfer-target-amount" aria-label="مبلغ ورودی صندوق مقصد" data-amount={transferTargetCalculatedAmount} className="font-mono text-sm text-indigo-800">
                   {formatNumber(transferTargetCalculatedAmount)} {transferTargetAcc.currency}
-                </span>
+                </output>
               </div>
             )}
 
@@ -1143,10 +1124,10 @@ export const CashToCashTransferView: React.FC<CashToCashTransferViewProps> = ({
                   </label>
                   <button
                     type="button"
-                    onClick={() => handleExchangeRateChange((cashRegister.usdToAfnRate || 68.5).toString())}
+                    onClick={() => handleExchangeRateChange(Number.isFinite(systemQuote) ? String(systemQuote) : '')}
                     className="text-[10.5px] text-indigo-600 hover:underline cursor-pointer font-medium"
                   >
-                    نرخ روز ({cashRegister.usdToAfnRate || 68.5})
+                    نرخ روز ({Number.isFinite(systemQuote) ? formatNumber(systemQuote) : '—'})
                   </button>
                 </div>
                 <div className="relative">
@@ -1155,7 +1136,7 @@ export const CashToCashTransferView: React.FC<CashToCashTransferViewProps> = ({
                     step="any"
                     value={exchangeRateInput}
                     onChange={e => handleExchangeRateChange(e.target.value)}
-                    placeholder="68.5"
+                    placeholder="نرخ دلار به افغانی"
                     className="w-full text-sm font-bold font-mono p-3 rounded-2xl border border-indigo-300 bg-indigo-50/30 focus:border-indigo-600 outline-none text-left pl-14"
                     dir="ltr"
                   />
@@ -1377,16 +1358,7 @@ export const CashToCashTransferView: React.FC<CashToCashTransferViewProps> = ({
 
           {/* Search & Filter Bar */}
           <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
-            <div className="relative w-full sm:w-72">
-              <input
-                type="text"
-                value={historySearch}
-                onChange={e => setHistorySearch(e.target.value)}
-                placeholder="جستجو در شرح، شماره پیگیری، صراف..."
-                className="w-full pl-8 pr-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 outline-none focus:bg-white focus:border-blue-500"
-              />
-              <Search className="w-4 h-4 text-slate-400 absolute left-2.5 top-2.5" />
-            </div>
+
 
             <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-bold self-stretch sm:self-auto">
               <button
@@ -1565,7 +1537,7 @@ export const CashToCashTransferView: React.FC<CashToCashTransferViewProps> = ({
             </span>
             <button
               type="button"
-              onClick={() => setActiveTab('history')}
+              onClick={() => { setActiveTab('history'); onNavigateTab?.('history'); }}
               className="text-xs font-bold text-blue-600 hover:underline cursor-pointer flex items-center gap-1"
             >
               <span>مشاهده همه در دفتر اسناد</span>

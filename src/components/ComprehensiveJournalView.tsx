@@ -1,3 +1,6 @@
+import { usePageReport } from './PageActionsToolbar';
+import { tableReport } from '../utils/reportData';
+import { projectCompanyCashTransactions } from '../utils/companyCash';
 import React, { useState, useMemo } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import {
@@ -19,7 +22,7 @@ import {
   Filter,
 } from 'lucide-react';
 import { Currency, Invoice, FinancialTransaction, ExpenseItem, StockTransfer } from '../types';
-import { formatCurrency, formatNumberEn, getPersianDate } from '../utils/formatters';
+import { formatCurrency, formatNumberEn, getPersianDate, normalizePersianDate, isDateInRange } from '../utils/formatters';
 import { ShamsiDatePickerInput } from './ShamsiDatePickerInput';
 
 interface ComprehensiveJournalViewProps {
@@ -70,13 +73,15 @@ export const ComprehensiveJournalView: React.FC<ComprehensiveJournalViewProps> =
 }) => {
   const {
     invoices,
-    transactions,
+    transactions: storedTransactions,
+    incomes,
     expenses,
     transfers,
     warehouses,
     openPrintModal,
     companySettings,
   } = useAccounting();
+  const transactions = useMemo(() => projectCompanyCashTransactions(storedTransactions, incomes, expenses), [storedTransactions, incomes, expenses]);
 
   // Helper for warehouse names
   const getWarehouseName = (id?: string) => {
@@ -86,14 +91,14 @@ export const ComprehensiveJournalView: React.FC<ComprehensiveJournalViewProps> =
   };
 
   // Date filters state: default to today, but if there are records with specific date we can support both
-  const todayPersian = useMemo(() => getPersianDate(), []);
+  const todayPersian = useMemo(() => normalizePersianDate(getPersianDate()), []);
   
   // Find latest date in data if available, or default to todayPersian
   const latestDataDate = useMemo(() => {
     const dates: string[] = [];
-    invoices.forEach(i => i.date && dates.push(i.date));
-    transactions.forEach(t => t.date && dates.push(t.date));
-    expenses.forEach(e => e.date && dates.push(e.date));
+    invoices.forEach(i => i.date && dates.push(normalizePersianDate(i.date)));
+    transactions.forEach(t => t.date && dates.push(normalizePersianDate(t.date)));
+    expenses.forEach(e => e.date && dates.push(normalizePersianDate(e.date)));
     if (dates.length > 0) {
       dates.sort((a, b) => b.localeCompare(a));
       return dates[0];
@@ -332,7 +337,7 @@ export const ComprehensiveJournalView: React.FC<ComprehensiveJournalViewProps> =
           date: tx.date,
           time,
           typeCategory: 'receipts',
-          typeLabel: 'دریافت نقد',
+          typeLabel: tx.incomeId ? 'دریافت عاید' : 'دریافت نقد',
           badgeStyle: 'bg-teal-600 text-white',
           docNumber: `REC-${tx.transactionNumber || tx.id.slice(-4)}`,
           partyOrLocation: tx.partyName || tx.cashRegisterName || 'صندوق شرکت',
@@ -438,7 +443,7 @@ export const ComprehensiveJournalView: React.FC<ComprehensiveJournalViewProps> =
     // Sort descending by date and time
     return list.sort((a, b) => {
       if (a.date !== b.date) {
-        return b.date.localeCompare(a.date);
+        return normalizePersianDate(b.date).localeCompare(normalizePersianDate(a.date));
       }
       return b.time.localeCompare(a.time);
     });
@@ -448,8 +453,7 @@ export const ComprehensiveJournalView: React.FC<ComprehensiveJournalViewProps> =
   const filteredEvents = useMemo(() => {
     return allEvents.filter(ev => {
       // Date filter
-      if (startDate && ev.date < startDate) return false;
-      if (endDate && ev.date > endDate) return false;
+      if (!isDateInRange(ev.date, startDate, endDate)) return false;
 
       // Category tab filter
       if (selectedCategory !== 'all' && ev.typeCategory !== selectedCategory) return false;
@@ -601,6 +605,16 @@ export const ComprehensiveJournalView: React.FC<ComprehensiveJournalViewProps> =
       ]),
     });
   };
+
+  usePageReport({
+    title: 'روزنامچه جامع', search: { value: searchQuery, onChange: setSearchQuery, placeholder: "نام طرف حساب، شماره سند..." },
+    filters: [
+      { id: 'from', kind: 'date', label: 'از تاریخ', value: startDate, onChange: value => { setDateQuickFilter('custom'); setStartDate(value); } },
+      { id: 'to', kind: 'date', label: 'تا تاریخ', value: endDate, onChange: value => { setDateQuickFilter('custom'); setEndDate(value); } },
+      { id: 'category', label: 'بخش عملیات', value: selectedCategory, onChange: value => setSelectedCategory(value as JournalCategoryTab), options: [{ value: 'all', label: 'همه' }, { value: 'sales', label: 'فروش' }, { value: 'purchases', label: 'خرید' }, { value: 'receipts', label: 'دریافت' }, { value: 'payments', label: 'پرداخت' }, { value: 'warehouse', label: 'گدام' }, { value: 'expenses', label: 'هزینه' }] },
+    ],
+    getReport: () => tableReport('روزنامچه جامع', ['شماره سند', 'تاریخ', 'زمان', 'نوع عملیات', 'طرف حساب / محل', 'شرح', 'ورودی', 'خروجی', 'مبلغ اصلی', 'ارز', 'ورودی مالی معادل AFN', 'خروجی مالی معادل AFN', 'ورودی فیزیکی', 'خروجی فیزیکی'], filteredEvents.map(event => [event.docNumber, event.date, event.time, event.typeLabel, event.partyOrLocation, event.description, event.inflowText, event.outflowText, event.originalAmount, event.currency, event.inflowAmount, event.outflowAmount, event.physicalQtyIn, event.physicalQtyOut])),
+  });
 
   return (
     <div className="p-4 sm:p-6 lg:p-7 max-w-[1600px] mx-auto space-y-4" dir="rtl">
@@ -898,30 +912,7 @@ export const ComprehensiveJournalView: React.FC<ComprehensiveJournalViewProps> =
 
         {/* Left side: Search input and Refresh Button */}
         <div className="flex items-end gap-2">
-          <div className="flex flex-col flex-1 sm:w-72">
-            <span className="text-[10px] text-slate-500 font-bold mb-0.5 flex items-center gap-1">
-              <Search className="w-3 h-3 text-slate-400" />
-              <span>جستجوی سریع رویداد:</span>
-            </span>
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="نام طرف حساب، شماره سند..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full text-right text-xs px-3 py-1.5 bg-white border border-slate-300 rounded-xl focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none pl-8"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-          </div>
+
 
           <button
             type="button"

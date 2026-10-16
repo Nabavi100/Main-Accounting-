@@ -1,49 +1,17 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { useAccounting } from '../context/AccountingContext';
-import { formatNumber, formatCurrency, extractSolarMonthIndex, getPersianDate } from '../utils/formatters';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  TrendingUp,
-  Package,
-  Warehouse as WarehouseIcon,
-  Search,
-  Plus,
-  ArrowRightLeft,
-  Coins,
-  MapPin,
-  ChevronLeft,
-  ChevronDown,
-  Compass,
-  ArrowDownLeft,
-  ArrowUpRight,
-  Landmark,
-  Layers,
-  Banknote,
-  Receipt,
-  CheckCircle2,
-  X,
-  User,
-  BarChart3,
-  Wallet,
-  DollarSign,
-  Eye,
-  BookOpen,
-  Building2,
-  Calendar,
+  ArrowDown, ArrowRightLeft, ArrowUp, Bell, Boxes, ChartLine,
+  ChevronLeft, CircleCheck, CircleHelp, FileMinus2, FilePlus2, Info,
+  Landmark, RefreshCw, Search, ShoppingCart, Wallet, Warehouse, X,
 } from 'lucide-react';
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-} from 'recharts';
-import { NavTab } from './Sidebar';
-import { Party } from '../types';
+import { useAccounting } from '../context/AccountingContext';
+import type { Invoice, Party } from '../types';
+import type { NavTab } from './Sidebar';
 import { PartyCardexModal } from './PartyCardexModal';
-import { DailyBusinessSummaryWidget } from './DailyBusinessSummaryWidget';
+import {
+  formatDashboardAmount, getMonthlySales, getPartyBalanceTotals,
+  getRecentInvoices, searchDashboardParties,
+} from '../utils/dashboard';
 
 interface DashboardViewProps {
   setActiveTab: (tab: NavTab) => void;
@@ -53,1464 +21,251 @@ interface DashboardViewProps {
   onOpenTransferModal: () => void;
   onViewInvoice: (invoiceId: string) => void;
   onSelectCashAccount?: (accountId: string) => void;
+  onOpenDataBackup?: () => void;
 }
 
+const invoiceStatus: Record<Invoice['paymentStatus'], { label: string; className: string }> = {
+  paid: { label: 'تسویه شده', className: 'is-paid' },
+  partial: { label: 'تسویه جزئی', className: 'is-partial' },
+  unpaid: { label: 'فاکتور باز', className: 'is-unpaid' },
+};
+
 export const DashboardView: React.FC<DashboardViewProps> = ({
-  setActiveTab,
-  setSubFilter,
-  onOpenNewInvoice,
-  onOpenPaymentModal,
-  onOpenTransferModal,
-  onViewInvoice,
-  onSelectCashAccount,
+  setActiveTab, setSubFilter, onOpenNewInvoice, onOpenPaymentModal,
+  onViewInvoice, onSelectCashAccount, onOpenDataBackup,
 }) => {
   const {
-    parties,
-    invoices,
-    warehouses,
-    products,
-    cashAccounts,
-    cashRegister,
-    expenses,
-    incomes,
-    companySettings,
-    baseCurrency,
-    convertToBase,
+    parties, invoices, warehouses, products, stocks, cashAccounts,
+    cashRegister, currencies, companySettings, currentUser, getLowStockAlerts,
   } = useAccounting();
-
-  const [isIncomeExpenseModalOpen, setIsIncomeExpenseModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedPartyForCardex, setSelectedPartyForCardex] = useState<Party | null>(null);
-  const [selectedIndex, setSelectedIndex] = useState<number>(0);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [selectedParty, setSelectedParty] = useState<Party | null>(null);
+  const [now, setNow] = useState(() => new Date());
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const searchResults = useMemo(() => searchDashboardParties(parties, searchQuery), [parties, searchQuery]);
+  const balances = useMemo(() => getPartyBalanceTotals(parties), [parties]);
+  const recentInvoices = useMemo(() => getRecentInvoices(invoices), [invoices]);
+  const lowStockAlerts = getLowStockAlerts();
+  const rawMaterialCount = products.filter(product => /مواد اولیه|raw material/i.test(product.category)).length;
 
-  // Keyboard shortcut: '/' or 'F' to focus on search
+  const monthlySales = useMemo(() => getMonthlySales(invoices, (amount, currency) => {
+    if (currency === 'AFN') return amount;
+    const rate = currency === 'USD'
+      ? cashRegister.usdToAfnRate
+      : currencies.find(item => item.code === currency)?.exchangeRateToAFN;
+    return rate && rate > 0 ? amount * rate : NaN;
+  }, companySettings.calendarType || 'jalali', now), [invoices, currencies, cashRegister.usdToAfnRate, companySettings.calendarType, now]);
+
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (
-        (e.key === '/' || e.key.toLowerCase() === 'f') &&
-        document.activeElement?.tagName !== 'INPUT' &&
-        document.activeElement?.tagName !== 'TEXTAREA'
-      ) {
-        e.preventDefault();
+    const timer = window.setInterval(() => setNow(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const editing = target?.closest('input, textarea, select, [contenteditable="true"], [role="dialog"], dialog');
+      if (!editing && !event.ctrlKey && !event.metaKey && !event.altKey && (event.key === '/' || event.key.toLowerCase() === 'f')) {
+        event.preventDefault();
         searchInputRef.current?.focus();
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    const onOutsideClick = (event: PointerEvent) => {
+      if (!searchContainerRef.current?.contains(event.target as Node)) setIsSearchOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    document.addEventListener('pointerdown', onOutsideClick);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('pointerdown', onOutsideClick);
+    };
   }, []);
 
-  // Filter parties based on search query (case-insensitive, name, code, phone, company)
-  const cleanTerm = searchQuery.trim().toLowerCase();
-  const searchResults = cleanTerm
-    ? parties.filter(
-        p =>
-          p.name.toLowerCase().includes(cleanTerm) ||
-          (p.code && p.code.toLowerCase().includes(cleanTerm)) ||
-          (p.phone && p.phone.includes(cleanTerm)) ||
-          (p.company && p.company.toLowerCase().includes(cleanTerm))
-      ).slice(0, 8)
-    : [];
-
-  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      if (searchResults.length > 0) {
-        setSelectedIndex(prev => (prev + 1) % searchResults.length);
-      }
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      if (searchResults.length > 0) {
-        setSelectedIndex(prev => (prev - 1 + searchResults.length) % searchResults.length);
-      }
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      if (searchResults.length > 0) {
-        const chosen = searchResults[selectedIndex] || searchResults[0];
-        setSelectedPartyForCardex(chosen);
-        setSearchQuery('');
-      }
-    } else if (e.key === 'Escape') {
-      setSearchQuery('');
+  const navigate = (tab: NavTab, filter = 'all') => {
+    setSubFilter?.(filter);
+    setActiveTab(tab);
+  };
+  const openParty = (party: Party) => {
+    setSelectedParty(party);
+    setSearchQuery('');
+    setIsSearchOpen(false);
+  };
+  const handleSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Escape') {
+      setIsSearchOpen(false);
+      return;
+    }
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      setIsSearchOpen(true);
+      if (searchResults.length) setSelectedIndex(index => (index + (event.key === 'ArrowDown' ? 1 : -1) + searchResults.length) % searchResults.length);
+    }
+    if (event.key === 'Enter' && isSearchOpen && searchResults.length) {
+      event.preventDefault();
+      openParty(searchResults[selectedIndex] || searchResults[0]);
     }
   };
-
-  const handleQuickOpenAccount = (partyToOpen?: Party) => {
-    const target = partyToOpen || searchResults[selectedIndex] || searchResults[0];
-    if (target) {
-      setSelectedPartyForCardex(target);
-      setSearchQuery('');
-    }
-  };
-
-  // Debtors & Creditors (Accurate calculation directly from actual parties, zero when clean/reset)
-  const totalCustomerDebtAFN = parties
-    .filter(p => p.balanceAFN < 0)
-    .reduce((sum, p) => sum + Math.abs(p.balanceAFN), 0);
-
-  const totalCustomerDebtUSD = parties
-    .filter(p => p.balanceUSD < 0)
-    .reduce((sum, p) => sum + Math.abs(p.balanceUSD), 0);
-
-  const totalSupplierPayableAFN = parties
-    .filter(p => p.balanceAFN > 0)
-    .reduce((sum, p) => sum + p.balanceAFN, 0);
-
-  const totalSupplierPayableUSD = parties
-    .filter(p => p.balanceUSD > 0)
-    .reduce((sum, p) => sum + p.balanceUSD, 0);
-
-  // Sales and Gross profit (Calculated accurately from real invoices)
-  const currentMonthSalesAFN = invoices
-    .filter(inv => inv.type === 'sell' && inv.currency === 'AFN')
-    .reduce((sum, inv) => sum + (inv.totalAmount || 0), 0);
-
-  const currentMonthGrossProfitBase = invoices
-    .filter(inv => inv.type === 'sell')
-    .reduce((sum, inv) => {
-      const invProfit = (inv.items || []).reduce((itemSum, item) => {
-        const margin = (item.unitPrice - (item.buyPrice || item.unitPrice * 0.9)) * item.quantity;
-        return itemSum + convertToBase(margin, inv.currency);
-      }, 0);
-      return sum + invProfit;
-    }, 0);
-
-  // ---------------- Recharts Comparative Bar Chart Data ----------------
-  const [chartCurrency, setChartCurrency] = useState<'BASE' | 'USD' | 'AFN'>('BASE');
-  const [chartPeriod, setChartPeriod] = useState<'6m' | '12m'>('12m');
-
-  const monthlyChartData = useMemo(() => {
-    const monthNames = [
-      'حمل',
-      'ثور',
-      'جوزا',
-      'سرطان',
-      'اسد',
-      'سنبله',
-      'میزان',
-      'عقرب',
-      'قوس',
-      'جدی',
-      'دلو',
-      'حوت',
-    ];
-
-    const stats = monthNames.map((name, index) => ({
-      month: name,
-      monthIndex: index + 1,
-      salesBase: 0,
-      purchasesBase: 0,
-      salesUSD: 0,
-      purchasesUSD: 0,
-      salesAFN: 0,
-      purchasesAFN: 0,
-      salesCount: 0,
-      purchasesCount: 0,
-    }));
-
-    const rateToAFN = cashRegister.usdToAfnRate > 0 ? cashRegister.usdToAfnRate : 65;
-
-    invoices.forEach(inv => {
-      if (!inv.date) return;
-      const mIndex = extractSolarMonthIndex(inv.date);
-      if (mIndex >= 0 && mIndex < 12) {
-        const amt = inv.totalAmount || 0;
-        const invCurr = inv.currency || 'USD';
-        const baseAmt = convertToBase(amt, invCurr);
-
-        // Convert to USD and AFN so every currency view reflects all invoices
-        const usdAmt =
-          (baseCurrency.code || 'USD').toUpperCase() === 'USD'
-            ? baseAmt
-            : baseCurrency.code === 'AFN'
-            ? baseAmt / rateToAFN
-            : convertToBase(amt, invCurr);
-        const afnAmt =
-          (baseCurrency.code || 'USD').toUpperCase() === 'AFN'
-            ? baseAmt
-            : usdAmt * rateToAFN;
-
-        if (inv.type === 'sell') {
-          stats[mIndex].salesBase += baseAmt;
-          stats[mIndex].salesUSD += usdAmt;
-          stats[mIndex].salesAFN += afnAmt;
-          stats[mIndex].salesCount += 1;
-        } else if (inv.type === 'return_sell') {
-          stats[mIndex].salesBase = Math.max(0, stats[mIndex].salesBase - baseAmt);
-          stats[mIndex].salesUSD = Math.max(0, stats[mIndex].salesUSD - usdAmt);
-          stats[mIndex].salesAFN = Math.max(0, stats[mIndex].salesAFN - afnAmt);
-        } else if (inv.type === 'buy') {
-          stats[mIndex].purchasesBase += baseAmt;
-          stats[mIndex].purchasesUSD += usdAmt;
-          stats[mIndex].purchasesAFN += afnAmt;
-          stats[mIndex].purchasesCount += 1;
-        } else if (inv.type === 'return_buy') {
-          stats[mIndex].purchasesBase = Math.max(0, stats[mIndex].purchasesBase - baseAmt);
-          stats[mIndex].purchasesUSD = Math.max(0, stats[mIndex].purchasesUSD - usdAmt);
-          stats[mIndex].purchasesAFN = Math.max(0, stats[mIndex].purchasesAFN - afnAmt);
-        }
-      }
-    });
-
-    const currMonthIndex = extractSolarMonthIndex(getPersianDate());
-    const activeMonth = currMonthIndex >= 0 ? currMonthIndex : 5;
-    const startIdx = activeMonth < 6 ? 0 : activeMonth - 5;
-    const dataset = chartPeriod === '6m' ? stats.slice(startIdx, startIdx + 6) : stats;
-
-    return dataset.map(item => {
-      let s = item.salesBase;
-      let p = item.purchasesBase;
-      if (chartCurrency === 'USD') {
-        s = item.salesUSD;
-        p = item.purchasesUSD;
-      } else if (chartCurrency === 'AFN') {
-        s = item.salesAFN;
-        p = item.purchasesAFN;
-      }
-      return {
-        month: item.month,
-        sales: Math.round(s),
-        purchases: Math.round(p),
-        salesCount: item.salesCount,
-        purchasesCount: item.purchasesCount,
-      };
-    });
-  }, [invoices, convertToBase, baseCurrency, cashRegister.usdToAfnRate, chartCurrency, chartPeriod]);
-
-  // Cash Registers Summary
-  const totalCashUSD = useMemo(
-    () =>
-      cashAccounts
-        .filter(acc => acc.currency === 'USD')
-        .reduce((sum, acc) => sum + (acc.balance || 0), 0),
-    [cashAccounts]
-  );
-
-  const totalCashAFN = useMemo(
-    () =>
-      cashAccounts
-        .filter(acc => acc.currency === 'AFN')
-        .reduce((sum, acc) => sum + (acc.balance || 0), 0),
-    [cashAccounts]
-  );
-
-  const usdValueInBase = convertToBase(totalCashUSD, 'USD');
-  const afnValueInBase = convertToBase(totalCashAFN, 'AFN');
-  const totalCashBase = usdValueInBase + afnValueInBase;
-  const usdPercent = totalCashBase > 0 ? Math.round((usdValueInBase / totalCashBase) * 100) : 50;
-  const afnPercent = totalCashBase > 0 ? 100 - usdPercent : 50;
+  const showSearch = isSearchOpen && !!searchQuery.trim();
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 space-y-5 max-w-7xl mx-auto overflow-y-auto font-sans select-none" dir="rtl">
-      {/* ---------------- 1. NOVATECH COMMAND TITLEBAR & COMMAND BODY ---------------- */}
-      <div className="space-y-0 shadow-xs">
-        <div className="dashboard-command-titlebar">
-          <div>
-            <Compass className="w-5 h-5 text-white" />
-            <h1>داشبورد مدیریتی و کنترل عملیات تجارتی</h1>
-          </div>
-          <span className="hidden sm:flex items-center gap-2">
-            <i></i>
-            <span>سیستم آنلاین و متصل | نسخه سازمانی ERP</span>
-          </span>
-        </div>
+    <div className="reference-dashboard" dir="rtl">
+      <h1 className="dashboard-greeting">خوش آمدید، جناب {currentUser.role === 'admin' ? 'مدیر کل سیستم' : currentUser.name}
+        <span>خلاصه وضعیت مالی، فروش و موجودی گدام‌ها</span>
+      </h1>
 
-        <div className="dashboard-command-body">
-          <div className="dashboard-welcome">
-            <div className="dashboard-welcome-mark">
-              <Building2 className="w-6 h-6" />
-            </div>
-            <div>
-              <h2>خوش آمدید، مدیریت سیستم</h2>
-              <p>خلاصه آمار جامع مالی، گدام‌ها و فروش {companySettings.name || 'شرکت تجارتی برادران نبوی'}</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="flex items-center gap-1.5 px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-xs font-bold text-slate-700">
-              <Calendar className="w-4 h-4 text-blue-600" />
-              <span>{getPersianDate()}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => window.location.reload()}
-              className="w-10 h-10 rounded-lg border border-slate-300 bg-white text-blue-600 hover:bg-sky-50 flex items-center justify-center transition shadow-2xs cursor-pointer"
-              title="بروزرسانی اطلاعات"
-            >
-              <ArrowRightLeft className="w-4 h-4" />
-            </button>
+      <section className="dash-quick" aria-label="کارتایل سریع و میانبرها">
+        <div className="dash-quick-intro">
+          <h2><CircleHelp aria-hidden="true" /> کارتایل سریع و میانبرها</h2>
+          <p>فوکوس روی کادر جستجو با فشردن کلید <kbd>/</kbd> یا <kbd>F</kbd></p>
+          <div className="dash-quick-actions">
+            <button type="button" id="dashboard-btn-new-sale" className="is-green" onClick={() => onOpenNewInvoice('sell')}><FilePlus2 aria-hidden="true" />فاکتور فروش جدید</button>
+            <button type="button" id="dashboard-btn-new-purchase" className="is-red" onClick={() => onOpenNewInvoice('buy')}><ShoppingCart aria-hidden="true" />فاکتور خرید جدید</button>
+            <button type="button" id="dashboard-btn-new-payment" className="is-blue" onClick={() => navigate('receipt_payment_hub')}><ArrowRightLeft aria-hidden="true" />دریافت و پرداخت جدید</button>
           </div>
         </div>
-      </div>
-
-      {/* ---------------- 2. FOUR QUICK OPERATIONS (NOVATECH STYLE) ---------------- */}
-      <div className="dashboard-operations">
-        <div
-          onClick={() => onOpenNewInvoice('buy')}
-          className="dashboard-operation is-red"
-          title="صدور فاکتور خرید جدید"
-        >
-          <div className="w-10 h-10 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
-            <Receipt className="w-5 h-5" />
-          </div>
-          <div className="min-w-0">
-            <h4 className="text-xs font-black text-slate-800">فاکتور خرید جدید</h4>
-            <p className="text-[11px] text-slate-500 truncate">ورود کالا به گدام و ثبت بدهی</p>
-          </div>
-        </div>
-
-        <div
-          onClick={() => onOpenNewInvoice('sell')}
-          className="dashboard-operation is-blue"
-          title="صدور فاکتور فروش جدید"
-        >
-          <div className="w-10 h-10 rounded-lg bg-sky-50 text-blue-600 flex items-center justify-center shrink-0">
-            <Plus className="w-5 h-5" />
-          </div>
-          <div className="min-w-0">
-            <h4 className="text-xs font-black text-slate-800">فاکتور فروش جدید</h4>
-            <p className="text-[11px] text-slate-500 truncate">فروش به مشتری و کسر از گدام</p>
-          </div>
-        </div>
-
-        <div
-          onClick={() => onOpenPaymentModal('receive_payment')}
-          className="dashboard-operation is-green"
-          title="دریافت و پرداخت نقدی جدید"
-        >
-          <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-            <Banknote className="w-5 h-5" />
-          </div>
-          <div className="min-w-0">
-            <h4 className="text-xs font-black text-slate-800">دریافت و پرداخت</h4>
-            <p className="text-[11px] text-slate-500 truncate">تسویه حساب مشتریان و صندوق</p>
-          </div>
-        </div>
-
-        <div
-          onClick={() => {
-            setActiveTab('journal');
-            setSubFilter?.('all');
-          }}
-          className="dashboard-operation is-violet"
-          title="مشاهده روزنامچه جامع رویدادها"
-        >
-          <div className="w-10 h-10 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
-            <BookOpen className="w-5 h-5" />
-          </div>
-          <div className="min-w-0">
-            <h4 className="text-xs font-black text-slate-800">روزنامچه جامع</h4>
-            <p className="text-[11px] text-slate-500 truncate">گردش مالی و رویدادهای زنده</p>
-          </div>
-        </div>
-      </div>
-
-      {/* ---------------- 2. QUICK ACTIONS & SEARCH CARD ---------------- */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-4 md:p-5 shadow-2xs space-y-4">
-        {/* Top Header Row of the Card */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          {/* Right: Title & Shortcut hint */}
-          <div className="flex items-center gap-2">
-            <Compass className="w-4 h-4 text-[#2563EB]" />
-            <span className="font-bold text-xs md:text-sm text-slate-800">
-              کارتایل سریع و میانبرها
-            </span>
-            <span className="text-[10px] text-slate-400 mr-2 bg-slate-50 px-2 py-0.5 rounded border border-slate-200/60 hidden sm:inline-block">
-              فوکوس روی کادر جستجو با فشردن کلید / یا F
-            </span>
-          </div>
-
-          {/* Left: 3 Action Buttons (Exact order from screenshot: Green, Red, Blue in RTL) */}
-          <div className="flex items-center gap-2">
-            {/* 1. Green Button: فاکتور فروش جدید */}
-            <button
-              type="button"
-              id="dashboard-btn-new-sale"
-              onClick={() => onOpenNewInvoice('sell')}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-[#059669] hover:bg-[#047857] text-white text-xs font-bold rounded-xl transition shadow-2xs cursor-pointer active:scale-95"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>فاکتور فروش جدید</span>
-            </button>
-
-            {/* 2. Red Button: فاکتور خرید جدید */}
-            <button
-              type="button"
-              id="dashboard-btn-new-purchase"
-              onClick={() => onOpenNewInvoice('buy')}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-[#E11D48] hover:bg-[#BE123C] text-white text-xs font-bold rounded-xl transition shadow-2xs cursor-pointer active:scale-95"
-            >
-              <span>فاکتور خرید جدید</span>
-            </button>
-
-            {/* 3. Blue Button: دریافت و پرداخت جدید */}
-            <button
-              type="button"
-              id="dashboard-btn-new-payment"
-              onClick={() => onOpenPaymentModal('receive_payment')}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-bold rounded-xl transition shadow-2xs cursor-pointer active:scale-95"
-            >
-              <ArrowRightLeft className="w-3.5 h-3.5" />
-              <span>دریافت و پرداخت جدید</span>
-            </button>
-
-            {/* 4. Purple Button: ثبت عاید و هزینه (ورود مستقیم به صفحه گزینه‌های ثبت) */}
-            <button
-              type="button"
-              id="dashboard-btn-income-expense"
-              onClick={() => setIsIncomeExpenseModalOpen(true)}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-[#7C3AED] hover:bg-[#6D28D9] text-white text-xs font-bold rounded-xl transition shadow-2xs cursor-pointer active:scale-95 group"
-              title="ثبت عاید جدید یا هزینه جدید با کلیک مستقیم به صفحه گزینه‌های ثبت"
-            >
-              <Wallet className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
-              <span>ثبت عاید و هزینه</span>
-            </button>
-
-            {/* 5. Blue Button: روزنامچه جامع رویدادها و تراکنش‌ها */}
-            <button
-              type="button"
-              id="dashboard-btn-journal-quick"
-              onClick={() => {
-                setActiveTab('journal');
-                setSubFilter('all');
-              }}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-bold rounded-xl transition shadow-2xs cursor-pointer active:scale-95 group"
-              title="مشاهده روزنامچه جامع رویدادها و تراکنش‌ها"
-            >
-              <BookOpen className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
-              <span>روزنامچه جامع</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Bottom: Search Input Box */}
-        <div className="relative">
-          <div className="relative flex items-center gap-2">
-            <div className="relative flex-1">
-              <input
-                ref={searchInputRef}
-                type="text"
-                id="dashboard-search-input"
-                value={searchQuery}
-                onChange={e => {
-                  setSearchQuery(e.target.value);
-                  setSelectedIndex(0);
-                }}
-                onKeyDown={handleSearchKeyDown}
-                placeholder="نام مشتری، صراف یا کد حساب را بنویسید (مثال: حاجی موسی، احمد رضایی)..."
-                className="w-full bg-[#F8FAFC] hover:bg-slate-50 focus:bg-white text-xs font-medium text-slate-800 placeholder-slate-400 px-4 py-3 pl-10 rounded-xl border border-slate-200 focus:border-[#2563EB] focus:ring-2 focus:ring-blue-100 outline-none transition"
-              />
-              {searchQuery.trim() ? (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-200 transition cursor-pointer"
-                  title="پاک کردن"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              ) : (
-                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              )}
-            </div>
-
-            {/* Direct Enter to Account Button */}
-            <button
-              type="button"
-              id="dashboard-btn-open-account"
-              onClick={() => handleQuickOpenAccount()}
-              disabled={searchResults.length === 0}
-              className={`px-4 py-3 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs shrink-0 cursor-pointer ${
-                searchResults.length > 0
-                  ? 'bg-[#2563EB] hover:bg-[#1D4ED8] text-white active:scale-95'
-                  : 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
-              }`}
-              title="ورود مستقیم و سریع به حساب و کاردکس مشتری بدون خروج از صفحه"
-            >
-              <User className="w-4 h-4" />
-              <span>ورود مستقیم به حساب مشتری</span>
-              <ChevronLeft className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          {/* Live Search Dropdown */}
-          {searchQuery.trim().length > 0 && (
-            <div className="absolute top-full right-0 left-0 mt-1.5 bg-white border border-slate-200 rounded-2xl shadow-2xl z-30 p-2 space-y-1 divide-y divide-slate-100 max-h-96 overflow-y-auto custom-scrollbar">
-              <div className="px-3 py-1.5 text-[11px] font-bold text-slate-500 flex items-center justify-between">
-                <span>نتایج جستجوی حساب مشتریان ({searchResults.length} مورد)</span>
-                <span className="text-[10px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded font-medium">
-                  کلید Enter یا کلیک جهت ورود مستقیم به حساب
-                </span>
-              </div>
-              {searchResults.length > 0 ? (
-                <div className="space-y-1 pt-1">
-                  {searchResults.map((party, idx) => {
-                    const isSelected = idx === selectedIndex;
-                    const balanceAfn = party.balanceAFN || 0;
-                    const balanceUsd = party.balanceUSD || 0;
-
-                    return (
-                      <div
-                        key={party.id}
-                        onClick={() => handleQuickOpenAccount(party)}
-                        onMouseEnter={() => setSelectedIndex(idx)}
-                        className={`p-3 rounded-xl flex items-center justify-between cursor-pointer transition text-xs ${
-                          isSelected ? 'bg-blue-50/90 border border-blue-200 shadow-2xs' : 'hover:bg-slate-50 border border-transparent'
-                        }`}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-blue-600/10 text-blue-700 font-black text-xs flex items-center justify-center shrink-0">
-                            {party.name.slice(0, 1)}
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="font-bold text-slate-900 text-xs">{party.name}</span>
-                              {party.code && (
-                                <span className="text-[10px] text-slate-400 font-mono bg-slate-100 px-1.5 py-0.5 rounded">
-                                  کد: {party.code}
-                                </span>
-                              )}
-                              {party.groupName && (
-                                <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
-                                  {party.groupName}
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-2">
-                              {party.phone && <span>تلفن: {party.phone}</span>}
-                              {party.company && <span>شرکت: {party.company}</span>}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                          <div className="text-left font-mono text-xs flex flex-col items-end">
-                            <span className={balanceAfn < 0 ? 'text-rose-600 font-bold' : balanceAfn > 0 ? 'text-amber-600 font-bold' : 'text-slate-500'}>
-                              {formatNumber(Math.abs(balanceAfn))} AFN {balanceAfn < 0 ? '(بدهکار)' : balanceAfn > 0 ? '(طلبکار)' : '(تسویه)'}
-                            </span>
-                            <span className={balanceUsd < 0 ? 'text-rose-600 font-bold' : balanceUsd > 0 ? 'text-amber-600 font-bold' : 'text-slate-500'}>
-                              ${formatNumber(Math.abs(balanceUsd))} {balanceUsd < 0 ? '(بدهکار)' : balanceUsd > 0 ? '(طلبکار)' : '(تسویه)'}
-                            </span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleQuickOpenAccount(party);
-                            }}
-                            className="px-3 py-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-lg text-[11px] font-bold shadow-2xs transition flex items-center gap-1 shrink-0 cursor-pointer"
-                            title="ورود به حساب مشتری"
-                          >
-                            <span>ورود به حساب</span>
-                            <ChevronLeft className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="p-4 text-center text-xs text-slate-400">
-                  مشتری یا حسابی با مشخصات «{searchQuery}» یافت نشد.
-                </div>
-              )}
+        <div className="dash-search" ref={searchContainerRef}>
+          <Search className="dash-search-icon" aria-hidden="true" />
+          <input
+            ref={searchInputRef} id="dashboard-search-input" type="search" role="combobox"
+            aria-label="جستجوی مشتری یا کد حساب" aria-autocomplete="list"
+            aria-expanded={showSearch} aria-controls="dashboard-search-results"
+            aria-activedescendant={showSearch && searchResults[selectedIndex] ? `dashboard-party-${searchResults[selectedIndex].id}` : undefined}
+            autoComplete="off" value={searchQuery}
+            placeholder="نام مشتری یا کد حساب را اینجا بنویسید (مثال: حاجی موسی، مرکزی)..."
+            onChange={event => { setSearchQuery(event.target.value); setSelectedIndex(0); setIsSearchOpen(true); }}
+            onFocus={() => setIsSearchOpen(true)} onKeyDown={handleSearchKeyDown}
+          />
+          {searchQuery && <button type="button" className="dash-search-clear" aria-label="پاک کردن جستجو" onClick={() => { setSearchQuery(''); searchInputRef.current?.focus(); }}><X /></button>}
+          {showSearch && (
+            <div className="dash-search-dropdown">
+              <span className="dash-search-caption">نتایج جستجوی حساب‌ها ({searchResults.length})</span>
+              <ul id="dashboard-search-results" role="listbox" aria-label="حساب‌های پیدا شده">
+                {searchResults.map((party, index) => (
+                  <li key={party.id} id={`dashboard-party-${party.id}`} role="option" aria-selected={index === selectedIndex}>
+                    <button type="button" className={index === selectedIndex ? 'is-selected' : ''} onMouseEnter={() => setSelectedIndex(index)} onClick={() => openParty(party)}>
+                      <span><strong>{party.name}</strong><small>{party.company || party.phone || 'طرف حساب'}{party.code ? ` · کد ${party.code}` : ''}</small></span>
+                      <ChevronLeft aria-hidden="true" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+              {!searchResults.length && <p role="status">مشتری یا حسابی با این مشخصات پیدا نشد.</p>}
             </div>
           )}
         </div>
-      </div>
+      </section>
 
-      {/* ---------------- 2.5. DAILY BUSINESS SUMMARY (CASH INFLOWS, OUTFLOWS & NET PROFIT) ---------------- */}
-      <DailyBusinessSummaryWidget
-        invoices={invoices}
-        baseCurrency={baseCurrency}
-        convertToBase={convertToBase}
-        usdToAfnRate={cashRegister.usdToAfnRate}
-        onOpenNewInvoice={onOpenNewInvoice}
-        onViewInvoice={onViewInvoice}
-        setActiveTab={setActiveTab}
-      />
-
-      {/* ---------------- 3. SIX NOVATECH KPI METRIC CARDS ---------------- */}
-      <div className="dashboard-kpis">
-        {/* Card 1: فروش کل ماه جاری (Blue) */}
-        <div className="dashboard-kpi is-blue">
-          <div className="dashboard-kpi-top">
-            <div className="dashboard-kpi-icon">
-              <TrendingUp className="w-5 h-5" />
-            </div>
-            <small>SALES-AFN</small>
-          </div>
-          <strong>{formatNumber(currentMonthSalesAFN)} AFN</strong>
-          <div>
-            <h3>فروش کل ماه جاری</h3>
-            <p>{invoices.filter(i => i.type === 'sell').length} فاکتور فروش ثبت‌شده</p>
-          </div>
-        </div>
-
-        {/* Card 2: تنوع کالا در سیستم (Emerald) */}
-        <div
-          onClick={() => setActiveTab('products')}
-          className="dashboard-kpi is-emerald cursor-pointer"
-          title="مشاهده و مدیریت لیست کالاها و اجناس"
-        >
-          <div className="dashboard-kpi-top">
-            <div className="dashboard-kpi-icon">
-              <Package className="w-5 h-5" />
-            </div>
-            <small>STOCK-ITEMS</small>
-          </div>
-          <strong>{products.length} قلم</strong>
-          <div>
-            <h3>تنوع و اقلام کالا</h3>
-            <p>{products.length === 0 ? 'هیچ کالایی ثبت نشده' : 'مشاهده موجودی انبارها'}</p>
-          </div>
-        </div>
-
-        {/* Card 3: سود ناخالص دوره (Purple) */}
-        <div
-          onClick={() => setActiveTab('reports')}
-          className="dashboard-kpi is-purple cursor-pointer"
-          title="مشاهده گزارش سود و زیان (P&L)"
-        >
-          <div className="dashboard-kpi-top">
-            <div className="dashboard-kpi-icon">
-              <Coins className="w-5 h-5" />
-            </div>
-            <small>PROFIT-EST</small>
-          </div>
-          <strong>{formatNumber(currentMonthGrossProfitBase)} {baseCurrency.code}</strong>
-          <div>
-            <h3>سود ناخالص دوره</h3>
-            <p>محاسبه بر اساس ارز مبنا: {baseCurrency.name}</p>
-          </div>
-        </div>
-
-        {/* Card 4: تعداد گدام‌های فعال (Amber) */}
-        <div
-          onClick={() => setActiveTab('warehouses')}
-          className="dashboard-kpi is-amber cursor-pointer"
-          title="مشاهده وضعیت گدام‌ها و موجودی کالا"
-        >
-          <div className="dashboard-kpi-top">
-            <div className="dashboard-kpi-icon">
-              <WarehouseIcon className="w-5 h-5" />
-            </div>
-            <small>WAREHOUSE</small>
-          </div>
-          <strong>{warehouses.length} گدام</strong>
-          <div>
-            <h3>گدام‌های فعال</h3>
-            <p>{warehouses.length === 0 ? 'تعریف نشده' : 'نظارت بر فیزیک کالاها'}</p>
-          </div>
-        </div>
-
-        {/* Card 5: صندوق و نقدینگی (Teal) */}
-        <div
-          onClick={() => setActiveTab('cash')}
-          className="dashboard-kpi is-teal cursor-pointer"
-          title="مشاهده صندوق‌ها و وضعیت نقدینگی"
-        >
-          <div className="dashboard-kpi-top">
-            <div className="dashboard-kpi-icon">
-              <Wallet className="w-5 h-5" />
-            </div>
-            <small>CASH-BOX</small>
-          </div>
-          <strong>{formatNumber(totalCashAFN)} AFN</strong>
-          <div>
-            <h3>موجودی کل نقدینگی</h3>
-            <p>${formatNumber(totalCashUSD)} دالر در {cashAccounts.length} حساب</p>
-          </div>
-        </div>
-
-        {/* Card 6: طلب از مشتریان / بدهکاران (Red) */}
-        <div
-          onClick={() => setActiveTab('customers')}
-          className="dashboard-kpi is-red cursor-pointer"
-          title="مشاهده لیست بدهکاران و مانده حساب مشتریان"
-        >
-          <div className="dashboard-kpi-top">
-            <div className="dashboard-kpi-icon">
-              <ArrowDownLeft className="w-5 h-5" />
-            </div>
-            <small>DEBTORS</small>
-          </div>
-          <strong>{formatNumber(totalCustomerDebtAFN)} AFN</strong>
-          <div>
-            <h3>طلب کل از مشتریان</h3>
-            <p>${formatNumber(totalCustomerDebtUSD)} دالر مانده حساب باز</p>
-          </div>
-        </div>
-      </div>
-
-      {/* ---------------- 3.5. RECHARTS COMPARATIVE BAR CHART & CASH BALANCE STATUS ---------------- */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
-        {/* Left / Main Chart: نمودار میله‌ای مقایسه‌ای فروش و خرید ماهانه (8 Cols) */}
-        <div className="lg:col-span-8 min-w-0 bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs space-y-4 flex flex-col justify-between">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-                <BarChart3 className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="font-bold text-sm text-slate-900 flex items-center gap-2">
-                  <span>نمودار مقایسه‌ای فروش و خرید ماهانه</span>
-                  <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full font-bold">
-                    تحلیل Recharts
-                  </span>
-                </h3>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  مقایسه حجم مالی فروشات و خرید اجناس به تفکیک ماه‌های سال
-                </p>
-              </div>
-            </div>
-
-            {/* Chart Filters & Controls */}
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* Currency Toggle */}
-              <div className="flex items-center bg-slate-100 p-0.5 rounded-xl text-[11px] font-bold text-slate-600 border border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => setChartCurrency('BASE')}
-                  className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
-                    chartCurrency === 'BASE'
-                      ? 'bg-white text-blue-700 shadow-2xs'
-                      : 'hover:text-slate-900'
-                  }`}
-                >
-                  ارز مبنا ({baseCurrency.code})
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setChartCurrency('USD')}
-                  className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
-                    chartCurrency === 'USD'
-                      ? 'bg-white text-blue-700 shadow-2xs'
-                      : 'hover:text-slate-900'
-                  }`}
-                >
-                  دلار ($)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setChartCurrency('AFN')}
-                  className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
-                    chartCurrency === 'AFN'
-                      ? 'bg-white text-blue-700 shadow-2xs'
-                      : 'hover:text-slate-900'
-                  }`}
-                >
-                  افغانی (؋)
-                </button>
-              </div>
-
-              {/* Period Toggle */}
-              <div className="flex items-center bg-slate-100 p-0.5 rounded-xl text-[11px] font-bold text-slate-600 border border-slate-200">
-                <button
-                  type="button"
-                  onClick={() => setChartPeriod('12m')}
-                  className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
-                    chartPeriod === '12m' ? 'bg-white text-slate-900 shadow-2xs' : 'hover:text-slate-900'
-                  }`}
-                >
-                  کل سال (۱۲ ماه)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setChartPeriod('6m')}
-                  className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
-                    chartPeriod === '6m' ? 'bg-white text-slate-900 shadow-2xs' : 'hover:text-slate-900'
-                  }`}
-                >
-                  ۶ ماه اخیر
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Responsive Recharts Bar Chart Container */}
-          <div className="w-full h-72 min-h-[288px] min-w-0 pt-2 select-none relative" dir="ltr">
-            {/* If no transactions exist in the dataset, display a helpful guide overlay */}
-            {!monthlyChartData.some(d => d.sales > 0 || d.purchases > 0) && (
-              <div
-                className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/85 backdrop-blur-[2px] rounded-xl p-4 text-center"
-                dir="rtl"
-              >
-                <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-2.5 shadow-2xs">
-                  <BarChart3 className="w-6 h-6" />
-                </div>
-                <h4 className="font-bold text-slate-800 text-sm mb-1">
-                  هنوز فاکتور فروش یا خریدی برای این بازه زمانی ثبت نشده است
-                </h4>
-                <p className="text-xs text-slate-500 max-w-sm mb-3.5 leading-relaxed">
-                  به محض صدور فاکتور جدید در بخش فروش یا خرید، ستون‌های آماری ماهانه به‌صورت خودکار در این بخش رسم می‌شوند.
-                </p>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('new_sale')}
-                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer active:scale-95"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>ثبت فاکتور فروش جدید</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('new_purchase')}
-                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-xs transition flex items-center gap-1.5 cursor-pointer active:scale-95"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>ثبت فاکتور خرید</span>
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <ResponsiveContainer width="100%" height={280} minWidth={0}>
-              <BarChart
-                data={monthlyChartData}
-                margin={{ top: 10, right: 15, left: -10, bottom: 0 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
-                <XAxis
-                  dataKey="month"
-                  tick={{ fill: '#64748B', fontSize: 11, fontWeight: 700 }}
-                  axisLine={{ stroke: '#E2E8F0' }}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fill: '#64748B', fontSize: 10 }}
-                  tickFormatter={val => formatNumber(val)}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <Tooltip
-                  content={({ active, payload, label }) => {
-                    if (active && payload && payload.length) {
-                      const data = payload[0]?.payload;
-                      const currLabel =
-                        chartCurrency === 'USD'
-                          ? '$'
-                          : chartCurrency === 'AFN'
-                          ? 'AFN'
-                          : baseCurrency.code;
-                      return (
-                        <div
-                          className="bg-slate-900/95 backdrop-blur-md text-white p-3 rounded-2xl border border-slate-700 shadow-xl text-xs space-y-2 font-sans select-none min-w-[200px]"
-                          dir="rtl"
-                        >
-                          <div className="flex items-center justify-between pb-1.5 border-b border-slate-700">
-                            <span className="font-bold text-slate-200">ماه {label}</span>
-                            <span className="text-[10px] text-slate-400 font-mono">
-                              {data?.salesCount || 0} فروش | {data?.purchasesCount || 0} خرید
-                            </span>
-                          </div>
-
-                          <div className="space-y-1.5 pt-1">
-                            {payload.map((entry: any, idx: number) => (
-                              <div
-                                key={`tooltip-${idx}`}
-                                className="flex items-center justify-between gap-4"
-                              >
-                                <div className="flex items-center gap-1.5">
-                                  <span
-                                    className="w-2.5 h-2.5 rounded-full shrink-0"
-                                    style={{ backgroundColor: entry.color }}
-                                  />
-                                  <span className="text-slate-300 font-medium">{entry.name}:</span>
-                                </div>
-                                <span
-                                  className="font-mono font-black text-left"
-                                  style={{ color: entry.color }}
-                                >
-                                  {formatNumber(entry.value)} {currLabel}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                <Legend
-                  wrapperStyle={{ paddingTop: '8px', fontSize: '11px', fontWeight: 700 }}
-                  formatter={value => (
-                    <span className="text-slate-700 font-sans text-xs">{value}</span>
-                  )}
-                />
-                <Bar
-                  dataKey="sales"
-                  name="مجموع فروشات"
-                  fill="#059669"
-                  radius={[6, 6, 0, 0]}
-                  maxBarSize={34}
-                />
-                <Bar
-                  dataKey="purchases"
-                  name="مجموع خریدها"
-                  fill="#2563EB"
-                  radius={[6, 6, 0, 0]}
-                  maxBarSize={34}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2 border-t border-slate-100 text-[11px] text-slate-500">
-            <div className="flex items-center gap-3">
-              <span className="flex items-center gap-1 text-emerald-700 font-bold">
-                <span>مجموع فروشات دوره:</span>
-                <span className="font-mono font-black">
-                  {formatNumber(monthlyChartData.reduce((acc, d) => acc + d.sales, 0))}
-                </span>
+      <section className="dash-metrics" aria-label="شاخص‌های مدیریتی">
+        <button type="button" className="dash-metric" onClick={() => navigate('sales_invoices')}>
+          <span className="dash-metric-icon is-blue"><ChartLine aria-hidden="true" /></span>
+          <span className="dash-metric-label">فروش کل ماه جاری</span>
+          <span className="dash-metric-value workspace-number"><small>AFN</small> {formatDashboardAmount(monthlySales.currentMonthAFN, 0)}</span>
+          <span className="dash-metric-footer">
+            {monthlySales.growthPercent !== null ? (
+              <span className={`dash-growth ${monthlySales.growthPercent < 0 ? 'is-negative' : ''}`} title="مقایسه فروش خالص با کل ماه گذشته">
+                {monthlySales.growthPercent < 0 ? <ArrowDown /> : <ArrowUp />} <b className="workspace-number">{formatDashboardAmount(Math.abs(monthlySales.growthPercent), 0)}%</b> {monthlySales.growthPercent < 0 ? 'کاهش' : 'رشد'}
               </span>
-              <span className="flex items-center gap-1 text-blue-700 font-bold">
-                <span>مجموع خرید دوره:</span>
-                <span className="font-mono font-black">
-                  {formatNumber(monthlyChartData.reduce((acc, d) => acc + d.purchases, 0))}
-                </span>
-              </span>
-            </div>
-            <span className="font-mono text-[10px] text-slate-400">
-              مبنای تبدیل: ۱ دلار = {cashRegister.usdToAfnRate} افغانی
-            </span>
-          </div>
-        </div>
-
-        {/* Right / Companion Panel: وضعیت موجودی نقد اصلی (دلار و افغانی) (4 Cols) */}
-        <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs space-y-4 flex flex-col justify-between">
-          <div className="flex items-start justify-between pb-2 border-b border-slate-100">
-            <div>
-              <h3 className="font-bold text-sm text-slate-900 flex items-center gap-1.5">
-                <Wallet className="w-4 h-4 text-emerald-600" />
-                <span>وضعیت موجودی نقد اصلی</span>
-              </h3>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                موجودی زنده صندوق‌های دلاری و افغانی شرکت
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setActiveTab('cash')}
-              className="text-[11px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-0.5 transition cursor-pointer"
-            >
-              <span>مدیریت صندوق</span>
-              <ChevronLeft className="w-3.5 h-3.5" />
-            </button>
-          </div>
-
-          {/* Cash Balance Status Cards: USD & AFN */}
-          <div className="space-y-3">
-            {/* Card 1: نقدینگی دلار ($) */}
-            <div className="p-3.5 bg-gradient-to-br from-emerald-50/70 to-emerald-100/30 rounded-xl border border-emerald-200/80 space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-black text-xs">
-                    $
-                  </div>
-                  <span className="text-xs font-bold text-slate-700">موجودی کل دلاری (USD)</span>
-                </div>
-                <span className="text-[10px] bg-emerald-600/10 text-emerald-800 font-bold px-2 py-0.5 rounded-full font-mono">
-                  {cashAccounts.filter(a => a.currency === 'USD').length} صندوق
-                </span>
-              </div>
-              <div className="flex items-baseline justify-between pt-1">
-                <span className="font-mono font-black text-xl text-emerald-900 dir-ltr text-right">
-                  $ {formatNumber(totalCashUSD)}
-                </span>
-                <span className="text-[10px] text-emerald-700 font-medium font-mono">
-                  معادل: {formatNumber(Math.round(totalCashUSD * (cashRegister.usdToAfnRate || 65)))} AFN
-                </span>
-              </div>
-            </div>
-
-            {/* Card 2: نقدینگی افغانی (؋) */}
-            <div className="p-3.5 bg-gradient-to-br from-blue-50/70 to-blue-100/30 rounded-xl border border-blue-200/80 space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs">
-                    ؋
-                  </div>
-                  <span className="text-xs font-bold text-slate-700">موجودی کل افغانی (AFN)</span>
-                </div>
-                <span className="text-[10px] bg-blue-600/10 text-blue-800 font-bold px-2 py-0.5 rounded-full font-mono">
-                  {cashAccounts.filter(a => a.currency === 'AFN').length} صندوق
-                </span>
-              </div>
-              <div className="flex items-baseline justify-between pt-1">
-                <span className="font-mono font-black text-xl text-blue-900 dir-ltr text-right">
-                  AFN {formatNumber(totalCashAFN)}
-                </span>
-                <span className="text-[10px] text-blue-700 font-medium font-mono">
-                  معادل: $ {formatNumber(Math.round(totalCashAFN / (cashRegister.usdToAfnRate || 65)))}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Visual Liquidity Split Progress Bar */}
-          <div className="space-y-1.5 bg-slate-50 p-3 rounded-xl border border-slate-100">
-            <div className="flex items-center justify-between text-[11px] font-bold">
-              <span className="text-emerald-700">دلاری: {usdPercent}٪</span>
-              <span className="text-slate-500 text-[10px]">نسبت ترکیب نقدینگی کل</span>
-              <span className="text-blue-700">افغانی: {afnPercent}٪</span>
-            </div>
-            <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden flex">
-              <div
-                className="h-full bg-emerald-500 transition-all duration-500"
-                style={{ width: `${usdPercent}%` }}
-                title={`دلاری: ${usdPercent}%`}
-              />
-              <div
-                className="h-full bg-blue-500 transition-all duration-500"
-                style={{ width: `${afnPercent}%` }}
-                title={`افغانی: ${afnPercent}%`}
-              />
-            </div>
-          </div>
-
-          {/* Quick Cash Registers List */}
-          <div className="space-y-1.5">
-            <div className="text-[11px] font-bold text-slate-400">تفکیک صندوق‌های اصلی:</div>
-            <div className="space-y-1 max-h-36 overflow-y-auto custom-scrollbar">
-              {cashAccounts.map(account => (
-                <div
-                  key={account.id}
-                  onClick={() => {
-                    if (onSelectCashAccount) {
-                      onSelectCashAccount(account.id);
-                    } else {
-                      setActiveTab('cash');
-                    }
-                  }}
-                  className="flex items-center justify-between p-2 rounded-lg hover:bg-slate-50 border border-slate-100 text-xs cursor-pointer transition"
-                  title="مشاهده گردش و تراکنش‌های این صندوق"
-                >
-                  <span className="text-slate-700 font-medium truncate max-w-[140px]">
-                    {account.name}
-                  </span>
-                  <div className="flex items-center gap-1.5 font-mono text-left">
-                    <span
-                      className={`font-bold ${
-                        account.currency === 'USD' ? 'text-emerald-700' : 'text-blue-700'
-                      }`}
-                    >
-                      {formatNumber(account.balance)}
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-sans">
-                      {account.currency === 'USD' ? '$' : 'AFN'}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ---------------- 4. TWO WIDE DEBTORS & CREDITORS CARDS ---------------- */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Card Right: مجموع طلبکاری‌ها (طلب‌های ما) */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs space-y-4">
-          <div className="flex items-start justify-between">
-            <div>
-              <h3 className="font-bold text-sm text-slate-900">
-                مجموع طلبکاری‌ها (طلب‌های ما)
-              </h3>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                کل مبالغی که باید از طرف‌حساب‌ها و مشتریان دریافت کنیم
-              </p>
-            </div>
-            <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
-              <Receipt className="w-4 h-4" />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-100">
-            <div>
-              <span className="text-xs text-slate-400 block mb-1">طلب بر اساس ارز (USD):</span>
-              <span className="font-mono font-black text-base md:text-lg text-slate-900 dir-ltr text-right block">
-                $ {formatNumber(totalCustomerDebtUSD)}
-              </span>
-            </div>
-            <div>
-              <span className="text-xs text-slate-400 block mb-1">طلب بر اساس ارز (AFN):</span>
-              <span className="font-mono font-black text-base md:text-lg text-slate-900 dir-ltr text-right block">
-                AFN {formatNumber(totalCustomerDebtAFN)}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Card Left: مجموع بدهکاری‌ها (بدهی‌های ما) */}
-        <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs space-y-4">
-          <div className="flex items-start justify-between">
-            <div>
-              <h3 className="font-bold text-sm text-slate-900">
-                مجموع بدهکاری‌ها (بدهی‌های ما)
-              </h3>
-              <p className="text-[11px] text-slate-400 mt-0.5">
-                کل تعهدات مالی و مبالغی که باید به تامین‌کنندگان پرداخت کنیم
-              </p>
-            </div>
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-              <Coins className="w-4 h-4" />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-100">
-            <div>
-              <span className="text-xs text-slate-400 block mb-1">بدهی بر اساس ارز (USD):</span>
-              <span className="font-mono font-black text-base md:text-lg text-slate-900 dir-ltr text-right block">
-                $ {formatNumber(totalSupplierPayableUSD)}
-              </span>
-            </div>
-            <div>
-              <span className="text-xs text-slate-400 block mb-1">بدهی بر اساس ارز (AFN):</span>
-              <span className="font-mono font-black text-base md:text-lg text-slate-900 dir-ltr text-right block">
-                AFN {formatNumber(totalSupplierPayableAFN)}
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ---------------- 5. صندوق‌ها و حساب‌های فعال (کلیک مستقیم به ریز تراکنش‌ها) ---------------- */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Banknote className="w-4 h-4 text-[#2563EB]" />
-            <h3 className="font-bold text-xs md:text-sm text-slate-800">
-              صندوق‌ها و حساب‌های فعال ({cashAccounts.length} صندوق)
-            </h3>
-          </div>
-          <span className="text-[11px] text-slate-500 font-medium">
-            کلیک روی هر صندوق جهت ورود مستقیم به ریز تراکنش‌ها
+            ) : <span className="dash-metric-note">{monthlySales.salesCount ? `${monthlySales.salesCount} فاکتور در این ماه` : 'هنوز فروشی در این ماه ثبت نشده'}</span>}
           </span>
-        </div>
+        </button>
+        <button type="button" className="dash-metric" onClick={() => navigate('products')}>
+          <span className="dash-metric-icon is-green"><Boxes aria-hidden="true" /></span>
+          <span className="dash-metric-label">تنوع کالا در سیستم</span>
+          <span className="dash-metric-value"><b className="workspace-number">{products.length}</b> <small>قلم</small></span>
+          <span className="dash-metric-footer"><RefreshCw aria-hidden="true" /> شامل {rawMaterialCount} نوع مواد اولیه</span>
+        </button>
+        <button type="button" className="dash-metric" onClick={() => navigate('warehouses')}>
+          <span className="dash-metric-icon is-yellow"><Warehouse aria-hidden="true" /></span>
+          <span className="dash-metric-label">تعداد گدام‌های فعال</span>
+          <span className="dash-metric-value"><b className="workspace-number">{warehouses.length}</b> <small>گدام</small></span>
+          <span className="dash-metric-footer is-yellow"><Boxes aria-hidden="true" /> نظارت بر تفکیک کالاها</span>
+        </button>
+      </section>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {cashAccounts.map(account => {
-            const isUSD = account.currency === 'USD';
+      <section className="dash-balances" aria-label="طلب‌ها و بدهی‌ها">
+        <div className="dash-balance is-receivable">
+          <div className="dash-balance-heading"><FileMinus2 aria-hidden="true" /><div><h2>مجموع طلبکاری‌ها (طلب‌های ما)</h2><p>کل مبالغی که باید از طرف‌حساب‌ها و مشتریان دریافت کنیم</p></div></div>
+          <div className="dash-balance-currencies">
+            <div><span>طلب بر اساس ارز (USD):</span><strong className="workspace-number"><small>USD</small> {formatDashboardAmount(balances.receivableUSD)}</strong></div>
+            <div><span>طلب بر اساس ارز (AFN):</span><strong className="workspace-number"><small>AFN</small> {formatDashboardAmount(balances.receivableAFN)}</strong></div>
+          </div>
+        </div>
+        <div className="dash-balance is-payable">
+          <div className="dash-balance-heading"><FilePlus2 aria-hidden="true" /><div><h2>مجموع بدهکاری‌ها (بدهی‌های ما)</h2><p>کل تعهدات مالی و مبالغی که باید به تأمین‌کنندگان پرداخت کنیم</p></div></div>
+          <div className="dash-balance-currencies">
+            <div><span>بدهی بر اساس ارز (USD):</span><strong className="workspace-number"><small>USD</small> {formatDashboardAmount(balances.payableUSD)}</strong></div>
+            <div><span>بدهی بر اساس ارز (AFN):</span><strong className="workspace-number"><small>AFN</small> {formatDashboardAmount(balances.payableAFN)}</strong></div>
+          </div>
+        </div>
+      </section>
+
+      <section className="dash-section" aria-labelledby="dashboard-cash-title">
+        <h2 id="dashboard-cash-title" className="dash-section-heading"><span className="is-blue"><Wallet aria-hidden="true" /></span>صندوق‌ها و حساب‌های فعال</h2>
+        <div className="dash-account-grid">
+          {cashAccounts.map(account => (
+            <button type="button" className="dash-account-card" key={account.id} onClick={() => { setSubFilter?.('all'); onSelectCashAccount ? onSelectCashAccount(account.id) : navigate('cash', account.id); }}>
+              <Landmark className="dash-bank-icon" aria-hidden="true" />
+              <strong>{account.name}</strong><span className="dash-card-caption">موجودی فعلی:</span>
+              <span className={`dash-account-amount workspace-number ${account.balance < 0 ? 'is-negative' : ''}`}><small>{account.currency === 'USD' ? '$' : account.currency}</small> {formatDashboardAmount(account.balance)}</span>
+              <span className="dash-card-link">مشاهده ریز تراکنش‌ها <ChevronLeft aria-hidden="true" /></span>
+            </button>
+          ))}
+          {!cashAccounts.length && <div className="dash-empty-panel"><Wallet aria-hidden="true" /><p>هنوز صندوقی تعریف نشده است.</p><button type="button" onClick={() => navigate('cash')}>تعریف صندوق</button></div>}
+        </div>
+      </section>
+
+      <section className="dash-section" aria-labelledby="dashboard-warehouse-title">
+        <h2 id="dashboard-warehouse-title" className="dash-section-heading"><span className="is-yellow"><Warehouse aria-hidden="true" /></span>وضعیت گدام‌ها (انبارها)</h2>
+        <div className="dash-account-grid">
+          {warehouses.map(warehouse => {
+            const stockCount = new Set(stocks.filter(stock => stock.warehouseId === warehouse.id && (stock.quantityTons > 0 || stock.quantityBags > 0)).map(stock => stock.productId)).size;
             return (
-              <div
-                key={account.id}
-                onClick={() => {
-                  if (onSelectCashAccount) {
-                    onSelectCashAccount(account.id);
-                  } else {
-                    setActiveTab('cash');
-                  }
-                }}
-                className="bg-white rounded-2xl border border-slate-200/80 hover:border-blue-400 p-5 shadow-2xs hover:shadow-md transition-all text-center flex flex-col justify-between cursor-pointer group"
-                title={`کلیک کنید تا مستقیماً به دفتر ریزتراکنش‌های ${account.name} بروید`}
-              >
-                <div className="flex justify-center mb-3">
-                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#2563EB] group-hover:bg-[#2563EB] group-hover:text-white transition-colors flex items-center justify-center shadow-2xs">
-                    <Landmark className="w-5 h-5" />
-                  </div>
-                </div>
-                <div>
-                  <h4 className="font-bold text-xs text-slate-900 mb-1 group-hover:text-[#2563EB] transition">
-                    {account.name}
-                  </h4>
-                  <span className="text-[11px] text-slate-400 block mb-1">موجودی فعلی:</span>
-                  <span className="font-mono font-black text-lg text-slate-900 block dir-ltr">
-                    {isUSD ? `$ ${formatNumber(account.balance)}` : `AFN ${formatNumber(account.balance)}`}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={e => {
-                    e.stopPropagation();
-                    if (onSelectCashAccount) {
-                      onSelectCashAccount(account.id);
-                    } else {
-                      setActiveTab('cash');
-                    }
-                  }}
-                  className="mt-4 pt-3 border-t border-slate-100 text-[11px] font-bold text-[#2563EB] group-hover:text-blue-800 transition cursor-pointer flex items-center justify-center gap-1"
-                >
-                  <span>مشاهده ریز تراکنش‌ها</span>
-                  <ChevronLeft className="w-3.5 h-3.5 group-hover:translate-x-[-2px] transition" />
-                </button>
-              </div>
+              <button type="button" className="dash-warehouse-card" key={warehouse.id} onClick={() => navigate(warehouse.type === 'standard' ? 'warehouses' : 'consignment')}>
+                <span className="dash-warehouse-tag">{warehouse.type === 'standard' ? 'ملکی' : warehouse.type === 'consignment_in' ? 'امانی دیگران' : 'امانی شرکت'}</span>
+                <Warehouse className="dash-warehouse-icon" aria-hidden="true" />
+                <strong>{warehouse.name}</strong><span className="dash-stock-count"><i className={stockCount ? 'has-stock' : ''} />{stockCount} قلم جنس موجود</span>
+                <span className="dash-card-link">مشاهده موجودی گدام <ChevronLeft aria-hidden="true" /></span>
+              </button>
             );
           })}
-          {cashAccounts.length === 0 && (
-            <div className="col-span-full bg-white rounded-2xl border border-dashed border-slate-300 p-6 text-center text-slate-400">
-              <Landmark className="w-8 h-8 mx-auto text-slate-300 mb-2" />
-              <p className="text-xs font-bold">هیچ صندوق فعالی ثبت نشده است</p>
-            </div>
-          )}
+          {!warehouses.length && <div className="dash-empty-panel"><Warehouse aria-hidden="true" /><p>هنوز گدامی تعریف نشده است.</p><button type="button" onClick={() => navigate('warehouses')}>تعریف گدام</button></div>}
         </div>
+      </section>
+
+      <div className="dash-bottom-grid">
+        <section className="dash-recent" aria-labelledby="dashboard-invoices-title">
+          <div className="dash-panel-heading"><h2 id="dashboard-invoices-title">آخرین فاکتورهای بازرگانی</h2><button type="button" onClick={() => navigate('trade_hub')}>مشاهده همه</button></div>
+          <div className="dash-table-scroll">
+            <table className="dash-invoice-table">
+              <thead><tr><th scope="col">مشتری / فروشنده</th><th scope="col">کد فاکتور</th><th scope="col">مبلغ کل</th><th scope="col">وضعیت فاکتور</th><th scope="col">تاریخ ثبت</th></tr></thead>
+              <tbody>
+                {recentInvoices.map(invoice => {
+                  const status = invoiceStatus[invoice.paymentStatus] || invoiceStatus.unpaid;
+                  return <tr key={invoice.id}>
+                    <td><button type="button" className="dash-invoice-party" onClick={() => onViewInvoice(invoice.id)}><FilePlus2 aria-hidden="true" />{invoice.partyName}</button></td>
+                    <td><button type="button" className="dash-invoice-code workspace-number" onClick={() => onViewInvoice(invoice.id)} aria-label={`مشاهده فاکتور ${invoice.invoiceNumber}`}>#{invoice.invoiceNumber.replace(/^#/, '')}</button></td>
+                    <td><span className="workspace-number"><small>{invoice.currency}</small> {formatDashboardAmount(invoice.totalAmount)}</span></td>
+                    <td><span className={`dash-invoice-status ${status.className}`}>{status.label}</span></td>
+                    <td>{invoice.date}</td>
+                  </tr>;
+                })}
+                {!recentInvoices.length && <tr><td colSpan={5} className="dash-empty-invoices"><FilePlus2 aria-hidden="true" /><p>هنوز فاکتوری ثبت نشده است.</p><button type="button" onClick={() => onOpenNewInvoice('sell')}>ثبت اولین فاکتور فروش</button></td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </section>
+        <section className="dash-announcements" aria-labelledby="dashboard-announcements-title">
+          <h2 id="dashboard-announcements-title"><Bell aria-hidden="true" />اعلان‌های سیستم</h2>
+          <p className="dash-announcements-caption">اعلان‌ها و وضعیت به‌روز سیستم حسابداری</p>
+          {lowStockAlerts.length > 0 ? <button type="button" className="dash-announcement is-warning" onClick={() => navigate('reports', 'inventory')}><Info aria-hidden="true" /><span>موجودی {lowStockAlerts.length} قلم کالا به حداقل رسیده است.</span></button> : <div className="dash-announcement is-clear"><CircleCheck aria-hidden="true" /><span>در حال حاضر هشدار کمبود موجودی ندارید.</span></div>}
+          <button type="button" className="dash-announcement is-info" onClick={() => onOpenDataBackup ? onOpenDataBackup() : navigate('audit_log')}><Info aria-hidden="true" /><span>پشتیبان‌گیری منظم از اطلاعات حسابداری را فراموش نکنید.</span></button>
+        </section>
       </div>
 
-      {/* ---------------- 6. وضعیت گدام‌ها (انبارها) ---------------- */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <WarehouseIcon className="w-4 h-4 text-[#F59E0B]" />
-            <h3 className="font-bold text-xs md:text-sm text-slate-800">
-              وضعیت گدام‌ها (انبارها)
-            </h3>
-          </div>
-          <button
-            type="button"
-            onClick={() => setActiveTab('warehouses')}
-            className="text-xs text-[#2563EB] hover:text-blue-800 font-bold cursor-pointer flex items-center gap-0.5"
-          >
-            <span>مشاهده همه گدام‌ها</span>
-            <ChevronLeft className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {warehouses.map(w => {
-            const isConsignment = w.type === 'consignment_in' || w.type === 'consignment_out' || w.id === 'wh-2';
-            return (
-              <div
-                key={w.id}
-                onClick={() => setActiveTab(isConsignment ? 'consignment' : 'warehouses')}
-                className="bg-white rounded-2xl border border-slate-200/80 hover:border-amber-400 p-5 shadow-2xs hover:shadow-md transition-all relative flex flex-col justify-between cursor-pointer group"
-                title={`مشاهده کالاهای موجود در ${w.name}`}
-              >
-                <div className="absolute top-4 right-4">
-                  <span className="bg-[#2563EB] text-white text-[10px] font-bold px-2 py-0.5 rounded-md shadow-2xs">
-                    کد {w.code || w.id}
-                  </span>
-                </div>
-
-                <div className="flex justify-center my-3">
-                  <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-700 group-hover:bg-amber-500 group-hover:text-white transition-colors flex items-center justify-center shadow-2xs">
-                    <WarehouseIcon className="w-6 h-6" />
-                  </div>
-                </div>
-
-                <div className="text-center">
-                  <h4 className="font-bold text-sm text-slate-900 mb-1 group-hover:text-amber-700 transition">
-                    {w.name}
-                  </h4>
-                  <p className="text-[11px] text-slate-500 flex items-center justify-center gap-1 font-medium">
-                    <MapPin className="w-3 h-3 text-slate-400" />
-                    <span>نقطه آدرس: {w.location || 'هرات'}</span>
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={e => {
-                    e.stopPropagation();
-                    setActiveTab(isConsignment ? 'consignment' : 'warehouses');
-                  }}
-                  className="mt-4 pt-3 border-t border-slate-100 text-[11px] font-bold text-[#2563EB] hover:text-blue-800 transition text-center flex items-center justify-center gap-1 cursor-pointer"
-                >
-                  <span>مشاهده موجودی کالاها</span>
-                  <ChevronLeft className="w-3.5 h-3.5 group-hover:translate-x-[-2px] transition" />
-                </button>
-              </div>
-            );
-          })}
-          {warehouses.length === 0 && (
-            <div className="col-span-full bg-white rounded-2xl border border-dashed border-slate-300 p-8 text-center text-slate-400">
-              <WarehouseIcon className="w-10 h-10 mx-auto text-slate-300 mb-2" />
-              <p className="text-xs font-bold">هیچ گدامی در سیستم تعریف نشده است</p>
-              <button
-                type="button"
-                onClick={() => setActiveTab('warehouses')}
-                className="mt-3 px-4 py-2 bg-amber-500 text-white text-xs font-bold rounded-xl cursor-pointer hover:bg-amber-600 transition"
-              >
-                ایجاد گدام جدید
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* 8. DETAILED CUSTOMER / PARTY CARDEX & STATEMENT MODAL */}
-      <PartyCardexModal
-        party={selectedPartyForCardex}
-        isOpen={!!selectedPartyForCardex}
-        onClose={() => setSelectedPartyForCardex(null)}
-        onViewInvoice={onViewInvoice}
-        onOpenPaymentModal={onOpenPaymentModal}
-      />
-
-      {/* 9. MODAL: صفحه و گزینه‌های ثبت عاید و هزینه (هدایت مستقیم) */}
-      {isIncomeExpenseModalOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs font-sans overflow-y-auto"
-          dir="rtl"
-          onClick={() => setIsIncomeExpenseModalOpen(false)}
-        >
-          <div
-            className="bg-white rounded-3xl border border-slate-200/90 shadow-2xl p-5 sm:p-6 max-w-2xl w-full space-y-5 animate-in fade-in zoom-in-95 duration-150"
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center shadow-2xs shrink-0">
-                  <Wallet className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-black text-base text-slate-900 flex items-center gap-2">
-                    <span>صفحه و گزینه‌های ثبت عاید و هزینه</span>
-                    <span className="text-[10px] bg-purple-100 text-purple-700 font-bold px-2 py-0.5 rounded-full">
-                      هدایت مستقیم
-                    </span>
-                  </h3>
-                  <p className="text-xs text-slate-500 font-medium mt-0.5">
-                    لطفاً مشخص نمایید قصد ثبت عاید (درآمد متفرقه) یا ثبت مصرف (هزینه جاری) را دارید:
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsIncomeExpenseModalOpen(false)}
-                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 hover:text-slate-800 flex items-center justify-center transition cursor-pointer"
-                title="بستن پنجره"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Two Action Option Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Option 1: ثبت عاید و درآمد جدید (Incomes) */}
-              <div className="rounded-2xl border-2 border-emerald-200/80 bg-emerald-50/40 p-4 flex flex-col justify-between space-y-4 hover:border-emerald-400 hover:bg-emerald-50/70 transition">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-2xs">
-                      <TrendingUp className="w-5 h-5" />
-                    </div>
-                    <span className="text-[11px] font-bold text-emerald-800 bg-emerald-100/80 px-2.5 py-0.5 rounded-full">
-                      درآمدهای متفرقه
-                    </span>
-                  </div>
-                  <div>
-                    <h4 className="font-black text-sm text-slate-900">
-                      ثبت عاید و درآمد جدید
-                    </h4>
-                    <p className="text-[11px] text-slate-600 font-medium leading-relaxed mt-1">
-                      فروش بوجی و کیسه خالی، کمیسیون، کرایه موقت انبار، پورتاژ و خدمات بارگیری، سود تسعیر اسعار و سایر عواید نقدی.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-2 pt-2 border-t border-emerald-200/60">
-                  <button
-                    type="button"
-                    id="modal-btn-direct-new-income"
-                    onClick={() => {
-                      setIsIncomeExpenseModalOpen(false);
-                      setSubFilter?.('create');
-                      setActiveTab('incomes');
-                    }}
-                    className="w-full flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black rounded-xl shadow-2xs transition cursor-pointer active:scale-95"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>ورود مستقیم به فرم ثبت عاید</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    id="modal-btn-view-incomes-list"
-                    onClick={() => {
-                      setIsIncomeExpenseModalOpen(false);
-                      setSubFilter?.('all');
-                      setActiveTab('incomes');
-                    }}
-                    className="w-full flex items-center justify-center gap-1 px-3 py-1.5 bg-white hover:bg-emerald-100 text-emerald-800 text-xs font-bold rounded-xl border border-emerald-200/80 transition cursor-pointer"
-                  >
-                    <span>مشاهده دفتر و لیست عواید</span>
-                    <ChevronLeft className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Option 2: ثبت مصرف و هزینه جدید (Expenses) */}
-              <div className="rounded-2xl border-2 border-rose-200/80 bg-rose-50/40 p-4 flex flex-col justify-between space-y-4 hover:border-rose-400 hover:bg-rose-50/70 transition">
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <div className="w-9 h-9 rounded-xl bg-rose-600 text-white flex items-center justify-center shadow-2xs">
-                      <Receipt className="w-5 h-5" />
-                    </div>
-                    <span className="text-[11px] font-bold text-rose-800 bg-rose-100/80 px-2.5 py-0.5 rounded-full">
-                      مصارف جاری و اداری
-                    </span>
-                  </div>
-                  <div>
-                    <h4 className="font-black text-sm text-slate-900">
-                      ثبت مصرف و هزینه جدید
-                    </h4>
-                    <p className="text-[11px] text-slate-600 font-medium leading-relaxed mt-1">
-                      کرایه دفتر و گدام، معاشات و حقوق پرسونل، قبوض برق و انترنت، بارگیری و ترانسپورت، ملزومات و مصارف روزمره.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-2 pt-2 border-t border-rose-200/60">
-                  <button
-                    type="button"
-                    id="modal-btn-direct-new-expense"
-                    onClick={() => {
-                      setIsIncomeExpenseModalOpen(false);
-                      setSubFilter?.('create');
-                      setActiveTab('expenses');
-                    }}
-                    className="w-full flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-black rounded-xl shadow-2xs transition cursor-pointer active:scale-95"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>ورود مستقیم به فرم ثبت هزینه</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    id="modal-btn-view-expenses-list"
-                    onClick={() => {
-                      setIsIncomeExpenseModalOpen(false);
-                      setSubFilter?.('all');
-                      setActiveTab('expenses');
-                    }}
-                    className="w-full flex items-center justify-center gap-1 px-3 py-1.5 bg-white hover:bg-rose-100 text-rose-800 text-xs font-bold rounded-xl border border-rose-200/80 transition cursor-pointer"
-                  >
-                    <span>مشاهده دفتر و لیست هزینه‌ها</span>
-                    <ChevronLeft className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Status Bar & Close */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-100 text-xs text-slate-500">
-              <div className="flex items-center gap-3">
-                <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
-                  <span>عواید ثبت‌شده:</span>
-                  <strong className="font-mono text-slate-800">{incomes.length} مورد</strong>
-                </span>
-                <span className="text-slate-300">|</span>
-                <span className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-rose-500 inline-block" />
-                  <span>هزینه‌های ثبت‌شده:</span>
-                  <strong className="font-mono text-slate-800">{expenses.length} مورد</strong>
-                </span>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setIsIncomeExpenseModalOpen(false)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition cursor-pointer"
-              >
-                انصراف و بازگشت به داشبورد
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <PartyCardexModal party={selectedParty} isOpen={!!selectedParty} onClose={() => { setSelectedParty(null); searchInputRef.current?.focus(); }} onViewInvoice={onViewInvoice} onOpenPaymentModal={onOpenPaymentModal} />
     </div>
   );
 };

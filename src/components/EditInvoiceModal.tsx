@@ -1,3 +1,4 @@
+import { CloseButton } from './CloseButton';
 import React, { useState, useEffect } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import { Invoice, InvoiceItem, Currency, Unit, InvoiceType, CashRegisterType } from '../types';
@@ -260,7 +261,7 @@ export const EditInvoiceModal: React.FC<EditInvoiceModalProps> = ({
     >
       <div className="bg-white rounded-3xl max-w-5xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] my-4">
         {/* Header */}
-        <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800 shrink-0">
+        <div className="px-6 py-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800 shrink-0 app-modal-heading">
           <div className="flex items-center gap-3">
             <div
               className={`w-10 h-10 rounded-2xl flex items-center justify-center text-white font-black shadow-md ${
@@ -284,13 +285,9 @@ export const EditInvoiceModal: React.FC<EditInvoiceModalProps> = ({
             </div>
           </div>
 
-          <button
-            type="button"
+          <CloseButton type="button"
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+            className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition cursor-pointer" />
         </div>
 
         {/* Scrollable Body */}

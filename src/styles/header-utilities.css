@@ -1,0 +1,66 @@
+@media screen {
+  /* A real single-row desktop header; shrinking the search must not trigger a second utility row. */
+  body .accounting-workspace .workspace-header { display: flex; flex-wrap: nowrap; align-items: center; height: 60px; min-height: 60px; gap: 10px; justify-content: flex-start; padding: 0 12px; }
+  .workspace-header-company { flex: 0 1 auto; min-width: 96px; max-width: 240px; gap: 8px; }
+  .workspace-company-pill { flex: 0 1 auto; min-width: 0; max-width: 230px; min-height: 32px; padding: 5px 9px; font-size: 11px; }
+  .workspace-company-pill span { min-width: 0; }
+  .workspace-menu-toggle { flex: none; }
+  .workspace-global-search { flex: 0 1 180px; width: 180px; max-width: 180px; min-width: 96px; }
+  .workspace-search-field { min-height: 32px; gap: 6px; padding: 0 8px; border-radius: 8px; }
+  .workspace-search-field input { height: 30px; font-size: 11px; }
+  .workspace-global-search-icon { width: 15px; height: 15px; }
+  .workspace-global-search-clear { width: 22px; height: 22px; }
+  .workspace-search-shortcut { gap: 2px; padding: 3px 4px; font-size: 9px; }
+  .workspace-search-panel { width: min(420px, calc(100vw - 26px)); max-width: calc(100vw - 26px); inset-inline-start: 0; inset-inline-end: auto; }
+  .workspace-header-tools { flex: 0 0 auto; margin-inline-start: auto; }
+  .workspace-header-utilities { display: flex; flex: 0 0 auto; align-items: center; gap: 6px; }
+  .workspace-header-datetime { display: flex; align-items: center; gap: 5px; min-height: 30px; padding: 4px 7px; border: 1px solid var(--ui-border, #d5dfe8); border-radius: 8px; background: var(--ui-surface, #fff); color: var(--ui-text, #334155); white-space: nowrap; font-size: 11px; font-variant-numeric: tabular-nums; }
+  .workspace-header-datetime > svg { width: 12px; height: 12px; color: var(--ui-muted, #64748b); flex: none; }
+  .workspace-header-datetime time { min-width: 0; line-height: 1.4; }
+  .workspace-header-time-divider { width: 1px; height: 13px; margin: 0 2px; background: var(--ui-border, #d5dfe8); }
+  .workspace-usd-quote { display: inline-flex; align-items: center; justify-content: center; flex: none; min-height: 30px; max-width: 125px; padding: 4px 7px; border: 1px solid var(--ui-border, #d5dfe8); border-radius: 8px; background: var(--ui-surface-muted, #f1f5f9); color: var(--ui-text, #334155); font-size: 11px; font-weight: 650; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .workspace-usd-quote bdi { overflow: hidden; text-overflow: ellipsis; }
+  .currency-rate-calculator { flex: 0 0 auto; }
+  .currency-calculator-trigger { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 32px; padding: 5px 8px; border: 1px solid var(--ui-border, #d5dfe8); border-radius: 8px; background: var(--ui-surface, #fff); color: var(--ui-text, #334155); font-size: 11px; cursor: pointer; }
+  .currency-calculator-trigger > svg { width: 17px; height: 17px; }
+  .currency-calculator-trigger.is-compact { width: 32px; height: 32px; padding: 6px; }
+  .currency-calculator-trigger:hover { background: var(--ui-surface-muted, #f1f5f9); }
+  .currency-calculator-trigger[aria-expanded="true"] { border-color: var(--ui-primary, #15779b); color: var(--ui-primary, #15779b); }
+  @media (max-width: 1450px) {
+    .workspace-header .workspace-profile-copy { display: none; }
+    .workspace-header .workspace-profile-pill { padding: 4px; }
+    .workspace-header-company { max-width: 190px; }
+    .workspace-company-pill { max-width: 180px; }
+  }
+  @media (min-width: 701px) and (max-width: 1100px) {
+    body .accounting-workspace .workspace-header { gap: 7px; padding-inline: 10px; }
+    .workspace-header-company { max-width: 160px; gap: 6px; }
+    .workspace-company-pill { max-width: 100%; padding-inline: 7px; font-size: 10px; }
+    .workspace-global-search { flex-basis: 140px; width: 140px; max-width: 140px; }
+    .workspace-search-shortcut { display: none; }
+    .workspace-header-utilities { gap: 5px; }
+    .workspace-header-datetime { gap: 4px; padding-inline: 6px; font-size: 10px; }
+    .workspace-header-datetime > svg { width: 11px; height: 11px; }
+    .workspace-header-time-divider { margin-inline: 1px; }
+    .workspace-usd-quote { max-width: 110px; padding-inline: 6px; font-size: 10px; }
+  }
+  @media (max-width: 700px) {
+    body .accounting-workspace .workspace-header { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'company tools' 'search calculator' 'datetime quote'; height: auto; min-height: 128px; padding: 8px 12px; gap: 6px 8px; }
+    .workspace-header-company { grid-area: company; min-width: 0; max-width: 100%; }
+    .workspace-company-pill { max-width: 100%; font-size: 10px; }
+    .workspace-header-tools { grid-area: tools; justify-self: end; margin: 0; }
+    .workspace-header-utilities { display: contents; }
+    .workspace-global-search { grid-area: search; width: 100%; max-width: 180px; min-width: 0; justify-self: start; }
+    .workspace-search-field { min-height: 32px; }
+    .workspace-search-field input { height: 30px; font-size: 11px; }
+    .workspace-search-shortcut { display: none; }
+    .workspace-header-datetime { grid-area: datetime; width: max-content; max-width: 100%; min-height: 28px; gap: 4px; padding: 3px 6px; font-size: 10px; }
+    .workspace-header-datetime > svg { width: 11px; height: 11px; }
+    .workspace-header-time-divider { margin-inline: 1px; }
+    .workspace-usd-quote { grid-area: quote; justify-self: end; min-height: 28px; max-width: 108px; padding: 3px 6px; font-size: 10px; }
+    .workspace-header-utilities > .currency-rate-calculator { grid-area: calculator; justify-self: end; }
+    .currency-calculator-trigger.is-compact { width: 34px; height: 34px; min-height: 34px; }
+    .workspace-search-results { max-height: min(360px, calc(100dvh - 245px)); }
+  }
+}
+@media print { .workspace-header-utilities, .currency-calculator-dialog { display: none !important; } }

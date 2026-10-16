@@ -1,3 +1,4 @@
+import { CloseButton } from './CloseButton';
 import React, { useState } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import { Party, PartyType, Currency } from '../types';
@@ -113,7 +114,7 @@ export const QuickAddPartyModal: React.FC<QuickAddPartyModalProps> = ({
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="px-6 py-4 bg-gradient-to-r from-blue-700 to-indigo-700 text-white flex items-center justify-between">
+        <div className="px-6 py-4 bg-gradient-to-r from-blue-700 to-indigo-700 text-white flex items-center justify-between app-modal-heading">
           <div className="flex items-center gap-2.5">
             <div className="p-2 bg-white/15 rounded-xl">
               <UserPlus className="w-5 h-5 text-white" />
@@ -125,13 +126,9 @@ export const QuickAddPartyModal: React.FC<QuickAddPartyModalProps> = ({
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
+          <CloseButton onClick={onClose}
             type="button"
-            className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+            className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition cursor-pointer" />
         </div>
 
         {/* Form Body */}
@@ -147,7 +144,7 @@ export const QuickAddPartyModal: React.FC<QuickAddPartyModalProps> = ({
           <div>
             <label className="block text-slate-700 font-bold mb-1.5">نقش طرف حساب</label>
             <div className="grid grid-cols-3 gap-2 bg-slate-100 p-1 rounded-xl">
-              <button
+              <button aria-pressed={type === 'customer'}
                 type="button"
                 onClick={() => setType('customer')}
                 className={`py-1.5 px-2 rounded-lg font-bold transition text-center cursor-pointer ${
@@ -158,7 +155,7 @@ export const QuickAddPartyModal: React.FC<QuickAddPartyModalProps> = ({
               >
                 خریدار / مشتری
               </button>
-              <button
+              <button aria-pressed={type === 'supplier'}
                 type="button"
                 onClick={() => setType('supplier')}
                 className={`py-1.5 px-2 rounded-lg font-bold transition text-center cursor-pointer ${
@@ -169,7 +166,7 @@ export const QuickAddPartyModal: React.FC<QuickAddPartyModalProps> = ({
               >
                 فروشنده / تأمین‌کننده
               </button>
-              <button
+              <button aria-pressed={type === 'both'}
                 type="button"
                 onClick={() => setType('both')}
                 className={`py-1.5 px-2 rounded-lg font-bold transition text-center cursor-pointer ${
@@ -276,7 +273,7 @@ export const QuickAddPartyModal: React.FC<QuickAddPartyModalProps> = ({
                     افغانی (AFN ؋)
                   </label>
                   <div className="inline-flex rounded-lg overflow-hidden border border-slate-200 bg-slate-50 p-0.5 text-[10px]">
-                    <button
+                    <button aria-pressed={afnType === 'debtor'}
                       type="button"
                       onClick={() => setAfnType('debtor')}
                       className={`px-2 py-0.5 rounded font-bold cursor-pointer transition-all ${
@@ -287,7 +284,7 @@ export const QuickAddPartyModal: React.FC<QuickAddPartyModalProps> = ({
                     >
                       بدهکار
                     </button>
-                    <button
+                    <button aria-pressed={afnType === 'creditor'}
                       type="button"
                       onClick={() => setAfnType('creditor')}
                       className={`px-2 py-0.5 rounded font-bold cursor-pointer transition-all ${
@@ -318,7 +315,7 @@ export const QuickAddPartyModal: React.FC<QuickAddPartyModalProps> = ({
                     دلاری (USD $)
                   </label>
                   <div className="inline-flex rounded-lg overflow-hidden border border-slate-200 bg-slate-50 p-0.5 text-[10px]">
-                    <button
+                    <button aria-pressed={usdType === 'debtor'}
                       type="button"
                       onClick={() => setUsdType('debtor')}
                       className={`px-2 py-0.5 rounded font-bold cursor-pointer transition-all ${
@@ -329,7 +326,7 @@ export const QuickAddPartyModal: React.FC<QuickAddPartyModalProps> = ({
                     >
                       بدهکار
                     </button>
-                    <button
+                    <button aria-pressed={usdType === 'creditor'}
                       type="button"
                       onClick={() => setUsdType('creditor')}
                       className={`px-2 py-0.5 rounded font-bold cursor-pointer transition-all ${

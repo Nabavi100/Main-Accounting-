@@ -1,3 +1,4 @@
+import { CloseButton } from './CloseButton';
 import React, { useState, useMemo } from 'react';
 import {
   Calendar,
@@ -398,7 +399,7 @@ export const PersianDateRangePicker: React.FC<PersianDateRangePickerProps> = ({
       {showCalendarModal && (
         <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 mt-2 animate-fadeIn">
           {/* Target Selector: From or To */}
-          <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-200 app-modal-heading">
             <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200">
               <button
                 type="button"
@@ -420,13 +421,9 @@ export const PersianDateRangePicker: React.FC<PersianDateRangePickerProps> = ({
               </button>
             </div>
 
-            <button
-              type="button"
+            <CloseButton type="button"
               onClick={() => setShowCalendarModal(false)}
-              className="p-1.5 rounded-xl hover:bg-slate-200 text-slate-500 cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
+              className="p-1.5 rounded-xl hover:bg-slate-200 text-slate-500 cursor-pointer" />
           </div>
 
           {/* Month and Year Navigator */}

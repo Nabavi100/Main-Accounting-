@@ -189,7 +189,7 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
               {/* Center: Company Name & Official Badge */}
               <div className="text-center flex-1 px-2 flex flex-col items-center justify-center">
                 <h1 className="text-xl sm:text-2xl font-black text-slate-950 tracking-tight leading-tight">
-                  {companySettings.name || 'شرکت تجارتی اسحاق هارون واسعی'}
+                  {companySettings.name || 'شرکت تجارتی برادران نبوی'}
                 </h1>
                 <div className="mt-1">
                   <span className="inline-block bg-sky-100 text-sky-700 border border-sky-200 text-xs font-black px-4 py-0.5 rounded-full shadow-2xs">
@@ -246,19 +246,19 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
                 <div className="flex items-center gap-2 text-right">
                   <span className="text-slate-600 font-bold shrink-0">نام واحد تجاری:</span>
                   <span className="text-slate-950 font-black truncate">
-                    {companySettings.name || 'شرکت تجارتی اسحاق هارون واسعی'}
+                    {companySettings.name || 'شرکت تجارتی برادران نبوی'}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 text-right border-b border-dotted border-slate-300 pb-1">
                   <span className="text-slate-600 font-bold shrink-0">شماره تماس:</span>
                   <span className="text-slate-950 font-mono font-bold">
-                    {companySettings.phone || '0794511271'} - {companySettings.phoneSecondary || '0795986263'}
+                    {companySettings.phone || '—'} - {companySettings.phoneSecondary || '—'}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 text-right pt-0.5">
                   <span className="text-slate-600 font-bold shrink-0">آدرس شرکت:</span>
                   <span className="text-slate-800 font-medium truncate">
-                    {companySettings.address || 'هرات ، سرک 64 متره - نقطه هفت'}
+                    {companySettings.address || '—'}
                   </span>
                 </div>
               </div>
@@ -590,7 +590,7 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
               نسخه گدام‌دار - هرات، افغانستان
             </div>
             <div>
-              سیستم مالی یکپارچه {companySettings.name || 'شرکت تجارتی اسحاق هارون واسعی'}
+              سیستم مالی یکپارچه {companySettings.name || 'شرکت تجارتی برادران نبوی'}
             </div>
           </div>
         </div>
@@ -599,11 +599,11 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
         {showFooter && (
           <div className="flex items-center justify-between text-[8.5px] text-slate-600 pt-1 border-t border-slate-300 shrink-0">
             <div>
-              سند معامله رسمی معتبر صادر شده توسط سیستم مالی {companySettings.name || 'شرکت تجارتی اسحاق هارون واسعی'}
+              سند معامله رسمی معتبر صادر شده توسط سیستم مالی {companySettings.name || 'شرکت تجارتی برادران نبوی'}
             </div>
             <div className="font-mono flex items-center gap-2">
-              <span>{companySettings.address || 'هرات ، سرک 64 متره - نقطه هفت'}</span>
-              <span>تلفن تماس: {companySettings.phone || '0794511271'}</span>
+              <span>{companySettings.address || '—'}</span>
+              <span>تلفن تماس: {companySettings.phone || '—'}</span>
               <span className="text-slate-400 font-bold">[{APP_VERSION}]</span>
             </div>
           </div>
@@ -736,7 +736,7 @@ export const PrintInvoiceDocument: React.FC<PrintInvoiceDocumentProps> = ({
             {/* Central Title & Company Brand */}
             <div className="text-center flex-1 px-4">
               <h1 className="text-2xl sm:text-3xl font-black text-slate-950 tracking-tight">
-                {companySettings.name || 'شرکت تجارتی اسحاق هارون واسعی'}
+                {companySettings.name || 'شرکت تجارتی برادران نبوی'}
               </h1>
               <div className="mt-1.5 flex items-center justify-center gap-2">
                 <span className="inline-block bg-slate-900 text-white text-xs font-black px-4 py-1 rounded-full shadow-2xs tracking-wider">

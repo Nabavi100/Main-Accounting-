@@ -1,3 +1,10 @@
+import { usePageReport } from './PageActionsToolbar';
+import { tableReport } from '../utils/reportData';
+import { ownedCompanyCashSource } from '../utils/companyCash';
+import { CompanyCashDocumentForm } from './CompanyCashDocumentForm';
+import { WorkspaceDialog } from './WorkspaceShell';
+import type { ExpenseItem, IncomeItem } from '../types';
+import { projectCompanyCashTransactions } from '../utils/companyCash';
 import React, { useState, useMemo } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import { Currency, FinancialTransaction } from '../types';
@@ -34,7 +41,8 @@ export const ReceiptsListView: React.FC<ReceiptsListViewProps> = ({
   onNewReceipt,
   onCashTransfer,
 }) => {
-  const { transactions, parties, deleteTransaction, openPrintModal, cashAccounts, companySettings } = useAccounting();
+  const { transactions: storedTransactions, incomes, expenses, parties, deleteTransaction, openPrintModal, cashAccounts, companySettings } = useAccounting();
+  const transactions = useMemo(() => projectCompanyCashTransactions(storedTransactions, incomes, expenses), [storedTransactions, incomes, expenses]);
 
   // Standard Filters State
   const [searchQuery, setSearchQuery] = useState('');
@@ -169,7 +177,11 @@ export const ReceiptsListView: React.FC<ReceiptsListViewProps> = ({
     }
   };
 
+  const editingSource = editingTx ? ownedCompanyCashSource(editingTx, incomes, expenses) : undefined;
   const handlePrint = (tx: FinancialTransaction) => {
+    const source = ownedCompanyCashSource(tx, incomes, expenses);
+    if (source?.kind === 'income') { openPrintModal({ type: 'income', income: source.document as IncomeItem }); return; }
+    if (source?.kind === 'expense') { openPrintModal({ type: 'expense', expense: source.document as ExpenseItem }); return; }
     openPrintModal({
       type: 'transaction',
       transaction: tx,
@@ -233,6 +245,16 @@ export const ReceiptsListView: React.FC<ReceiptsListViewProps> = ({
       ),
     });
   };
+
+  usePageReport({
+    title: 'لیست پیشرفتهٔ دریافت‌ها', search: { value: searchQuery, onChange: setSearchQuery, placeholder: "جستجو با شماره رسید، نام پرداخت‌کننده یا شرح..." }, onCreate: onNewReceipt, createLabel: 'ایجاد سند جدید',
+    filters: [
+      { id: 'currency', label: 'ارز', value: currencyFilter, onChange: value => setCurrencyFilter(value as typeof currencyFilter), options: [{ value: 'all', label: 'همه' }, { value: 'AFN', label: 'AFN' }, { value: 'USD', label: 'USD' }] },
+      { id: 'from', kind: 'date', label: 'از تاریخ', value: startDate, onChange: setStartDate }, { id: 'to', kind: 'date', label: 'تا تاریخ', value: endDate, onChange: setEndDate },
+      { id: 'min', kind: 'amount', label: 'کمترین مبلغ', value: minAmount, onChange: setMinAmount }, { id: 'max', kind: 'amount', label: 'بیشترین مبلغ', value: maxAmount, onChange: setMaxAmount },
+    ],
+    getReport: () => tableReport('لیست پیشرفتهٔ دریافت‌ها', ['شماره سند', 'تاریخ', 'طرف حساب', 'شرح', 'صندوق', 'مبلغ سند', 'ارز سند', 'مبلغ نقدی', 'ارز نقدی', 'تخفیف'], filteredReceipts.map(tx => [tx.transactionNumber, tx.date, tx.partyName, tx.description, tx.cashRegisterName, tx.amount, tx.currency, tx.cashAmount ?? tx.amount, tx.cashCurrency || tx.currency, tx.discountAmount])),
+  });
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
@@ -333,35 +355,26 @@ export const ReceiptsListView: React.FC<ReceiptsListViewProps> = ({
       <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs space-y-3">
         <div className="flex flex-col md:flex-row items-center justify-between gap-3">
           {/* Search */}
-          <div className="relative w-full md:w-80">
-            <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="جستجو با شماره رسید، نام پرداخت‌کننده یا شرح..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-3 pr-9 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 outline-none focus:bg-white focus:border-emerald-500 transition"
-            />
-          </div>
+
 
           {/* Filters Buttons */}
           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
             <div className="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-bold text-slate-600">
-              <button
+              <button aria-pressed={currencyFilter === 'all'}
                 type="button"
                 onClick={() => setCurrencyFilter('all')}
                 className={`px-3 py-1 rounded-lg transition ${currencyFilter === 'all' ? 'bg-white text-slate-900 shadow-2xs' : 'hover:text-slate-900'}`}
               >
                 همه ارزها
               </button>
-              <button
+              <button aria-pressed={currencyFilter === 'AFN'}
                 type="button"
                 onClick={() => setCurrencyFilter('AFN')}
                 className={`px-3 py-1 rounded-lg transition ${currencyFilter === 'AFN' ? 'bg-white text-emerald-700 shadow-2xs' : 'hover:text-slate-900'}`}
               >
                 افغانی
               </button>
-              <button
+              <button aria-pressed={currencyFilter === 'USD'}
                 type="button"
                 onClick={() => setCurrencyFilter('USD')}
                 className={`px-3 py-1 rounded-lg transition ${currencyFilter === 'USD' ? 'bg-white text-emerald-700 shadow-2xs' : 'hover:text-slate-900'}`}
@@ -435,28 +448,28 @@ export const ReceiptsListView: React.FC<ReceiptsListViewProps> = ({
               </div>
               {/* Presets */}
               <div className="flex items-center gap-1 pt-1">
-                <button
+                <button aria-pressed={datePreset === 'all' && !startDate && !endDate}
                   type="button"
                   onClick={() => handleDatePreset('all')}
                   className={`px-2 py-0.5 rounded text-[10px] font-bold ${datePreset === 'all' && !startDate && !endDate ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                 >
                   همه تاریخ‌ها
                 </button>
-                <button
+                <button aria-pressed={datePreset === 'today'}
                   type="button"
                   onClick={() => handleDatePreset('today')}
                   className={`px-2 py-0.5 rounded text-[10px] font-bold ${datePreset === 'today' ? 'bg-emerald-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                 >
                   امروز
                 </button>
-                <button
+                <button aria-pressed={datePreset === '7days'}
                   type="button"
                   onClick={() => handleDatePreset('7days')}
                   className={`px-2 py-0.5 rounded text-[10px] font-bold ${datePreset === '7days' ? 'bg-emerald-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
                 >
                   ۷ روز اخیر
                 </button>
-                <button
+                <button aria-pressed={datePreset === '30days'}
                   type="button"
                   onClick={() => handleDatePreset('30days')}
                   className={`px-2 py-0.5 rounded text-[10px] font-bold ${datePreset === '30days' ? 'bg-emerald-700 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
@@ -638,8 +651,7 @@ export const ReceiptsListView: React.FC<ReceiptsListViewProps> = ({
       </div>
 
       {/* Re-edit Receipt Modal */}
-      {editingTx && (
-        <PaymentModal
+      {editingTx && (editingSource ? <WorkspaceDialog title="ویرایش سند اصلی عاید / هزینه" onClose={() => setEditingTx(null)}><CompanyCashDocumentForm source={editingSource} onSaved={() => setEditingTx(null)} /></WorkspaceDialog> : <PaymentModal
           isOpen={!!editingTx}
           onClose={() => setEditingTx(null)}
           editingTransaction={editingTx}

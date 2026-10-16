@@ -1,3 +1,4 @@
+import { CloseButton } from './CloseButton';
 import React, { useEffect, useState } from 'react';
 import { Invoice } from '../types';
 import { useAccounting } from '../context/AccountingContext';
@@ -107,7 +108,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
         dir="rtl"
       >
         {/* Top Sticky Header with Fixed Action Buttons */}
-        <div className="sticky top-0 z-50 px-4 sm:px-6 py-3.5 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white flex flex-wrap items-center justify-between gap-3 border-b border-slate-700 shrink-0 shadow-md">
+        <div className="sticky top-0 z-50 px-4 sm:px-6 py-3.5 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white flex flex-wrap items-center justify-between gap-3 border-b border-slate-700 shrink-0 shadow-md app-modal-heading">
           <div className="flex items-center gap-3">
             <div
               className={`w-10 h-10 rounded-2xl flex items-center justify-center text-white font-black shadow-md ${
@@ -187,16 +188,11 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
             )}
 
             {/* Close Button */}
-            <button
-              id="invoice-detail-modal-close-btn"
+            <CloseButton id="invoice-detail-modal-close-btn"
               type="button"
               onClick={onClose}
               className="px-3 py-2 bg-white/10 hover:bg-rose-600 text-slate-200 hover:text-white rounded-xl transition border border-white/15 hover:border-rose-500 cursor-pointer flex items-center gap-1.5 text-xs font-bold shrink-0 shadow-xs active:scale-95"
-              title="بستن فرم (ESC)"
-            >
-              <X className="w-4 h-4" />
-              <span>بستن (ESC)</span>
-            </button>
+              title="بستن فرم (ESC)" />
           </div>
         </div>
 
@@ -467,14 +463,10 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({
             )}
           </div>
 
-          <button
-            id="invoice-detail-footer-close-btn"
+          <CloseButton id="invoice-detail-footer-close-btn"
             type="button"
             onClick={onClose}
-            className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition border border-slate-200 cursor-pointer"
-          >
-            بستن فرم
-          </button>
+            className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition border border-slate-200 cursor-pointer" variant="outline" label="بستن فرم" aria-label="بستن فرم" />
         </div>
       </div>
     </div>

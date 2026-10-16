@@ -1,12 +1,17 @@
+import { usePageReport } from './PageActionsToolbar';
+import { CloseButton } from './CloseButton';
+import { tableReport } from '../utils/reportData';
+import { projectCompanyCashTransactions } from '../utils/companyCash';
 import React, { useState, useMemo } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import { CashRegisterAccount, FinancialTransaction } from '../types';
 import { isDateInRange } from '../utils/formatters';
-import { Printer, ArrowRight, Filter, X, Search, Calendar, ChevronDown } from 'lucide-react';
+import { Printer } from 'lucide-react';
 
 interface CashRegisterLedgerViewProps {
   account: CashRegisterAccount;
-  onBack: () => void;
+  /** Optional close action for the legacy modal; full pages use the existing sidebar. */
+  onBack?: () => void;
   onSwitchAccount?: (account: CashRegisterAccount) => void;
 }
 
@@ -44,7 +49,8 @@ export const CashRegisterLedgerView: React.FC<CashRegisterLedgerViewProps> = ({
   onBack,
   onSwitchAccount,
 }) => {
-  const { transactions, cashAccounts, openPrintModal, companySettings } = useAccounting();
+  const { transactions: storedTransactions, incomes, expenses, cashAccounts, openPrintModal, companySettings } = useAccounting();
+  const transactions = useMemo(() => projectCompanyCashTransactions(storedTransactions, incomes, expenses), [storedTransactions, incomes, expenses]);
 
   // Filter and Search states
   const [searchQuery, setSearchQuery] = useState('');
@@ -104,7 +110,7 @@ export const CashRegisterLedgerView: React.FC<CashRegisterLedgerViewProps> = ({
 
       if (t.type === 'receive_payment') {
         inAmt = t.isExchange && t.cashAmount ? t.cashAmount : t.amount;
-        if (desc.includes('فاکتور فروش') || desc.includes('فروش')) {
+        if (t.incomeId) { opType = 'دریافت عاید'; badgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-300'; } else if (desc.includes('فاکتور فروش') || desc.includes('فروش')) {
           opType = 'دریافت فاکتور فروش';
           badgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-300';
         } else {
@@ -248,8 +254,25 @@ export const CashRegisterLedgerView: React.FC<CashRegisterLedgerViewProps> = ({
     });
   };
 
+  usePageReport({
+    title: `گردش حساب ${account.name}`, priority: 10, onPrint: handlePrint, search: { value: searchQuery, onChange: setSearchQuery, placeholder: "مثال: نام مشتری، کرایه، فاکتور..." },
+    filters: [
+      ...(onSwitchAccount && cashAccounts.length > 1 ? [{
+        id: 'account', label: 'انتخاب صندوق', value: account.id, resetValue: account.id,
+        onChange: (id: string) => {
+          const target = cashAccounts.find(candidate => candidate.id === id);
+          if (target && target.id !== account.id) onSwitchAccount(target);
+        },
+        options: cashAccounts.map(candidate => ({ value: candidate.id, label: `${candidate.name} (${candidate.currency})` })),
+      }] : []),
+      { id: 'operation', label: 'نوع عملیات', value: selectedOperationType, onChange: setSelectedOperationType, options: [{ value: 'all', label: 'همه' }, { value: 'opening', label: 'افتتاحیه' }, { value: 'receive', label: 'دریافت' }, { value: 'sale_receipt', label: 'دریافت فاکتور فروش' }, { value: 'payment', label: 'پرداخت' }, { value: 'transfer', label: 'انتقال' }, { value: 'expense', label: 'هزینه' }] },
+      { id: 'from', kind: 'date', label: 'از تاریخ', value: fromDate, onChange: setFromDate }, { id: 'to', kind: 'date', label: 'تا تاریخ', value: toDate, onChange: setToDate },
+    ],
+    getReport: () => ({ ...tableReport(`گردش حساب ${account.name}`, ['ردیف', 'تاریخ', 'نوع عملیات', 'طرف حساب', 'شرح', 'ورودی', 'خروجی', 'مانده جاری', 'ارز'], filteredRows.map(row => [row.rowNumber, row.date, row.operationType, row.partyName, row.description, row.inAmount, row.outAmount, row.runningBalance, account.currency])), metadata: [{ label: 'تراز افتتاحیه حساب', value: `${initialBalance} ${account.currency}` }, { label: 'مانده فعلی حساب (مستقل از فیلتر)', value: `${currentFinalBalance} ${account.currency}` }] }),
+  });
+
   return (
-    <div className="space-y-5 animate-in fade-in duration-150">
+    <div className="cash-register-ledger space-y-5 animate-in fade-in duration-150" data-cash-account={account.id}>
       {/* ========================================================================= */}
       {/* 1. TOP HEADER (Title + Subtitle + Action Buttons) */}
       {/* ========================================================================= */}
@@ -260,35 +283,15 @@ export const CashRegisterLedgerView: React.FC<CashRegisterLedgerViewProps> = ({
             <h1 className="text-xl md:text-2xl font-black text-slate-800">
               دفتر ریز تراکنش‌های صندوق: <span className="text-blue-600 font-extrabold">{account.name}</span>
             </h1>
-
-            {/* Quick account switch dropdown (if multiple accounts exist) */}
-            {onSwitchAccount && cashAccounts.length > 1 && (
-              <div className="relative group inline-block">
-                <select
-                  value={account.id}
-                  onChange={e => {
-                    const target = cashAccounts.find(a => a.id === e.target.value);
-                    if (target) onSwitchAccount(target);
-                  }}
-                  className="text-xs bg-white border border-slate-300 rounded-lg px-2.5 py-1 text-slate-700 font-bold outline-none cursor-pointer hover:border-blue-400 transition"
-                >
-                  {cashAccounts.map(acc => (
-                    <option key={acc.id} value={acc.id}>
-                      {acc.name} ({acc.currency === 'AFN' ? 'افغانی' : 'دالر'})
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
           </div>
           <p className="text-xs text-slate-400 mt-1">
             مشاهده کاردکس نقدینگی، مانده ردیف و موجودی افتتاحیه به تفکیک ارز صندوق
           </p>
         </div>
 
-        {/* Left: Buttons (Print + Return) */}
-        <div className="flex items-center gap-2.5 self-start sm:self-auto">
-          <button
+        {/* Full pages use the shared print toolbar; the legacy modal keeps its own safe controls. */}
+        {onBack && <div className="flex items-center gap-2.5 self-start sm:self-auto">
+          <button type="button"
             onClick={handlePrint}
             className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition shadow-2xs cursor-pointer"
           >
@@ -296,14 +299,8 @@ export const CashRegisterLedgerView: React.FC<CashRegisterLedgerViewProps> = ({
             <span>چاپ دفتر صندوق</span>
           </button>
 
-          <button
-            onClick={onBack}
-            className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 border border-slate-300 rounded-xl text-xs font-bold transition shadow-2xs cursor-pointer"
-          >
-            <span>بازگشت</span>
-            <span className="font-mono text-sm leading-none">←</span>
-          </button>
-        </div>
+          <CloseButton onClick={onBack} aria-label="بستن کاردکس صندوق" />
+        </div>}
       </div>
 
       {/* ========================================================================= */}
@@ -355,106 +352,7 @@ export const CashRegisterLedgerView: React.FC<CashRegisterLedgerViewProps> = ({
         </div>
       </div>
 
-      {/* ========================================================================= */}
-      {/* 3. SMART FILTER & SEARCH CARD */}
-      {/* ========================================================================= */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs space-y-4">
-        {/* Filter Title */}
-        <div className="flex items-center justify-end gap-1.5 text-slate-700 font-bold text-xs">
-          <span>فیلتر و جستجوی هوشمند تراکنش‌ها</span>
-          <Filter className="w-3.5 h-3.5 text-blue-600 fill-blue-600" />
-        </div>
-
-        {/* 2x2 Grid Form Inputs */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-right">
-          {/* Row 1 Left: نوع عملیات مالی */}
-          <div>
-            <label className="block text-xs text-slate-600 mb-1.5 text-center md:text-center">نوع عملیات مالی</label>
-            <div className="relative">
-              <select
-                value={selectedOperationType}
-                onChange={e => setSelectedOperationType(e.target.value)}
-                className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-700 outline-none focus:border-blue-400 appearance-none text-center cursor-pointer transition"
-              >
-                <option value="all">همه تراکنش‌ها</option>
-                <option value="receive">دریافت از مشتری / فروش</option>
-                <option value="payment">پرداخت به مشتری / خرید</option>
-                <option value="sale_receipt">دریافت فاکتور فروش</option>
-                <option value="transfer">انتقال بین‌صندوقی</option>
-                <option value="expense">هزینه و مصارف</option>
-                <option value="opening">تراز افتتاحیه</option>
-              </select>
-              <ChevronDown className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
-          </div>
-
-          {/* Row 1 Right: جستجو در شرح معامله و طرف‌حساب */}
-          <div>
-            <label className="block text-xs text-slate-600 mb-1.5 text-right">جستجو در شرح معامله و طرف‌حساب</label>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="مثال: نام مشتری، کرایه، فاکتور..."
-              className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 outline-none focus:border-blue-400 text-right transition"
-            />
-          </div>
-
-          {/* Row 2 Left: تا تاریخ (شمسی) */}
-          <div>
-            <label className="block text-xs text-slate-600 mb-1.5 text-center">تا تاریخ (شمسی)</label>
-            <div className="relative">
-              <input
-                type="text"
-                value={toDate}
-                onChange={e => setToDate(e.target.value)}
-                placeholder="همه تاریخ‌ها"
-                className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-700 placeholder:text-slate-500 outline-none focus:border-blue-400 text-center transition"
-              />
-              {toDate ? (
-                <button
-                  type="button"
-                  onClick={() => setToDate('')}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              ) : (
-                <div className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-slate-300 text-white flex items-center justify-center text-[10px] pointer-events-none">
-                  ✕
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Row 2 Right: از تاریخ (شمسی) */}
-          <div>
-            <label className="block text-xs text-slate-600 mb-1.5 text-center">از تاریخ (شمسی)</label>
-            <div className="relative">
-              <input
-                type="text"
-                value={fromDate}
-                onChange={e => setFromDate(e.target.value)}
-                placeholder="همه تاریخ‌ها"
-                className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs text-slate-700 placeholder:text-slate-500 outline-none focus:border-blue-400 text-center transition"
-              />
-              {fromDate ? (
-                <button
-                  type="button"
-                  onClick={() => setFromDate('')}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              ) : (
-                <div className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-slate-300 text-white flex items-center justify-center text-[10px] pointer-events-none">
-                  ✕
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Account, operation and dates share the single toolbar funnel; no duplicate filter card. */}
 
       {/* ========================================================================= */}
       {/* 4. DETAILED TRANSACTIONS TABLE */}

@@ -1,3 +1,4 @@
+import { CloseButton } from './CloseButton';
 import React, { useState, useEffect } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import { Currency, TransactionType, CashRegisterType, FinancialTransaction } from '../types';
@@ -652,22 +653,17 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   return (
     <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 z-[999] overflow-y-auto">
       {/* Floating Close Button */}
-      <button
-        type="button"
+      <CloseButton type="button"
         onClick={onClose}
         className="fixed top-4 left-4 sm:top-6 sm:left-6 z-[1000] bg-rose-600 hover:bg-rose-700 text-white p-3 rounded-2xl shadow-2xl flex items-center gap-1.5 text-xs font-black transition-all hover:scale-105 active:scale-95 cursor-pointer border-2 border-white"
-        title="بستن فرم (ESC)"
-      >
-        <X className="w-5 h-5" />
-        <span className="hidden sm:inline">بستن (ESC)</span>
-      </button>
+        title="بستن فرم (ESC)" />
 
       <form
         onSubmit={handleSubmit}
         className="bg-white rounded-3xl max-w-2xl w-full p-5 sm:p-7 shadow-2xl border border-slate-200 space-y-4 my-4 sm:my-8 relative"
       >
         {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-200 app-modal-heading">
           <div className="flex items-center gap-3">
             <div
               className={`w-10 h-10 rounded-2xl flex items-center justify-center text-white font-bold shadow-sm ${
@@ -698,19 +694,14 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             </div>
           </div>
 
-          <button
-            type="button"
+          <CloseButton type="button"
             onClick={onClose}
-            className="px-3 py-1.5 bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 rounded-xl transition border border-slate-200 hover:border-rose-200 cursor-pointer flex items-center gap-1.5 text-xs font-bold shrink-0"
-          >
-            <X className="w-4 h-4" />
-            <span>بستن</span>
-          </button>
+            className="px-3 py-1.5 bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 rounded-xl transition border border-slate-200 hover:border-rose-200 cursor-pointer flex items-center gap-1.5 text-xs font-bold shrink-0" />
         </div>
 
         {/* 4 Multi-Mode Tab Selector */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 bg-slate-100 p-1.5 rounded-2xl text-xs font-bold">
-          <button
+          <button aria-pressed={activeTab === 'receive_payment'}
             type="button"
             onClick={() => handleTabChange('receive_payment')}
             className={`py-2 px-2 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${
@@ -723,7 +714,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             <span>دریافت از شخص</span>
           </button>
 
-          <button
+          <button aria-pressed={activeTab === 'make_payment'}
             type="button"
             onClick={() => handleTabChange('make_payment')}
             className={`py-2 px-2 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${
@@ -736,7 +727,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             <span>پرداخت به شخص</span>
           </button>
 
-          <button
+          <button aria-pressed={activeTab === 'cash_transfer'}
             type="button"
             onClick={() => handleTabChange('cash_transfer')}
             className={`py-2 px-2 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${
@@ -749,7 +740,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
             <span>صندوق به صندوق</span>
           </button>
 
-          <button
+          <button aria-pressed={activeTab === 'exchange_remittance'}
             type="button"
             onClick={() => handleTabChange('exchange_remittance')}
             className={`py-2 px-2 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer ${
@@ -1089,7 +1080,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 {activeTab === 'receive_payment' ? 'واریز به کدام صندوق نقدی؟' : 'برداشت از کدام صندوق نقدی؟'}
               </label>
               <div className="grid grid-cols-3 gap-2">
-                <button
+                <button aria-pressed={selectedCashRegister === 'afn_cash'}
                   type="button"
                   onClick={() => setSelectedCashRegister('afn_cash')}
                   className={`p-2.5 rounded-xl border text-right transition cursor-pointer ${
@@ -1107,7 +1098,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                   </div>
                 </button>
 
-                <button
+                <button aria-pressed={selectedCashRegister === 'usd_cash'}
                   type="button"
                   onClick={() => setSelectedCashRegister('usd_cash')}
                   className={`p-2.5 rounded-xl border text-right transition cursor-pointer ${
@@ -1125,7 +1116,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                   </div>
                 </button>
 
-                <button
+                <button aria-pressed={selectedCashRegister === 'exchange_usd_cash'}
                   type="button"
                   onClick={() => setSelectedCashRegister('exchange_usd_cash')}
                   className={`p-2.5 rounded-xl border text-right transition cursor-pointer ${
@@ -1154,7 +1145,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           <div className="space-y-4">
             {/* Sub-Mode Switcher */}
             <div className="flex bg-slate-100 p-1 rounded-xl gap-1 text-xs font-bold">
-              <button
+              <button aria-pressed={transferSubMode === 'box_to_box'}
                 type="button"
                 onClick={() => setTransferSubMode('box_to_box')}
                 className={`flex-1 py-2 px-2 rounded-lg transition text-center flex items-center justify-center gap-1.5 cursor-pointer ${
@@ -1167,7 +1158,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 <span>انتقال بین صندوق‌های شرکت</span>
               </button>
 
-              <button
+              <button aria-pressed={transferSubMode === 'box_to_sarrafi'}
                 type="button"
                 onClick={() => {
                   setTransferSubMode('box_to_sarrafi');
@@ -1184,7 +1175,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 <span>پرداخت از صندوق به صرافی (اکسچنج)</span>
               </button>
 
-              <button
+              <button aria-pressed={transferSubMode === 'sarrafi_to_box'}
                 type="button"
                 onClick={() => {
                   setTransferSubMode('sarrafi_to_box');

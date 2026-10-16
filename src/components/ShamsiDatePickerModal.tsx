@@ -1,3 +1,4 @@
+import { CloseButton } from './CloseButton';
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   Calendar,
@@ -274,7 +275,7 @@ export const ShamsiDatePickerModal: React.FC<ShamsiDatePickerModalProps> = ({
         aria-modal="true"
       >
         {/* Header with Title and Current Preview */}
-        <div className={`p-4 bg-gradient-to-r ${themeColors.headerGradient} text-white relative`}>
+        <div className={`app-modal-heading ${`p-4 bg-gradient-to-r ${themeColors.headerGradient} text-white relative`}`}>
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center backdrop-blur-xs">
@@ -288,14 +289,10 @@ export const ShamsiDatePickerModal: React.FC<ShamsiDatePickerModalProps> = ({
               </div>
             </div>
 
-            <button
-              type="button"
+            <CloseButton type="button"
               onClick={onClose}
               className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer"
-              title="بستن (ESC)"
-            >
-              <X className="w-4 h-4" />
-            </button>
+              title="بستن (ESC)" />
           </div>
 
           {/* Selected Date Card Display */}

@@ -1,3 +1,6 @@
+import { CloseButton } from './CloseButton';
+import { usePageReport } from './PageActionsToolbar';
+import { tableReport } from '../utils/reportData';
 import React, { useState, useEffect } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import { ExpenseDefinition } from '../types';
@@ -217,6 +220,12 @@ export const ExpenseDefinitionsView: React.FC = () => {
     setIsCategoryModalOpen(false);
   };
 
+  usePageReport({
+    title: 'تعاریف هزینه‌ها', onCreate: handleNew, createLabel: 'ایجاد تعریف هزینه', search: { value: searchQuery, onChange: setSearchQuery, placeholder: "جستجو در نام، کد یا توضیحات هزینه..." },
+    filters: [{ id: 'category', label: 'دسته‌بندی', value: filterCategory, onChange: setFilterCategory, options: [{ value: 'all', label: 'همه دسته‌ها' }, ...expenseCategories.map(category => ({ value: category.id, label: category.name }))] }],
+    getReport: () => tableReport('تعاریف هزینه‌ها', ['کد', 'عنوان', 'دسته‌بندی', 'شرح'], filteredDefinitions.map(definition => [definition.code, definition.name, definition.categoryName, definition.description])),
+  });
+
   return (
     <div className="space-y-4 font-sans text-slate-800 select-none" dir="rtl">
       {/* ================= 1. FORM CARD (Exact layout from IMG-20260903-WA0006.jpg) ================= */}
@@ -397,16 +406,7 @@ export const ExpenseDefinitionsView: React.FC = () => {
 
       {/* ================= 2. SEARCH & FILTER BAR ================= */}
       <div className="bg-white p-3 rounded-2xl border border-slate-200/90 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="جستجو در نام، کد یا توضیحات هزینه..."
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="w-full pl-3 pr-9 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 outline-none transition"
-          />
-        </div>
+
 
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <label className="text-xs text-slate-500 font-bold whitespace-nowrap">
@@ -526,18 +526,14 @@ export const ExpenseDefinitionsView: React.FC = () => {
       {isCategoryModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-2xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-            <div className="p-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white flex items-center justify-between">
+            <div className="p-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white flex items-center justify-between app-modal-heading">
               <div className="flex items-center gap-2">
                 <FolderPlus className="w-5 h-5" />
                 <h3 className="font-black text-sm">افزودن دسته‌بندی جدید هزینه‌ها</h3>
               </div>
-              <button
-                type="button"
+              <CloseButton type="button"
                 onClick={() => setIsCategoryModalOpen(false)}
-                className="p-1 rounded-lg hover:bg-white/20 text-white cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
+                className="p-1 rounded-lg hover:bg-white/20 text-white cursor-pointer" />
             </div>
 
             <form onSubmit={handleSaveCategory} className="p-5 space-y-4 text-xs">

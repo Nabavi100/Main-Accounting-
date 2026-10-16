@@ -1,3 +1,5 @@
+import { usePageReport } from './PageActionsToolbar';
+import { tableReport } from '../utils/reportData';
 import React, { useState, useMemo, useRef } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import { Product, Invoice, InvoiceItem } from '../types';
@@ -351,6 +353,17 @@ export const ItemizedProductSalesView: React.FC<ItemizedProductSalesViewProps> =
   const handlePrint = () => {
     window.print();
   };
+
+  usePageReport({
+    title: 'تفکیک فروش کالاها و خریداران', onCreate: onOpenNewSale, createLabel: 'ایجاد فروش جدید', search: { value: buyerSearchQuery, onChange: setBuyerSearchQuery, placeholder: "جستجوی نام خریدار یا شماره فاکتور..." },
+    filters: [
+      { id: 'product', label: 'کالا', value: selectedProductId, onChange: setSelectedProductId, options: [{ value: 'all', label: 'همه کالاها' }, ...products.map(product => ({ value: product.id, label: product.name }))] },
+      { id: 'period', label: 'دوره', value: dateFilter, onChange: value => setDateFilter(value as typeof dateFilter), options: [{ value: 'all', label: 'همه' }, { value: 'today', label: 'امروز' }, { value: 'last7', label: '۷ روز اخیر' }, { value: 'this_month', label: 'ماه جاری' }] },
+      { id: 'currency', label: 'ارز', value: currencyFilter, onChange: value => setCurrencyFilter(value as typeof currencyFilter), options: [{ value: 'all', label: 'همه' }, { value: 'AFN', label: 'AFN' }, { value: 'USD', label: 'USD' }] },
+      { id: 'warehouse', label: 'گدام', value: warehouseFilter, onChange: setWarehouseFilter, options: [{ value: 'all', label: 'همه' }, ...warehouses.map(warehouse => ({ value: warehouse.id, label: warehouse.name }))] },
+    ],
+    getReport: () => tableReport('تفکیک فروش کالاها و خریداران', ['خریدار', 'کالا', 'مقدار', 'واحد', 'قیمت فی واحد', 'مجموع مبلغ', 'ارز', 'شماره فاکتور', 'تاریخ', 'ساعت', 'گدام', 'نوع تسویه'], displayedRecords.map(record => [record.partyName, record.productName, record.quantity, record.unit, record.unitPrice, record.totalAmount, record.currency, record.invoiceNumber, record.date, record.issueTime, record.warehouseName, record.paymentType])),
+  });
 
   return (
     <div className="space-y-5 font-sans" dir="rtl">
@@ -720,16 +733,7 @@ export const ItemizedProductSalesView: React.FC<ItemizedProductSalesViewProps> =
               </button>
             )}
 
-            <div className="relative">
-              <input
-                type="text"
-                value={buyerSearchQuery}
-                onChange={e => setBuyerSearchQuery(e.target.value)}
-                placeholder="جستجوی نام خریدار یا شماره فاکتور..."
-                className="bg-white text-xs font-medium text-slate-800 placeholder-slate-400 px-3 py-1.5 pl-8 rounded-xl border border-slate-200 focus:border-blue-500 outline-none w-56 transition"
-              />
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
+
           </div>
         </div>
 

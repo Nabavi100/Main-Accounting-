@@ -1,3 +1,6 @@
+import { usePageReport } from './PageActionsToolbar';
+import { tableReport } from '../utils/reportData';
+import { workspacePageTitle } from '../utils/navigation';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import {
@@ -65,11 +68,14 @@ import {
 import { Party, Invoice, FinancialTransaction } from '../types';
 import { formatNumber, getPersianDate } from '../utils/formatters';
 
+export type TelegramSection = 'pending' | 'connected' | 'send_hub' | 'logs' | 'settings' | 'guide';
 interface Props {
+  initialSection?: TelegramSection;
+  onNavigateSection?: (section: TelegramSection) => void;
   onBackToDashboard?: () => void;
 }
 
-export const TelegramManagementView: React.FC<Props> = () => {
+export const TelegramManagementView: React.FC<Props> = ({ initialSection = 'pending', onNavigateSection }) => {
   const { parties, updateParty, invoices, transactions, companySettings } = useAccounting();
 
   // Status & Data State
@@ -80,7 +86,7 @@ export const TelegramManagementView: React.FC<Props> = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   // Active Tab
-  const [activeTab, setActiveTab] = useState<'pending' | 'connected' | 'send_hub' | 'logs' | 'settings' | 'guide'>('pending');
+  const [activeTab, setActiveTab] = useState<TelegramSection>(initialSection);
 
   // Search & Filter
   const [searchQuery, setSearchQuery] = useState('');
@@ -651,6 +657,13 @@ export const TelegramManagementView: React.FC<Props> = () => {
     return logs.filter(l => l.status === logFilter);
   }, [logs, logFilter]);
 
+  usePageReport({
+    title: 'گزارش ارسال‌های تلگرام', enabled: activeTab === 'logs',
+    filters: [{ id: 'status', label: 'وضعیت ارسال', value: logFilter, onChange: value => setLogFilter(value as typeof logFilter), options: [{ value: 'all', label: 'همه' }, { value: 'success', label: 'موفق' }, { value: 'failed', label: 'ناموفق' }] }],
+    // Never include bot tokens, chat IDs or connection codes in a shareable log report.
+    getReport: () => tableReport('گزارش ارسال‌های تلگرام', ['تاریخ و زمان', 'طرف حساب', 'پیام', 'وضعیت'], filteredLogs.map(log => [log.timestamp, log.partyName, log.message, log.status === 'success' ? 'موفق' : 'ناموفق'])),
+  });
+
   return (
     <div className="space-y-4" dir="rtl">
       {/* Banner Alert Toast */}
@@ -693,7 +706,7 @@ export const TelegramManagementView: React.FC<Props> = () => {
           <div className="space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
-                مدیریت تلگرام و ارتباط مستقیم با مشتریان
+                {workspacePageTitle('telegram_manager', activeTab)}
               </h1>
               {status?.isConfigured ? (
                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-black bg-emerald-100 text-emerald-800 border border-emerald-300/80">
@@ -721,18 +734,7 @@ export const TelegramManagementView: React.FC<Props> = () => {
 
         {/* Top Quick Stats & Refresh */}
         <div className="flex items-center gap-2 self-end md:self-auto shrink-0 flex-wrap">
-          <button
-            type="button"
-            onClick={() => setActiveTab('guide')}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer border ${
-              activeTab === 'guide'
-                ? 'bg-sky-600 text-white border-sky-600 shadow-xs'
-                : 'bg-white hover:bg-sky-50 text-sky-700 border-sky-200 shadow-2xs'
-            }`}
-          >
-            <BookOpen className="w-3.5 h-3.5" />
-            <span>آموزش ساخت و اتصال ربات</span>
-          </button>
+
 
           <button
             type="button"
@@ -745,115 +747,8 @@ export const TelegramManagementView: React.FC<Props> = () => {
             <span>بروزرسانی</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('settings')}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer border ${
-              activeTab === 'settings'
-                ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
-                : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
-            }`}
-          >
-            <Settings className="w-3.5 h-3.5 text-amber-500" />
-            <span>تنظیمات توکن</span>
-          </button>
+
         </div>
-      </div>
-
-      {/* Tabs Navigation */}
-      <div className="flex items-center gap-2 border-b border-slate-200 pb-2 overflow-x-auto custom-scrollbar">
-        <button
-          type="button"
-          onClick={() => setActiveTab('pending')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition cursor-pointer shrink-0 ${
-            activeTab === 'pending'
-              ? 'bg-sky-600 text-white shadow-sm'
-              : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200/80'
-          }`}
-        >
-          <Clock className="w-4 h-4 text-amber-300" />
-          <span>کاربران جدید و در انتظار اتصال</span>
-          <span className={`px-2 py-0.5 rounded-full text-[11px] font-mono ${
-            activeTab === 'pending' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800'
-          }`}>
-            {pendingUsers.length}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('connected')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition cursor-pointer shrink-0 ${
-            activeTab === 'connected'
-              ? 'bg-sky-600 text-white shadow-sm'
-              : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200/80'
-          }`}
-        >
-          <UserCheck className="w-4 h-4 text-emerald-300" />
-          <span>کاربران متصل و فعال</span>
-          <span className={`px-2 py-0.5 rounded-full text-[11px] font-mono ${
-            activeTab === 'connected' ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800'
-          }`}>
-            {connectedUsers.length}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('send_hub')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition cursor-pointer shrink-0 ${
-            activeTab === 'send_hub'
-              ? 'bg-sky-600 text-white shadow-sm'
-              : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200/80'
-          }`}
-        >
-          <Send className="w-4 h-4 text-sky-300 -rotate-45" />
-          <span>میزکار ارسال اطلاعات مالی</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('logs')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition cursor-pointer shrink-0 ${
-            activeTab === 'logs'
-              ? 'bg-sky-600 text-white shadow-sm'
-              : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200/80'
-          }`}
-        >
-          <FileText className="w-4 h-4" />
-          <span>دفتر رویدادها و خطاهای ارسال</span>
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono ${
-            activeTab === 'logs' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
-          }`}>
-            {logs.length}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('settings')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition cursor-pointer shrink-0 ${
-            activeTab === 'settings'
-              ? 'bg-sky-600 text-white shadow-sm'
-              : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200/80'
-          }`}
-        >
-          <Key className="w-4 h-4 text-amber-400" />
-          <span>تنظیمات امنیتی و سرور</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('guide')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition cursor-pointer shrink-0 ${
-            activeTab === 'guide'
-              ? 'bg-sky-600 text-white shadow-sm'
-              : 'bg-white hover:bg-slate-100 text-sky-700 border border-sky-200'
-          }`}
-        >
-          <BookOpen className="w-4 h-4 text-sky-400" />
-          <span>آموزش ساخت و همگام‌سازی ربات</span>
-        </button>
       </div>
 
       {/* ================= TAB 1: PENDING USERS (کاربران در انتظار اتصال) ================= */}
@@ -1208,7 +1103,7 @@ export const TelegramManagementView: React.FC<Props> = () => {
                                 type="button"
                                 onClick={() => {
                                   setSelectedPartyIdForSend(user.partyId || '');
-                                  setActiveTab('send_hub');
+                                  setActiveTab('send_hub'); onNavigateSection?.('send_hub');
                                 }}
                                 className="px-2.5 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-xl font-bold text-[11px] transition cursor-pointer flex items-center gap-1 shadow-2xs"
                                 title="ارسال اطلاعات مالی و صورت‌حساب"
@@ -1647,7 +1542,7 @@ export const TelegramManagementView: React.FC<Props> = () => {
                   <input
                     type={showBotToken ? 'text' : 'password'}
                     dir="ltr"
-                    placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ..."
+                    placeholder="توکن ربات را از BotFather دریافت کنید"
                     value={newBotToken}
                     onChange={e => setNewBotToken(e.target.value)}
                     className="w-full pl-24 pr-10 py-2.5 bg-slate-50 border border-slate-300 focus:border-sky-500 rounded-xl text-xs font-mono text-slate-900 outline-none transition"
@@ -1804,7 +1699,7 @@ export const TelegramManagementView: React.FC<Props> = () => {
               ) : (
                 <button
                   type="button"
-                  onClick={() => setActiveTab('settings')}
+                  onClick={() => { setActiveTab('settings'); onNavigateSection?.('settings'); }}
                   className="px-4 py-2.5 bg-amber-400 hover:bg-amber-300 text-slate-900 rounded-xl text-xs font-black transition flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
                 >
                   <Key className="w-4 h-4" />

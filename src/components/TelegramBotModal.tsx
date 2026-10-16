@@ -1,3 +1,4 @@
+import { CloseButton } from './CloseButton';
 import React, { useState, useEffect } from 'react';
 import {
   Send,
@@ -290,7 +291,7 @@ export const TelegramBotModal: React.FC<TelegramBotModalProps> = ({
     >
       <div className="bg-white rounded-3xl max-w-2xl w-full p-5 shadow-2xl border border-slate-200 space-y-4 animate-in fade-in zoom-in-95 duration-200 max-h-[92vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
+        <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0 app-modal-heading">
           <div className="flex items-center gap-2.5">
             <div
               className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black ${
@@ -304,7 +305,7 @@ export const TelegramBotModal: React.FC<TelegramBotModalProps> = ({
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-base font-black text-slate-900">
-                  تنظیمات محرمانه ربات تلگرام
+                  تنظیمات ربات تلگرام
                 </h2>
                 {isUnlocked ? (
                   <>
@@ -356,12 +357,8 @@ export const TelegramBotModal: React.FC<TelegramBotModalProps> = ({
                 <span className="hidden sm:inline">قفل مجدد</span>
               </button>
             )}
-            <button
-              onClick={onClose}
-              className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition cursor-pointer"
-            >
-              <X className="w-4 h-4" />
-            </button>
+            <CloseButton onClick={onClose}
+              className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition cursor-pointer" />
           </div>
         </div>
 
@@ -520,7 +517,7 @@ export const TelegramBotModal: React.FC<TelegramBotModalProps> = ({
                 <div className="relative">
                   <input
                     type="password"
-                    placeholder="123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ..."
+                    placeholder="توکن ربات را از BotFather دریافت کنید"
                     value={settings.botToken}
                     onChange={e => setSettings({ ...settings, botToken: e.target.value })}
                     className="w-full pl-24 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl font-mono text-xs focus:bg-white focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none transition"
@@ -931,13 +928,9 @@ export const TelegramBotModal: React.FC<TelegramBotModalProps> = ({
 
         {/* Footer Actions (Only when unlocked) */}
         <div className="flex items-center justify-between pt-3 border-t border-slate-100 shrink-0">
-          <button
-            type="button"
+          <CloseButton type="button"
             onClick={onClose}
-            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
-          >
-            بستن
-          </button>
+            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer" variant="outline" label="بستن" aria-label="بستن" />
 
           <button
             type="button"

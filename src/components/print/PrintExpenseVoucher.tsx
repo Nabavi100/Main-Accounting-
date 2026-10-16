@@ -1,3 +1,4 @@
+import { formatDashboardAmount } from '../../utils/dashboard';
 import React from 'react';
 import { ExpenseItem, CompanySettings } from '../../types';
 import { formatNumber, formatCurrency, getPersianDate } from '../../utils/formatters';
@@ -67,7 +68,7 @@ export const PrintExpenseVoucher: React.FC<PrintExpenseVoucherProps> = ({
         <div className="bg-amber-50/70 px-4 py-2 border-b border-slate-200 flex items-center justify-between">
           <span className="text-xs font-black text-amber-950">مشخصات سرفصل و پرداخت هزینه</span>
           <span className="text-[11px] font-medium text-slate-600">
-            واحد پولی: <strong className="font-bold text-slate-900">{expense.currency === 'USD' ? 'دالر ($)' : 'افغانی (؋)'}</strong>
+            واحد پولی: <strong className="font-bold text-slate-900">{expense.currency === 'USD' ? 'دالر ($)' : expense.currency === 'AFN' ? 'افغانی (؋)' : expense.currency}</strong>
           </span>
         </div>
 
@@ -89,7 +90,7 @@ export const PrintExpenseVoucher: React.FC<PrintExpenseVoucherProps> = ({
           <div>
             <span className="text-slate-500 block text-[11px] mb-0.5">پرداخت به (دریافت‌کننده):</span>
             <span className="font-black text-slate-900">
-              {expense.recipient || 'متفرقه / امور جاری'}
+              {expense.recipient || expense.payee || 'متفرقه / امور جاری'}
             </span>
           </div>
 
@@ -120,7 +121,7 @@ export const PrintExpenseVoucher: React.FC<PrintExpenseVoucherProps> = ({
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-slate-700">مبلغ قطعی پرداختی هزینه:</span>
             <span className="font-mono font-black text-base sm:text-lg text-amber-900">
-              {formatCurrency(expense.amount, expense.currency)}
+              {formatDashboardAmount(expense.amount, 6)} {expense.currency}
             </span>
           </div>
           <div className="text-xs text-slate-600 font-medium">

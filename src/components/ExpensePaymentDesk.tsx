@@ -1,4 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { CloseButton } from './CloseButton';
+import React, { useState, useEffect, useRef } from 'react';
+import { preferredCashAccountId, systemUsdAfnQuote } from '../utils/documentDefaults';
+import { companyCashConversion } from '../utils/companyCash';
+import { formatDashboardAmount, parseDashboardDate } from '../utils/dashboard';
 import { useAccounting } from '../context/AccountingContext';
 import { Currency } from '../types';
 import { formatNumber, formatCurrency, getPersianDate, getCurrentTime } from '../utils/formatters';
@@ -34,11 +38,14 @@ export const ExpensePaymentDesk: React.FC<ExpensePaymentDeskProps> = ({
   const {
     cashAccounts,
     cashRegister,
+    currencies,
     expenseCategories,
     createExpense,
     getNextExpenseNumber,
     openPrintModal,
   } = useAccounting();
+
+  const systemQuote = systemUsdAfnQuote(currencies, cashRegister.usdToAfnRate);
 
   const [title, setTitle] = useState<string>('');
   const [categoryId, setCategoryId] = useState<string>(expenseCategories[0]?.id || '');
@@ -50,8 +57,7 @@ export const ExpensePaymentDesk: React.FC<ExpensePaymentDeskProps> = ({
 
   // Financial details & Source Cash register
   const [selectedCashRegister, setSelectedCashRegister] = useState<string>(() => {
-    const afnAcc = cashAccounts.find(a => a.currency === 'AFN');
-    return afnAcc ? afnAcc.id : 'afn_cash';
+    return preferredCashAccountId(cashAccounts, 'AFN') || preferredCashAccountId(cashAccounts, 'USD') || cashAccounts[0]?.id || '';
   });
 
   const activeCashAcc = cashAccounts.find(a => a.id === selectedCashRegister);
@@ -63,12 +69,13 @@ export const ExpensePaymentDesk: React.FC<ExpensePaymentDeskProps> = ({
 
   // Multi-Currency Exchange (اکسچنج ارزی پرداخت هزینه)
   const [isExchange, setIsExchange] = useState<boolean>(false);
-  const [exchangeRate, setExchangeRate] = useState<number>(cashRegister.usdToAfnRate || 65);
+  const [exchangeRate, setExchangeRate] = useState<number>(systemQuote);
 
   // Status & Notifications
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [successDoc, setSuccessDoc] = useState<{ id: string; num: string; amount: number; curr: Currency } | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const submitting = useRef(false);
 
   // Automatically sync exchange if paid currency differs from cashbox currency
   useEffect(() => {
@@ -78,51 +85,51 @@ export const ExpensePaymentDesk: React.FC<ExpensePaymentDeskProps> = ({
   }, [paidCurrency, cashboxCurrency]);
 
   // Calculate final deducted amount from the cashbox
-  const calculateCashboxWithdrawal = (): { amount: number; rateUsed: number } => {
-    if (!isExchange || paidCurrency === cashboxCurrency) {
-      return { amount: paidAmount, rateUsed: 1 };
-    }
-    const rate = exchangeRate > 0 ? exchangeRate : 65;
-    if (paidCurrency === 'USD' && cashboxCurrency === 'AFN') {
-      // Paid USD, Deducting from AFN cashbox: amount in AFN = USD * rate
-      return { amount: Math.round(paidAmount * rate), rateUsed: rate };
-    } else if (paidCurrency === 'AFN' && cashboxCurrency === 'USD') {
-      // Paid AFN, Deducting from USD cashbox: amount in USD = AFN / rate
-      return { amount: parseFloat((paidAmount / rate).toFixed(2)), rateUsed: rate };
-    }
-    return { amount: paidAmount, rateUsed: rate };
-  };
+  const calculateCashboxWithdrawal = (): { amount: number; rateUsed: number } => ({
+    amount: companyCashConversion(paidAmount, paidCurrency, cashboxCurrency, exchangeRate, isExchange),
+    rateUsed: paidCurrency === cashboxCurrency ? 1 : exchangeRate,
+  });
 
   const withdrawalDetails = calculateCashboxWithdrawal();
 
   const handleSubmit = (e: React.FormEvent, printAfterSave = false) => {
     e.preventDefault();
+    e.stopPropagation();
+    if (submitting.current) return;
     setErrorMsg('');
 
     if (!title.trim()) {
       setErrorMsg('لطفاً عنوان یا بابت هزینه را مشخص نمایید.');
       return;
     }
-    if (paidAmount <= 0) {
+    if (!Number.isFinite(paidAmount) || paidAmount <= 0) {
       setErrorMsg('مبلغ هزینه باید بیشتر از صفر باشد.');
       return;
+    }
+
+    if (!activeCashAcc || !parseDashboardDate(date) || !voucherNumber.trim()) {
+      setErrorMsg('صندوق، تاریخ و شمارهٔ معتبر سند را مشخص کنید.'); return;
+    }
+    if (!Number.isFinite(withdrawalDetails.amount) || withdrawalDetails.amount <= 0) {
+      setErrorMsg('تبدیل ارز معتبر نیست؛ برای دو ارز متفاوت، تبدیل را فعال و نرخ مثبت وارد کنید. تبدیل مستقیم فقط بین دلار و افغانی پشتیبانی می‌شود.'); return;
     }
 
     // Check cashbox funds
     if (activeCashAcc && activeCashAcc.balance < withdrawalDetails.amount) {
       const confirmLow = window.confirm(
-        `موجودی فعلی ${activeCashAcc.name} (${formatNumber(activeCashAcc.balance)} ${cashboxCurrency}) کمتر از مبلغ پرداختی (${formatNumber(withdrawalDetails.amount)} ${cashboxCurrency}) است. آیا مایل به ثبت سند و منفی شدن موجودی صندوق هستید؟`
+        `موجودی فعلی ${activeCashAcc.name} (${formatNumber(activeCashAcc.balance)} ${cashboxCurrency}) کمتر از مبلغ پرداختی (${Number.isFinite(withdrawalDetails.amount) ? formatDashboardAmount(withdrawalDetails.amount, 6) : "—"} ${cashboxCurrency}) است. آیا مایل به ثبت سند و منفی شدن موجودی صندوق هستید؟`
       );
       if (!confirmLow) return;
     }
 
+    submitting.current = true;
     setIsSubmitting(true);
     try {
       const selectedCat = expenseCategories.find(c => c.id === categoryId);
       const selectedReg = cashAccounts.find(a => a.id === selectedCashRegister);
 
       const exchangeNote = isExchange && paidCurrency !== cashboxCurrency
-        ? ` (پرداخت ارزی: ${formatNumber(paidAmount)} ${paidCurrency} با نرخ ${exchangeRate} ⇋ کسر ${formatNumber(withdrawalDetails.amount)} ${cashboxCurrency} از ${selectedReg?.name || 'صندوق'})`
+        ? ` (پرداخت ارزی: ${formatNumber(paidAmount)} ${paidCurrency} با نرخ ${exchangeRate} ⇋ کسر ${Number.isFinite(withdrawalDetails.amount) ? formatDashboardAmount(withdrawalDetails.amount, 6) : "—"} ${cashboxCurrency} از ${selectedReg?.name || 'صندوق'})`
         : '';
 
       const created = createExpense({
@@ -132,9 +139,10 @@ export const ExpensePaymentDesk: React.FC<ExpensePaymentDeskProps> = ({
         amount: withdrawalDetails.amount,
         currency: cashboxCurrency,
         date,
+        issueTime,
         recipient: recipient.trim() || undefined,
-        receiptNumber: voucherNumber,
-        expenseNumber: voucherNumber,
+        receiptNumber: voucherNumber.trim(),
+        expenseNumber: voucherNumber.trim(),
         cashRegisterId: selectedCashRegister,
         cashRegisterName: selectedReg?.name,
         notes: (notes.trim() + exchangeNote).trim() || undefined,
@@ -163,17 +171,17 @@ export const ExpensePaymentDesk: React.FC<ExpensePaymentDeskProps> = ({
 
       if (onSuccess) onSuccess();
     } catch (err: any) {
-      console.error(err);
       setErrorMsg('خطا در ذخیره‌سازی سند هزینه: ' + (err?.message || 'ورودی‌ها را بازبینی کنید.'));
     } finally {
+      submitting.current = false;
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="space-y-6 text-slate-800">
+    <div className="space-y-6 text-slate-800" data-company-cash-desk="expense">
       {/* Top Banner / Corporate Accent */}
-      <div className="bg-gradient-to-r from-rose-600 via-pink-600 to-rose-700 rounded-3xl p-5 text-white shadow-xs">
+      <div className="app-form-banner bg-gradient-to-r from-rose-600 via-pink-600 to-rose-700 rounded-3xl p-5 text-white shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-md border border-white/20 flex items-center justify-center font-bold">
@@ -194,7 +202,8 @@ export const ExpensePaymentDesk: React.FC<ExpensePaymentDeskProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            {onViewList && <CloseButton label="بستن فرم" onClick={onViewList} />}
             {onViewList && (
               <button
                 type="button"
@@ -261,6 +270,8 @@ export const ExpensePaymentDesk: React.FC<ExpensePaymentDeskProps> = ({
             <label className="text-slate-500 font-bold block mb-1">شماره سند هزینه:</label>
             <input
               type="text"
+              id="expense-number"
+              aria-label="شماره سند"
               value={voucherNumber}
               onChange={e => setVoucherNumber(e.target.value)}
               className="w-full px-3 py-1.5 bg-white border border-slate-300 rounded-xl font-mono font-bold text-slate-900 text-left outline-none focus:border-rose-500"
@@ -303,6 +314,8 @@ export const ExpensePaymentDesk: React.FC<ExpensePaymentDeskProps> = ({
             <input
               type="text"
               placeholder="مثلاً: کرایه حمل بار، معاشات، مصارف آشپزخانه، برق..."
+              id="expense-title"
+              aria-label="عنوان سند"
               value={title}
               onChange={e => setTitle(e.target.value)}
               className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-900 outline-none focus:bg-white focus:ring-2 focus:ring-rose-500"
@@ -356,6 +369,8 @@ export const ExpensePaymentDesk: React.FC<ExpensePaymentDeskProps> = ({
               <span>صندوق برداشتی (منبع پرداخت وجه)</span>
             </label>
             <select
+              id="expense-cash-account"
+              aria-label="صندوق سند"
               value={selectedCashRegister}
               onChange={e => {
                 const regId = e.target.value;
@@ -382,13 +397,14 @@ export const ExpensePaymentDesk: React.FC<ExpensePaymentDeskProps> = ({
               <span>ارز فیزیکی وجه پرداختی</span>
             </label>
             <select
+              id="expense-currency"
+              aria-label="ارز مبلغ"
               value={paidCurrency}
               onChange={e => {
                 const curr = e.target.value as Currency;
                 setPaidCurrency(curr);
-                if (curr !== cashboxCurrency) {
-                  setIsExchange(true);
-                }
+                // Ordinary documents follow their currency; explicit exchange mode is a manual override.
+                if (!isExchange) setSelectedCashRegister(preferredCashAccountId(cashAccounts, curr));
               }}
               className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-900 outline-none focus:bg-white focus:ring-2 focus:ring-rose-500"
             >
@@ -414,6 +430,8 @@ export const ExpensePaymentDesk: React.FC<ExpensePaymentDeskProps> = ({
               type="number"
               min="0"
               step="any"
+              id="expense-amount"
+              aria-label="مبلغ سند"
               value={paidAmount || ''}
               onChange={e => setPaidAmount(parseFloat(e.target.value) || 0)}
               placeholder="0"
@@ -454,13 +472,15 @@ export const ExpensePaymentDesk: React.FC<ExpensePaymentDeskProps> = ({
                   <input
                     type="number"
                     step="any"
-                    value={exchangeRate}
-                    onChange={e => setExchangeRate(parseFloat(e.target.value) || 1)}
+                    id="expense-rate"
+                    aria-label="نرخ تبادله"
+                    value={Number.isFinite(exchangeRate) ? exchangeRate : ''}
+                    onChange={e => setExchangeRate(Number(e.target.value))}
                     className="w-full px-3 py-2 bg-white border border-slate-300 rounded-xl text-xs font-mono font-bold text-slate-900 text-left outline-none focus:ring-2 focus:ring-rose-500"
                   />
                   <button
                     type="button"
-                    onClick={() => setExchangeRate(cashRegister.usdToAfnRate || 65)}
+                    onClick={() => setExchangeRate(systemQuote)}
                     className="px-2.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[11px] font-bold border border-slate-200 transition cursor-pointer whitespace-nowrap"
                   >
                     نرخ روز سیستم
@@ -475,11 +495,11 @@ export const ExpensePaymentDesk: React.FC<ExpensePaymentDeskProps> = ({
                     مبلغ نهایی که از {activeCashAcc?.name || 'صندوق'} کسر می‌شود:
                   </span>
                   <div className="text-base font-mono font-black text-rose-950 mt-0.5">
-                    {formatNumber(withdrawalDetails.amount)} {cashboxCurrency}
+                    {Number.isFinite(withdrawalDetails.amount) ? formatDashboardAmount(withdrawalDetails.amount, 6) : "—"} {cashboxCurrency}
                   </div>
                 </div>
                 <div className="text-left text-[11px] font-mono text-rose-700">
-                  {paidCurrency} {formatNumber(paidAmount)} ⇋ {cashboxCurrency} {formatNumber(withdrawalDetails.amount)}
+                  {paidCurrency} {formatNumber(paidAmount)} ⇋ {cashboxCurrency} {Number.isFinite(withdrawalDetails.amount) ? formatDashboardAmount(withdrawalDetails.amount, 6) : "—"}
                 </div>
               </div>
             </div>
@@ -524,7 +544,7 @@ export const ExpensePaymentDesk: React.FC<ExpensePaymentDeskProps> = ({
           </div>
 
           <div className="text-right w-full sm:w-auto text-xs text-slate-500 font-medium">
-            مبلغ نهایی کسری از صندوق: <span className="font-mono font-black text-rose-700 text-sm">{formatNumber(withdrawalDetails.amount)} {cashboxCurrency}</span>
+            مبلغ نهایی کسری از صندوق: <span className="font-mono font-black text-rose-700 text-sm">{Number.isFinite(withdrawalDetails.amount) ? formatDashboardAmount(withdrawalDetails.amount, 6) : "—"} {cashboxCurrency}</span>
           </div>
         </div>
       </form>

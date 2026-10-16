@@ -1,0 +1,133 @@
+/* A quiet action hierarchy. Financial figures, status badges, colour pickers and paper stay semantic. */
+@media screen {
+  body[data-appearance="premium"] :is(.accounting-workspace, .appearance-dialog, .consignment-delivery-dialog, .currency-calculator-dialog) button[class]:not(.app-close-button):not(:where(
+    .workspace-sidebar button, .workspace-header button,
+    .dash-metric, .dash-account-card, .dash-warehouse-card, .dash-announcement,
+    .dash-search-dropdown button, [role="option"], .trade-lookup-popup button,
+    .appearance-palette-swatches button, .appearance-miniature button,
+    [style*="background-color"], [data-preserve-color]
+  )) {
+    background-color: var(--ui-surface, #fff) !important;
+    background-image: none !important;
+    color: var(--ui-text, #334155) !important;
+    border-color: var(--ui-border, #d5dfe8) !important;
+    border-radius: 8px !important;
+    box-shadow: inset 0 0 0 1px var(--ui-border, #d5dfe8) !important;
+    font-weight: 600 !important;
+    filter: none !important;
+  }
+  body[data-appearance="premium"] :is(.accounting-workspace, .appearance-dialog, .consignment-delivery-dialog, .currency-calculator-dialog) button[class]:not(.app-close-button):not(:where(.workspace-sidebar button, .workspace-header button, .dash-metric, .dash-account-card, .dash-warehouse-card, .dash-announcement, .dash-search-dropdown button, [role="option"], .trade-lookup-popup button, .appearance-palette-swatches button, .appearance-miniature button, [style*="background-color"], [data-preserve-color])):hover:not(:disabled) {
+    background-color: var(--ui-surface-muted, #f1f5f9) !important;
+    border-color: color-mix(in srgb, var(--ui-primary, #15779b) 35%, var(--ui-border, #d5dfe8)) !important;
+  }
+  body[data-appearance="premium"] :is(.accounting-workspace, .appearance-dialog, .consignment-delivery-dialog, .currency-calculator-dialog) button[class]:not(.app-close-button):not(:where(.workspace-sidebar button, .workspace-header button, .dash-metric, .dash-account-card, .dash-warehouse-card, .dash-announcement, .dash-search-dropdown button, [role="option"], .trade-lookup-popup button, .appearance-palette-swatches button, .appearance-miniature button, [style*="background-color"], [data-preserve-color])) > svg {
+    color: inherit !important;
+  }
+
+  /* Existing selected controls retain an unambiguous state, but no longer introduce extra accent colours. */
+  body[data-appearance="premium"] :is(.accounting-workspace, .appearance-dialog, .consignment-delivery-dialog, .currency-calculator-dialog) button[class]:not(.app-close-button):not(:where(.workspace-sidebar button, .workspace-header button, .appearance-palette-swatches button, [style*="background-color"], [data-preserve-color])):is(
+    .is-active, [aria-pressed="true"], [aria-selected="true"],
+    [class~="bg-blue-500"], [class~="bg-blue-600"], [class~="bg-blue-700"], [class~="bg-blue-900"],
+    [class~="bg-cyan-500"], [class~="bg-cyan-600"], [class~="bg-cyan-700"],
+    [class~="bg-sky-500"], [class~="bg-sky-600"], [class~="bg-sky-700"],
+    [class~="bg-emerald-500"], [class~="bg-emerald-600"], [class~="bg-emerald-700"], [class~="bg-emerald-800"], [class~="bg-emerald-900"],
+    [class~="bg-green-500"], [class~="bg-green-600"], [class~="bg-green-700"],
+    [class~="bg-indigo-500"], [class~="bg-indigo-600"], [class~="bg-indigo-700"],
+    [class~="bg-purple-500"], [class~="bg-purple-600"], [class~="bg-purple-700"],
+    [class~="bg-rose-500"], [class~="bg-rose-600"], [class~="bg-rose-700"], [class~="bg-red-600"],
+    [class~="bg-teal-500"], [class~="bg-teal-600"], [class~="bg-teal-700"], [class~="bg-violet-600"],
+    [class~="bg-amber-500"], [class~="bg-amber-600"], [class~="bg-amber-700"],
+    [class~="bg-slate-500"], [class~="bg-slate-700"], [class~="bg-slate-800"], [class~="bg-slate-900"]
+  ) {
+    background-color: color-mix(in srgb, var(--ui-primary, #15779b) 9%, var(--ui-surface, #fff)) !important;
+    color: var(--ui-primary, #15779b) !important;
+    border-color: color-mix(in srgb, var(--ui-primary, #15779b) 40%, var(--ui-border, #d5dfe8)) !important;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ui-primary, #15779b) 35%, var(--ui-border, #d5dfe8)) !important;
+  }
+
+  /* One accent for the primary action; save-and-print and ordinary tools stay secondary. */
+  body[data-appearance="premium"] :is(.accounting-workspace, .appearance-dialog, .consignment-delivery-dialog, .currency-calculator-dialog) button:not(.app-close-button):is(
+    [type="submit"], .trade-save-button, .treasury-submit, .appearance-save, .page-action.is-create, .is-primary
+  ) {
+    background-color: var(--ui-primary, #15779b) !important;
+    background-image: none !important;
+    color: var(--ui-primary-text, #fff) !important;
+    border-color: var(--ui-primary, #15779b) !important;
+    box-shadow: none !important;
+  }
+  body[data-appearance="premium"] :is(.accounting-workspace, .appearance-dialog, .consignment-delivery-dialog, .currency-calculator-dialog) button:not(.app-close-button):is([type="submit"], .trade-save-button, .treasury-submit, .appearance-save, .page-action.is-create, .is-primary):hover:not(:disabled) {
+    background-color: color-mix(in srgb, var(--ui-primary, #15779b) 88%, #172b3a) !important;
+  }
+
+  /* Destructive actions are the exception, never an extra rainbow of unrelated colours. */
+  body[data-appearance="premium"] :is(.accounting-workspace, .appearance-dialog, .consignment-delivery-dialog, .currency-calculator-dialog) button:not(.app-close-button):not([data-preserve-color]):is(.is-danger, [aria-label^="حذف"], [title^="حذف"], :has(> svg.lucide-trash-2), :has(> svg.lucide-trash)) {
+    color: #9f2538 !important;
+    background-color: #fff4f5 !important;
+    background-image: none !important;
+    border-color: #e9bcc3 !important;
+    box-shadow: inset 0 0 0 1px #e9bcc3 !important;
+  }
+  body[data-appearance="premium"] :is(.accounting-workspace, .appearance-dialog, .consignment-delivery-dialog, .currency-calculator-dialog) button:not(.app-close-button).is-danger:hover:not(:disabled) { background-color: #ffe8ec !important; }
+
+  body[data-appearance="premium"] :is(.accounting-workspace, .appearance-dialog, .consignment-delivery-dialog, .currency-calculator-dialog) button:focus-visible { outline: 2px solid var(--ui-primary, #15779b); outline-offset: 3px; }
+  body[data-appearance="premium"] :is(.accounting-workspace, .appearance-dialog, .consignment-delivery-dialog, .currency-calculator-dialog) button:disabled { cursor: not-allowed; opacity: .55; }
+  body[data-appearance="premium"] :is(.accounting-workspace, .appearance-dialog, .consignment-delivery-dialog, .currency-calculator-dialog) .page-action[aria-busy="true"] { cursor: progress; }
+
+  /* Close always has the same visible word + X, including narrow/mobile forms. */
+  body button.app-action.app-close-button[data-ui-action="close"][type="button"] {
+    display: inline-flex !important; align-items: center !important; justify-content: center !important;
+    gap: 6px !important; flex: 0 0 auto !important; width: auto !important; min-width: 78px !important;
+    height: auto !important; min-height: 36px !important; padding: 7px 12px !important;
+    border: 1px solid #ad3243 !important; border-radius: 8px !important;
+    background: #ad3243 !important; color: #fff !important;
+    box-shadow: none !important; opacity: 1; cursor: pointer; white-space: nowrap;
+    font: inherit; font-size: 12px !important; line-height: 1.5 !important; font-weight: 650 !important;
+  }
+  body button.app-action.app-close-button[data-ui-action="close"][type="button"] > svg { display: block; width: 17px !important; height: 17px !important; flex: none; color: inherit !important; stroke-width: 2; }
+  body button.app-action.app-close-button[data-ui-action="close"][type="button"] > span { display: inline !important; color: inherit !important; }
+  body button.app-action.app-close-button[data-ui-action="close"][type="button"]:hover:not(:disabled) { background: #942437 !important; border-color: #942437 !important; }
+  body button.app-action.app-close-button[data-ui-action="close"][type="button"]:focus-visible { outline: 3px solid #f2a9b3 !important; outline-offset: 3px; }
+  body button.app-action.app-close-button[data-ui-action="close"][type="button"]:disabled { opacity: .55 !important; cursor: not-allowed; }
+
+  body button.app-action.app-close-button[data-ui-action="close"][type="button"][data-close-variant="outline"] { background: #fff6f7 !important; color: #9f2538 !important; border-color: #d7a1aa !important; }
+  body button.app-action.app-close-button[data-ui-action="close"][type="button"][data-close-variant="outline"]:hover:not(:disabled) { background: #ffe8ec !important; }
+
+  /* Headers frame the form rather than competing with its actions. Screen-only: never recolour paper. */
+  body[data-appearance="premium"] .app-modal-heading {
+    background: var(--ui-surface, #fff) !important; color: var(--ui-text, #334155) !important;
+    border-color: var(--ui-border, #d5dfe8) !important; box-shadow: none !important; gap: 14px;
+  }
+  body[data-appearance="premium"] .app-modal-heading :is(h1, h2, h3, h4) { color: var(--ui-text, #334155) !important; min-width: 0; line-height: 1.8; }
+  body[data-appearance="premium"] :is(.accounting-workspace, .appearance-dialog, .consignment-delivery-dialog, .currency-calculator-dialog) .app-modal-heading :is(.text-white, .text-white\/80, .text-slate-100, .text-slate-200, .text-slate-300) { color: var(--ui-text, #334155) !important; }
+  body[data-appearance="premium"] :is(.accounting-workspace, .appearance-dialog, .consignment-delivery-dialog, .currency-calculator-dialog) .app-modal-heading :is(p, small, .text-slate-400) { color: var(--ui-muted, #64748b) !important; }
+  body[data-appearance="premium"] :is(.accounting-workspace, .appearance-dialog, .consignment-delivery-dialog, .currency-calculator-dialog) .app-modal-heading :is([class*="text-white"], [class*="text-yellow-"], [class*="text-amber-"]) { color: var(--ui-text, #334155) !important; }
+  body[data-appearance="premium"] .app-modal-heading :is(.bg-black\/20, .bg-white\/10, .bg-white\/15, .bg-white\/20) { background-color: var(--ui-surface-muted, #f1f5f9) !important; border-color: var(--ui-border, #d5dfe8) !important; }
+  body[data-appearance="premium"] .app-modal-heading :is(div, span)[class*="bg-"]:has(> svg) { background: var(--ui-surface-muted, #f1f5f9) !important; color: var(--ui-primary, #15779b) !important; border-color: var(--ui-border, #d5dfe8) !important; box-shadow: none !important; }
+  body[data-appearance="premium"] .app-modal-heading :is(div, span)[class*="bg-"] > svg { color: var(--ui-primary, #15779b) !important; }
+  .app-modal-heading > h2 { flex: 1; overflow-wrap: anywhere; }
+  .app-modal-heading > div { min-width: 0; }
+
+  .page-actions-buttons { gap: 8px; }
+  .page-actions-toolbar .page-action { min-height: 36px; padding: 7px 10px; font-size: 12px; gap: 6px; }
+  .page-actions-toolbar :is(.page-action-circle, .page-action > svg) { width: 21px; height: 21px; }
+  .page-actions-toolbar .page-action-circle { border: 0; }
+  .page-actions-toolbar .page-action-circle svg { width: 18px; height: 18px; }
+  body[data-appearance="premium"] .app-form-banner { background: var(--ui-surface, #fff) !important; border: 1px solid var(--ui-border, #d5dfe8); color: var(--ui-text, #334155) !important; box-shadow: none !important; border-radius: 12px; }
+  body[data-appearance="premium"] .accounting-workspace .app-form-banner :is(.text-white, h3) { color: var(--ui-text, #334155) !important; }
+  body[data-appearance="premium"] .accounting-workspace .app-form-banner :is(.text-emerald-200, .text-rose-200) { color: var(--ui-muted, #64748b) !important; }
+  #party-cardex-modal-container .app-modal-heading { align-items: flex-start; flex-wrap: wrap; gap: 12px; }
+  #party-cardex-modal-container .app-modal-heading > div:first-child { flex: 1 1 260px; min-width: 0; }
+  #party-cardex-modal-container .app-modal-heading > div:first-child > div:last-child { min-width: 0; }
+  #party-cardex-modal-container .app-modal-heading > div:last-child { margin-inline-start: auto; }
+  .app-page-form-heading { display: flex; justify-content: space-between; align-items: center; gap: 18px; }
+  .app-page-form-heading > div { flex: 1; min-width: 0; }
+  @media (max-width: 600px) {
+    .app-modal-heading { flex-wrap: wrap; }
+    .app-modal-heading > .app-close-button { margin-inline-start: auto; }
+    body button.app-action.app-close-button[data-ui-action="close"][type="button"] { min-width: 72px !important; padding: 7px 10px !important; }
+    .app-page-form-heading { align-items: flex-start; gap: 10px; }
+    .page-actions-buttons { gap: 8px; }
+    .page-actions-toolbar .page-action { padding: 6px 8px; font-size: 11px; }
+  }
+}
+@media print { .app-close-button { display: none !important; } }

@@ -24,7 +24,6 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { NavTab } from './Sidebar';
-import { ThemeSwitcherDropdown } from './ThemeSwitcherDropdown';
 import { CurrencyRateCalculator } from './CurrencyRateCalculator';
 import { APP_VERSION } from '../config/version';
 import { getPersianDate } from '../utils/formatters';
@@ -404,8 +403,6 @@ export const Header: React.FC<HeaderProps> = ({
           {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
         </button>
 
-        {/* Minimal Theme Switcher Dropdown */}
-        <ThemeSwitcherDropdown minimal />
 
         {/* User Profile Badge & Dropdown */}
         <div ref={profileRef} className="relative">

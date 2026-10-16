@@ -1,3 +1,4 @@
+import { CloseButton } from './CloseButton';
 import React, { useState, useEffect } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import { CashRegisterAccount, Currency } from '../types';
@@ -84,7 +85,7 @@ export const CashAccountModal: React.FC<CashAccountModalProps> = ({
     <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
       <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden">
         {/* Header */}
-        <div className="p-6 bg-slate-900 text-white flex items-center justify-between">
+        <div className="p-6 bg-slate-900 text-white flex items-center justify-between app-modal-heading">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
               <Wallet className="w-5 h-5" />
@@ -96,12 +97,8 @@ export const CashAccountModal: React.FC<CashAccountModalProps> = ({
               <p className="text-xs text-slate-400">ثبت مشخصات صندوق، ارز پایه و موجودی نقدی</p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-slate-800 text-slate-400 hover:text-white rounded-xl transition cursor-pointer"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <CloseButton onClick={onClose}
+            className="p-2 hover:bg-slate-800 text-slate-400 hover:text-white rounded-xl transition cursor-pointer" />
         </div>
 
         {/* Form */}

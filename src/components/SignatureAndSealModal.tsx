@@ -1,3 +1,4 @@
+import { CloseButton } from './CloseButton';
 import React, { useState, useRef, useEffect } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import { CompanyStampSeal } from './CompanyStampSeal';
@@ -265,7 +266,7 @@ export const SignatureAndSealModal: React.FC<SignatureAndSealModalProps> = ({
     >
       <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="bg-slate-900 text-white p-4 sm:p-5 flex items-center justify-between border-b border-slate-800 shrink-0">
+        <div className="bg-slate-900 text-white p-4 sm:p-5 flex items-center justify-between border-b border-slate-800 shrink-0 app-modal-heading">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-blue-600/30 border border-blue-500/40 text-blue-400 flex items-center justify-center shadow-xs">
               <Stamp className="w-5 h-5" />
@@ -280,13 +281,9 @@ export const SignatureAndSealModal: React.FC<SignatureAndSealModalProps> = ({
             </div>
           </div>
 
-          <button
-            type="button"
+          <CloseButton type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-slate-800 hover:bg-rose-600 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
+            className="w-8 h-8 rounded-full bg-slate-800 hover:bg-rose-600 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer" />
         </div>
 
         {/* Status Notification Toast */}
@@ -299,7 +296,7 @@ export const SignatureAndSealModal: React.FC<SignatureAndSealModalProps> = ({
 
         {/* Navigation Tabs */}
         <div className="px-4 sm:px-6 pt-4 bg-slate-50 border-b border-slate-200 flex items-center gap-2 shrink-0">
-          <button
+          <button aria-pressed={activeTab === 'signature'}
             type="button"
             onClick={() => setActiveTab('signature')}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-bold rounded-t-xl transition cursor-pointer border-b-2 ${
@@ -313,7 +310,7 @@ export const SignatureAndSealModal: React.FC<SignatureAndSealModalProps> = ({
             {signatureUrl && <span className="w-2 h-2 rounded-full bg-emerald-500"></span>}
           </button>
 
-          <button
+          <button aria-pressed={activeTab === 'stamp'}
             type="button"
             onClick={() => setActiveTab('stamp')}
             className={`flex-1 flex items-center justify-center gap-2 py-2.5 text-xs font-bold rounded-t-xl transition cursor-pointer border-b-2 ${

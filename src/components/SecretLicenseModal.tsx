@@ -1,3 +1,4 @@
+import { CloseButton } from './CloseButton';
 import React, { useState, useEffect } from 'react';
 import {
   ShieldAlert,
@@ -143,7 +144,7 @@ export const SecretLicenseModal: React.FC<SecretLicenseModalProps> = ({
         dir="rtl"
       >
         {/* Modal Header */}
-        <div className="bg-slate-900 text-white px-6 py-4.5 flex items-center justify-between border-b border-slate-800">
+        <div className="bg-slate-900 text-white px-6 py-4.5 flex items-center justify-between border-b border-slate-800 app-modal-heading">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30">
               <ShieldAlert className="w-5 h-5" />
@@ -160,12 +161,8 @@ export const SecretLicenseModal: React.FC<SecretLicenseModalProps> = ({
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-slate-800 transition"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <CloseButton onClick={onClose}
+            className="text-slate-400 hover:text-white p-1.5 rounded-xl hover:bg-slate-800 transition" />
         </div>
 
         {/* Modal Body */}
@@ -534,13 +531,9 @@ export const SecretLicenseModal: React.FC<SecretLicenseModalProps> = ({
         {/* Modal Footer */}
         {isUnlocked && (
           <div className="bg-slate-100 px-6 py-3.5 border-t border-slate-200 flex items-center justify-between">
-            <button
-              type="button"
+            <CloseButton type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-white hover:bg-slate-200 text-slate-700 border border-slate-300 font-bold rounded-xl transition cursor-pointer"
-            >
-              بستن پنجره
-            </button>
+              className="px-4 py-2 bg-white hover:bg-slate-200 text-slate-700 border border-slate-300 font-bold rounded-xl transition cursor-pointer" variant="outline" label="بستن پنجره" aria-label="بستن پنجره" />
             <button
               type="button"
               disabled={isSaving}

@@ -1,3 +1,4 @@
+import { CloseButton } from './CloseButton';
 import React, { useState, useEffect } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import { Party, PartyType, PartyGroup } from '../types';
@@ -431,7 +432,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
 
           <div className="space-y-1.5 max-h-[520px] overflow-y-auto custom-scrollbar">
             {/* All Groups Option */}
-            <button
+            <button aria-pressed={selectedGroupId === 'all'}
               onClick={() => setSelectedGroupId('all')}
               className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition text-right cursor-pointer ${
                 selectedGroupId === 'all'
@@ -505,7 +506,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
 
             {/* Ungrouped */}
             {parties.some(p => !p.groupId) && (
-              <button
+              <button aria-pressed={selectedGroupId === 'ungrouped'}
                 onClick={() => setSelectedGroupId('ungrouped')}
                 className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold transition text-right cursor-pointer border ${
                   selectedGroupId === 'ungrouped'
@@ -812,20 +813,15 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
             onSubmit={handleSaveParty}
             className="bg-white rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-2xl border border-slate-200 space-y-4"
           >
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 app-modal-heading">
               <h3 className="text-base font-bold text-slate-900">
                 {editingParty ? 'ویرایش حساب مشتری / فروشنده' : 'تعریف مشتری یا فروشنده جدید'}
               </h3>
-              <button
-                id="party-form-modal-close-btn"
+              <CloseButton id="party-form-modal-close-btn"
                 type="button"
                 onClick={() => setIsAddModalOpen(false)}
                 className="px-3 py-1 bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 rounded-xl transition border border-slate-200 hover:border-rose-200 cursor-pointer flex items-center gap-1 text-xs font-bold shrink-0 shadow-2xs"
-                title="بستن فرم (ESC)"
-              >
-                <X className="w-4 h-4" />
-                <span>بستن (ESC)</span>
-              </button>
+                title="بستن فرم (ESC)" />
             </div>
 
             <div>
@@ -959,7 +955,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
                   <div className="flex items-center justify-between">
                     <label className="block text-[11px] font-bold text-slate-700">افغانی (AFN)</label>
                     <div className="inline-flex rounded-lg overflow-hidden border border-slate-200 bg-slate-50 p-0.5 text-[10px]">
-                      <button
+                      <button aria-pressed={afnType === 'debtor'}
                         type="button"
                         onClick={() => setAfnType('debtor')}
                         className={`px-2 py-0.5 rounded font-bold cursor-pointer transition-all ${
@@ -970,7 +966,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
                       >
                         بدهکار
                       </button>
-                      <button
+                      <button aria-pressed={afnType === 'creditor'}
                         type="button"
                         onClick={() => setAfnType('creditor')}
                         className={`px-2 py-0.5 rounded font-bold cursor-pointer transition-all ${
@@ -999,7 +995,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
                   <div className="flex items-center justify-between">
                     <label className="block text-[11px] font-bold text-slate-700">دلاری (USD) $</label>
                     <div className="inline-flex rounded-lg overflow-hidden border border-slate-200 bg-slate-50 p-0.5 text-[10px]">
-                      <button
+                      <button aria-pressed={usdType === 'debtor'}
                         type="button"
                         onClick={() => setUsdType('debtor')}
                         className={`px-2 py-0.5 rounded font-bold cursor-pointer transition-all ${
@@ -1010,7 +1006,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
                       >
                         بدهکار
                       </button>
-                      <button
+                      <button aria-pressed={usdType === 'creditor'}
                         type="button"
                         onClick={() => setUsdType('creditor')}
                         className={`px-2 py-0.5 rounded font-bold cursor-pointer transition-all ${
@@ -1070,7 +1066,7 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
       {isGroupModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-3xl max-w-xl w-full p-6 md:p-8 shadow-2xl border border-slate-200 max-h-[90vh] flex flex-col space-y-5">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 app-modal-heading">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-emerald-500 text-white flex items-center justify-center font-bold">
                   <FolderPlus className="w-5 h-5" />
@@ -1080,16 +1076,11 @@ export const CustomersView: React.FC<CustomersViewProps> = ({
                   <p className="text-xs text-slate-500">تعریف گروه‌های جغرافیایی یا صنفی (مثلاً مشتریان شهر نو، ولایات و...)</p>
                 </div>
               </div>
-              <button
-                id="group-form-modal-close-btn"
+              <CloseButton id="group-form-modal-close-btn"
                 type="button"
                 onClick={() => setIsGroupModalOpen(false)}
                 className="px-3 py-1 bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 rounded-xl transition border border-slate-200 hover:border-rose-200 cursor-pointer flex items-center gap-1 text-xs font-bold shrink-0 shadow-2xs"
-                title="بستن فرم (ESC)"
-              >
-                <X className="w-4 h-4" />
-                <span>بستن (ESC)</span>
-              </button>
+                title="بستن فرم (ESC)" />
             </div>
 
             {/* Create/Edit Form */}

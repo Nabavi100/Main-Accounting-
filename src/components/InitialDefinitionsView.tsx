@@ -1,3 +1,6 @@
+import { usePageReport } from './PageActionsToolbar';
+import { tableReport } from '../utils/reportData';
+import { workspacePageTitle } from '../utils/navigation';
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useAccounting } from '../context/AccountingContext';
@@ -28,9 +31,7 @@ import {
   Edit2,
   Printer,
   ChevronDown,
-  ChevronUp,
   FolderPlus,
-  Building,
   Check,
   X,
   AlertCircle,
@@ -77,8 +78,8 @@ export const InitialDefinitionsView: React.FC<InitialDefinitionsViewProps> = ({
     companySettings,
   } = useAccounting();
 
-  // Active top sub-navigation tab
-  const [activeSubTab, setActiveSubTab] = useState<DefinitionSubTab>(initialSubTab);
+  // The sidebar selects one definition page; there is no secondary page menu.
+  const activeSubTab = initialSubTab;
 
   // Filter & Search states for Parties table
   const [searchQuery, setSearchQuery] = useState('');
@@ -87,9 +88,6 @@ export const InitialDefinitionsView: React.FC<InitialDefinitionsViewProps> = ({
 
   // Selected party for Cardex Modal
   const [selectedPartyForLedger, setSelectedPartyForLedger] = useState<Party | null>(null);
-
-  // Table container ref for scrolling buttons
-  const tableContainerRef = useRef<HTMLDivElement>(null);
 
   // ---------------- FORM STATE (ثبت طرف‌حساب جدید) ----------------
   const [editingPartyId, setEditingPartyId] = useState<string | null>(null);
@@ -119,13 +117,6 @@ export const InitialDefinitionsView: React.FC<InitialDefinitionsViewProps> = ({
 
   // Group section ref for quick focus
   const groupsSectionRef = useRef<HTMLDivElement>(null);
-
-  // Update initial subtab if prop changes
-  useEffect(() => {
-    if (initialSubTab) {
-      setActiveSubTab(initialSubTab);
-    }
-  }, [initialSubTab]);
 
   // Set default group if available
   useEffect(() => {
@@ -334,14 +325,6 @@ export const InitialDefinitionsView: React.FC<InitialDefinitionsViewProps> = ({
     return true;
   });
 
-  // Table scroll helper
-  const scrollTable = (direction: 'up' | 'down') => {
-    if (tableContainerRef.current) {
-      const scrollAmount = direction === 'up' ? -250 : 250;
-      tableContainerRef.current.scrollBy({ top: scrollAmount, behavior: 'smooth' });
-    }
-  };
-
   // Print report
   const handlePrintPartiesList = () => {
     openPrintModal({
@@ -406,59 +389,28 @@ export const InitialDefinitionsView: React.FC<InitialDefinitionsViewProps> = ({
     });
   };
 
+  usePageReport({
+    title: 'لیست طرف‌های حساب', enabled: activeSubTab === 'parties',
+    search: { value: searchQuery, onChange: setSearchQuery, placeholder: "جستجو بر اساس نام، شماره یا کد...", id: "input-search-parties" },
+    onCreate: () => { handleCancelEdit(); document.querySelector<HTMLInputElement>('#input-party-name')?.focus(); }, createLabel: 'ایجاد طرف حساب جدید',
+    filters: [
+      { id: 'group', label: 'گروه', value: selectedGroupId, onChange: setSelectedGroupId, options: [{ value: 'all', label: 'همه گروه‌ها' }, ...partyGroups.map(group => ({ value: group.id, label: group.name }))] },
+      { id: 'balance', label: 'وضعیت حساب', value: balanceFilter, onChange: value => setBalanceFilter(value as typeof balanceFilter), options: [{ value: 'all', label: 'همه' }, { value: 'debtors', label: 'بدهکاران' }, { value: 'creditors', label: 'بستانکاران' }, { value: 'settled', label: 'تسویه‌شده' }] },
+    ],
+    getReport: () => tableReport('لیست طرف‌های حساب', ['کد', 'نام', 'گروه', 'شماره تماس', 'مانده افغانی (AFN)', 'مانده دالر (USD)'], filteredParties.map(party => [party.code, party.name, party.groupName, party.phone, party.balanceAFN, party.balanceUSD])),
+  });
+
   return (
     <div className="p-4 sm:p-6 lg:p-7 max-w-[1700px] mx-auto space-y-5" dir="rtl">
       {/* ---------------- 1. PAGE TITLE & SUBTITLE ---------------- */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-200/80 pb-3">
         <div>
           <h1 className="text-xl sm:text-2xl font-black text-slate-800 tracking-tight">
-            تعاریف اولیه سیستم و امور مالی
+            {workspacePageTitle('definitions', activeSubTab)}
           </h1>
           <p className="text-xs text-slate-400 font-medium mt-1">
-            مدیریت یکپارچه کالاها، انبارها، طرف‌حساب‌ها، صندوق‌ها و هزینه‌ها در یک صفحه
+            مدیریت و ثبت اطلاعات این بخش از سیستم حسابداری
           </p>
-        </div>
-
-        {/* Brand Pill Badge matching company settings */}
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-slate-800 border border-blue-200 dark:border-slate-700 text-blue-700 dark:text-amber-400 text-xs font-bold self-start sm:self-auto shadow-2xs">
-          <Building className="w-3.5 h-3.5 text-blue-600 dark:text-amber-400" />
-          <span>{companySettings.name || 'شرکت تجارتی برادران نبوی'}</span>
-        </div>
-      </div>
-
-      {/* ---------------- 2. TOP SUB-NAVIGATION TABS (Exact order from screenshot) ---------------- */}
-      <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs p-2 sm:p-2.5">
-        <div className="flex items-center gap-1.5 overflow-x-auto custom-scrollbar pb-1 sm:pb-0">
-          {[
-            { id: 'parties', label: 'طرف حساب‌ها (مشتریان)', icon: Users, color: 'text-[#2563EB]' },
-            { id: 'products', label: 'مدیریت کالاها', icon: Package, color: 'text-sky-600' },
-            { id: 'warehouses', label: 'انبارها و گدام‌ها', icon: Warehouse, color: 'text-amber-600' },
-            { id: 'cash', label: 'مدیریت صندوق‌ها و بانک', icon: Landmark, color: 'text-emerald-600' },
-            { id: 'expenses', label: 'هزینه‌ها و امور مالی', icon: Receipt, color: 'text-rose-600' },
-            { id: 'incomes', label: 'تعریف عواید و درآمدها', icon: TrendingUp, color: 'text-teal-600' },
-            { id: 'currencies', label: 'مدیریت ارزها', icon: Coins, color: 'text-indigo-600' },
-            { id: 'fixed_assets', label: 'تجهیزات و دارایی‌ها', icon: Shield, color: 'text-purple-600' },
-            { id: 'shareholders', label: 'امور سهامداران', icon: Briefcase, color: 'text-amber-700' },
-          ].map(tab => {
-            const Icon = tab.icon;
-            const isActive = activeSubTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                id={`def-tab-${tab.id}`}
-                onClick={() => setActiveSubTab(tab.id as DefinitionSubTab)}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all duration-200 ease-out shrink-0 cursor-pointer active:scale-95 transform hover:-translate-y-0.5 select-none ${
-                  isActive
-                    ? 'bg-[#EBF1FF] text-[#2563EB] shadow-xs border border-blue-200 ring-2 ring-blue-400/20'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-medium'
-                }`}
-              >
-                <Icon className={`w-4 h-4 ${isActive ? 'text-[#2563EB]' : tab.color}`} />
-                <span>{tab.label}</span>
-              </button>
-            );
-          })}
         </div>
       </div>
 
@@ -611,7 +563,7 @@ export const InitialDefinitionsView: React.FC<InitialDefinitionsViewProps> = ({
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] font-bold text-slate-700">دلاری (USD) $</span>
                       <div className="inline-flex rounded-lg overflow-hidden border border-slate-200 bg-white p-0.5 text-[10px]">
-                        <button
+                        <button aria-pressed={usdType === 'debtor'}
                           type="button"
                           id="btn-usd-debtor"
                           onClick={() => setUsdType('debtor')}
@@ -623,7 +575,7 @@ export const InitialDefinitionsView: React.FC<InitialDefinitionsViewProps> = ({
                         >
                           بدهکار
                         </button>
-                        <button
+                        <button aria-pressed={usdType === 'creditor'}
                           type="button"
                           id="btn-usd-creditor"
                           onClick={() => setUsdType('creditor')}
@@ -656,7 +608,7 @@ export const InitialDefinitionsView: React.FC<InitialDefinitionsViewProps> = ({
                     <div className="flex items-center justify-between">
                       <span className="text-[11px] font-bold text-slate-700">افغانی (AFN)</span>
                       <div className="inline-flex rounded-lg overflow-hidden border border-slate-200 bg-white p-0.5 text-[10px]">
-                        <button
+                        <button aria-pressed={afnType === 'debtor'}
                           type="button"
                           id="btn-afn-debtor"
                           onClick={() => setAfnType('debtor')}
@@ -668,7 +620,7 @@ export const InitialDefinitionsView: React.FC<InitialDefinitionsViewProps> = ({
                         >
                           بدهکار
                         </button>
-                        <button
+                        <button aria-pressed={afnType === 'creditor'}
                           type="button"
                           id="btn-afn-creditor"
                           onClick={() => setAfnType('creditor')}
@@ -904,7 +856,7 @@ export const InitialDefinitionsView: React.FC<InitialDefinitionsViewProps> = ({
 
                   {/* Filter Pills: همه, بدهکاران, طلبکاران, بی‌حساب */}
                   <div className="inline-flex rounded-xl bg-slate-100 p-0.5 text-xs">
-                    <button
+                    <button aria-pressed={balanceFilter === 'all'}
                       type="button"
                       id="filter-parties-all"
                       onClick={() => setBalanceFilter('all')}
@@ -916,7 +868,7 @@ export const InitialDefinitionsView: React.FC<InitialDefinitionsViewProps> = ({
                     >
                       همه
                     </button>
-                    <button
+                    <button aria-pressed={balanceFilter === 'debtors'}
                       type="button"
                       id="filter-parties-debtors"
                       onClick={() => setBalanceFilter('debtors')}
@@ -928,7 +880,7 @@ export const InitialDefinitionsView: React.FC<InitialDefinitionsViewProps> = ({
                     >
                       بدهکاران
                     </button>
-                    <button
+                    <button aria-pressed={balanceFilter === 'creditors'}
                       type="button"
                       id="filter-parties-creditors"
                       onClick={() => setBalanceFilter('creditors')}
@@ -940,7 +892,7 @@ export const InitialDefinitionsView: React.FC<InitialDefinitionsViewProps> = ({
                     >
                       طلبکاران
                     </button>
-                    <button
+                    <button aria-pressed={balanceFilter === 'settled'}
                       type="button"
                       id="filter-parties-settled"
                       onClick={() => setBalanceFilter('settled')}
@@ -958,17 +910,7 @@ export const InitialDefinitionsView: React.FC<InitialDefinitionsViewProps> = ({
                 {/* Left side in RTL: Search bar, Group selector, Print button */}
                 <div className="flex flex-wrap items-center gap-2">
                   {/* Search Input */}
-                  <div className="relative min-w-[200px] flex-1 sm:flex-initial">
-                    <input
-                      type="text"
-                      id="input-search-parties"
-                      value={searchQuery}
-                      onChange={e => setSearchQuery(e.target.value)}
-                      placeholder="جستجو بر اساس نام، شماره یا کد..."
-                      className="w-full pr-8 pl-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-right focus:outline-none focus:border-blue-500 focus:bg-white transition-all font-medium"
-                    />
-                    <Search className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  </div>
+
 
                   {/* Group Filter Dropdown */}
                   <div className="relative">
@@ -1002,31 +944,11 @@ export const InitialDefinitionsView: React.FC<InitialDefinitionsViewProps> = ({
               </div>
             </div>
 
-            {/* Table Container with side scroll navigation */}
+            {/* Native scrolling keeps the table unobstructed on mouse, keyboard and touch. */}
             <div className="relative bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-              {/* Quick side scroll navigation buttons */}
-              <div className="absolute left-2 top-2 z-10 hidden sm:flex flex-col gap-1 bg-white/90 backdrop-blur-xs p-1 rounded-xl border border-slate-200 shadow-2xs">
-                <button
-                  type="button"
-                  title="حرکت به بالا"
-                  onClick={() => scrollTable('up')}
-                  className="p-1 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-                >
-                  <ChevronUp className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  title="حرکت به پایین"
-                  onClick={() => scrollTable('down')}
-                  className="p-1 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
-                >
-                  <ChevronDown className="w-4 h-4" />
-                </button>
-              </div>
-
               {/* Scrollable Table Area */}
               <div
-                ref={tableContainerRef}
+                role="region" aria-label="جدول طرف حساب‌های فعال" tabIndex={0}
                 className="overflow-x-auto max-h-[750px] overflow-y-auto custom-scrollbar"
               >
                 <table className="w-full text-right border-collapse text-xs">

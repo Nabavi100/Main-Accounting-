@@ -1,3 +1,4 @@
+import { DEFAULT_COMPANY_NAME } from '../utils/companyBranding';
 import {
   Product,
   ProductCategory,
@@ -26,7 +27,7 @@ import {
 } from '../types';
 
 export const initialCompanySettings: CompanySettings = {
-  name: 'شرکت تجارتی برادران نبوی',
+  name: DEFAULT_COMPANY_NAME,
   commercialCode: '1',
   logoIconText: 'ن',
   logoUrl: '',
@@ -38,10 +39,10 @@ export const initialCompanySettings: CompanySettings = {
   showSignatureOnInvoice: true,
   stampSize: 56,
   signatureSize: 48,
-  phone: '0794511271',
-  phoneSecondary: '0794006460',
-  address: 'هرات، سرک 64 متره',
-  email: 'info@nabawi-brothers.af',
+  phone: '',
+  phoneSecondary: '',
+  address: '',
+  email: '',
   tagline: 'توزیع و پخش عمده سیمان، گچ ساختمانی، پودر سنگ، آرد و مصالح باکیفیت تجارتی',
   invoiceConditions: 'هرگونه مغایرت در کالا یا شرایط پرداخت حداکثر ظرف مدت ۲۴ ساعت کاری به بخش مالی اطلاع داده شود. این سند پس از تایید نهایی طرفین، ارزش رسمی و حسابداری خواهد داشت.',
   invoiceFooterNote: 'مشتری محترم لطفاً هنگام تحویل کالا، تعداد کیسه‌ها و مشخصات را دقیق بررسی نمایید.',
@@ -177,8 +178,8 @@ export const initialPartyGroups: PartyGroup[] = [
   },
   {
     id: 'grp-wasie-staff',
-    name: 'کارمندان شرکت واسعی',
-    description: 'پرسنل و کارمندان داخلی شرکت تجارتی واسعی',
+    name: 'کارمندان شرکت',
+    description: 'پرسنل و کارمندان داخلی شرکت',
     color: 'blue',
     createdAt: '1403/01/10',
   },

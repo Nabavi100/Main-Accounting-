@@ -326,12 +326,13 @@ export async function unlinkTelegramUser(chatId: string): Promise<{ success: boo
   return await res.json();
 }
 
-export async function sendTelegramDirectMessage(payload: SendMessagePayload): Promise<{
+export async function sendTelegramDirectMessage(payload: SendMessagePayload, signal?: AbortSignal): Promise<{
   success: boolean;
   messageId?: number;
   error?: string;
 }> {
   const res = await fetch('/api/telegram/send-message', {
+    signal,
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),

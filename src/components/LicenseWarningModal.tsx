@@ -1,3 +1,4 @@
+import { CloseButton } from './CloseButton';
 import React, { useState } from 'react';
 import {
   AlertTriangle,
@@ -93,9 +94,9 @@ export const LicenseWarningModal: React.FC<LicenseWarningModalProps> = ({
       >
         {/* Header */}
         <div
-          className={`px-6 py-4.5 text-white flex items-center justify-between ${
+          className={`app-modal-heading ${`px-6 py-4.5 text-white flex items-center justify-between ${
             isFinalDay ? 'bg-rose-700' : 'bg-amber-600'
-          }`}
+          }`}`}
         >
           <div className="flex items-center gap-2.5">
             <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center">
@@ -114,12 +115,8 @@ export const LicenseWarningModal: React.FC<LicenseWarningModalProps> = ({
               </p>
             </div>
           </div>
-          <button
-            onClick={handleDismiss}
-            className="text-white/80 hover:text-white p-1.5 rounded-xl hover:bg-black/10 transition"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <CloseButton onClick={handleDismiss}
+            className="text-white/80 hover:text-white p-1.5 rounded-xl hover:bg-black/10 transition" />
         </div>
 
         {/* Content */}

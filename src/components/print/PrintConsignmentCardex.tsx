@@ -1,6 +1,8 @@
+import { chronologicalConsignmentMovements, consignmentRunningRows, consignmentScopeKey, formatConsignmentQuantity } from '../../utils/consignment';
 import React from 'react';
 import { ConsignmentMovement, CompanySettings, Party } from '../../types';
-import { formatNumber, getPersianDate, cleanCardexDescription } from '../../utils/formatters';
+import { getPersianDate, cleanCardexDescription } from '../../utils/formatters';
+const formatNumber = formatConsignmentQuantity;
 
 interface PrintConsignmentCardexProps {
   party?: Party;
@@ -8,6 +10,7 @@ interface PrintConsignmentCardexProps {
   consignmentMovements: ConsignmentMovement[];
   companySettings: CompanySettings;
   showSignatures?: boolean;
+  balanceByScope?: boolean;
 }
 
 export const PrintConsignmentCardex: React.FC<PrintConsignmentCardexProps> = ({
@@ -16,6 +19,7 @@ export const PrintConsignmentCardex: React.FC<PrintConsignmentCardexProps> = ({
   consignmentMovements = [],
   companySettings,
   showSignatures = true,
+  balanceByScope = false,
 }) => {
   const resolvedPartyName = party?.name || partyName || 'همه مشتریان امانی';
 
@@ -27,7 +31,8 @@ export const PrintConsignmentCardex: React.FC<PrintConsignmentCardexProps> = ({
   let totalOutTons = 0;
   let totalOutBags = 0;
 
-  const rowsWithBalance = consignmentMovements.map((m, idx) => {
+  const scopedRows = consignmentRunningRows(consignmentMovements);
+  const rowsWithBalance = chronologicalConsignmentMovements(consignmentMovements).map((m, idx) => {
     const isIn = m.type === 'deposit';
     const deltaTons = isIn ? m.quantityTons : -m.quantityTons;
     const deltaBags = isIn ? m.quantityBags : -m.quantityBags;
@@ -50,10 +55,16 @@ export const PrintConsignmentCardex: React.FC<PrintConsignmentCardexProps> = ({
       inBags: isIn ? m.quantityBags : 0,
       outTons: !isIn ? m.quantityTons : 0,
       outBags: !isIn ? m.quantityBags : 0,
-      runningTons: Number(runTons.toFixed(3)),
-      runningBags: Math.round(runBags),
+      runningTons: balanceByScope ? (typeof m.remainingTonsAfter === 'number' ? m.remainingTonsAfter : scopedRows[idx].runningTons) : Number(runTons.toFixed(6)),
+      runningBags: balanceByScope ? (typeof m.remainingBagsAfter === 'number' ? m.remainingBagsAfter : scopedRows[idx].runningBags) : Number(runBags.toFixed(6)),
     };
   });
+
+  if (balanceByScope) {
+    const latest = new Map(rowsWithBalance.map(row => [consignmentScopeKey(row), row]));
+    runTons = [...latest.values()].reduce((sum, row) => sum + row.runningTons, 0);
+    runBags = [...latest.values()].reduce((sum, row) => sum + row.runningBags, 0);
+  }
 
   return (
     <div className="relative z-10 space-y-3 font-sans text-slate-900 printable-content">

@@ -334,61 +334,6 @@ export const PaymentCreateView: React.FC<PaymentCreateViewProps> = ({
 
   return (
     <div className="p-3 sm:p-6 max-w-5xl mx-auto font-sans space-y-5">
-      {/* Top 4-Tab Navigation */}
-      <div className="flex flex-wrap items-center justify-between gap-2 bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {onSwitchTab && (
-            <button
-              type="button"
-              onClick={() => onSwitchTab('create_receipt')}
-              className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-xl text-xs sm:text-sm font-bold border border-slate-200/80 transition cursor-pointer flex items-center gap-1.5"
-            >
-              <ArrowDownLeft className="w-4 h-4 text-emerald-600" />
-              <span>ثبت دریافت (ورودی)</span>
-            </button>
-          )}
-
-          {onSwitchTab && (
-            <button
-              type="button"
-              onClick={() => onSwitchTab('list_receipts')}
-              className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-xl text-xs sm:text-sm font-bold border border-slate-200/80 transition cursor-pointer flex items-center gap-1.5"
-            >
-              <FileText className="w-4 h-4 text-emerald-600" />
-              <span>لیست دریافت‌ها</span>
-            </button>
-          )}
-
-          <button
-            type="button"
-            className="px-4 py-2 bg-rose-600 text-white rounded-xl text-xs sm:text-sm font-black shadow-xs flex items-center gap-1.5 cursor-default"
-          >
-            <ArrowUpRight className="w-4 h-4" />
-            <span>ثبت پرداخت (خروجی)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={onBackToList}
-            className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 rounded-xl text-xs sm:text-sm font-bold border border-slate-200/80 transition cursor-pointer flex items-center gap-1.5"
-          >
-            <FileText className="w-4 h-4 text-rose-600" />
-            <span>لیست پرداخت‌ها</span>
-          </button>
-        </div>
-
-        {onCashTransfer && (
-          <button
-            type="button"
-            onClick={onCashTransfer}
-            className="px-3.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5"
-          >
-            <ArrowLeftRight className="w-3.5 h-3.5 text-amber-700" />
-            <span>صندوق به صندوق / صرافی</span>
-          </button>
-        )}
-      </div>
-
       <form onSubmit={handleSubmit} className="bg-white rounded-3xl border border-slate-200 shadow-xs p-5 sm:p-7 space-y-5">
         {/* Document Header Line: سند شماره | نوع | تاریخ */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/90 text-xs">

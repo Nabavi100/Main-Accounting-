@@ -1,3 +1,4 @@
+import { CloseButton } from './CloseButton';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import { Product, ProductCardexMovement, Invoice, StockTransfer } from '../types';
@@ -242,7 +243,7 @@ export const ProductCardexModal: React.FC<ProductCardexModalProps> = ({
         dir="rtl"
       >
         {/* Modal Header */}
-        <div className="px-6 py-4.5 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white flex items-center justify-between border-b border-slate-700 shrink-0">
+        <div className="px-6 py-4.5 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white flex items-center justify-between border-b border-slate-700 shrink-0 app-modal-heading">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-emerald-600 flex items-center justify-center text-white font-black shadow-md">
               <Package className="w-5 h-5" />
@@ -263,16 +264,11 @@ export const ProductCardexModal: React.FC<ProductCardexModalProps> = ({
           </div>
 
           {/* Prominent Standardized Close Button */}
-          <button
-            id="product-cardex-modal-close-btn"
+          <CloseButton id="product-cardex-modal-close-btn"
             type="button"
             onClick={onClose}
             className="px-3 py-1.5 bg-white/10 hover:bg-rose-600 text-slate-200 hover:text-white rounded-xl transition border border-white/15 hover:border-rose-500 cursor-pointer flex items-center gap-1.5 text-xs font-bold shrink-0 shadow-xs"
-            title="بستن فرم (ESC)"
-          >
-            <X className="w-4 h-4" />
-            <span>بستن (ESC)</span>
-          </button>
+            title="بستن فرم (ESC)" />
         </div>
 
         {/* Scrollable Body */}
@@ -564,13 +560,9 @@ export const ProductCardexModal: React.FC<ProductCardexModalProps> = ({
           <span className="text-xs text-slate-500 font-medium">
             تعداد رکوردها: {filteredMovements.length} تراکنش
           </span>
-          <button
-            type="button"
+          <CloseButton type="button"
             onClick={onClose}
-            className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition border border-slate-200 cursor-pointer"
-          >
-            بستن فرم (ESC)
-          </button>
+            className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition border border-slate-200 cursor-pointer" variant="outline" label="بستن فرم (ESC)" aria-label="بستن فرم (ESC)" />
         </div>
       </div>
 

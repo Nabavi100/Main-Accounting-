@@ -1,13 +1,14 @@
 import express, { Request, Response } from 'express';
-import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import fs from 'fs';
 import dotenv from 'dotenv';
 import crypto from 'crypto';
+import { createServer as createHttpServer } from 'node:http';
 
 dotenv.config();
 
 const app = express();
+const httpServer = createHttpServer(app);
 const args = process.argv.slice(2);
 let argPort = process.env.PORT;
 for (let i = 0; i < args.length; i++) {
@@ -23,11 +24,34 @@ for (let i = 0; i < args.length; i++) {
 const PORT = parseInt(argPort || '3000', 10);
 const isProd = process.env.NODE_ENV === 'production';
 
+// Packaged desktop traffic is loopback-only and authenticated by the native host.
+// The random token is never exposed to renderer JavaScript or stored on disk.
+const desktopToken = process.env.ACCOUNTING_DESKTOP_TOKEN || '';
+if (desktopToken) {
+  app.use((req, res, next) => {
+    const candidate = req.get('x-nabavi-desktop-token') || '';
+    const expected = Buffer.from(desktopToken);
+    const actual = Buffer.from(candidate);
+    if (actual.length !== expected.length || !crypto.timingSafeEqual(actual, expected)) {
+      res.status(403).json({ error: 'Desktop application access required.' });
+      return;
+    }
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Referrer-Policy', 'same-origin');
+    res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://accounts.google.com https://www.gstatic.com https://www.google.com https://www.recaptcha.net; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: blob: https:; font-src 'self' data: https:; connect-src 'self' https:; frame-src 'self' about: blob: https:; object-src 'none'; base-uri 'self'; form-action 'self' https:");
+    if (req.path.startsWith('/api/')) res.setHeader('Cache-Control', 'no-store');
+    next();
+  });
+  app.get('/api/desktop/health', (_req, res) => {
+    res.json({ appId: 'af.nabavi.accounting', version: process.env.ACCOUNTING_DESKTOP_VERSION || '' });
+  });
+}
+
 app.use(express.json({ limit: '15mb' }));
 app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
 // ================= DATA DIRECTORY & PERSISTENCE =================
-const DATA_DIR = path.resolve(process.cwd(), 'server_data');
+const DATA_DIR = path.resolve(process.env.ACCOUNTING_DATA_DIR || path.join(process.cwd(), 'server_data'));
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
@@ -82,7 +106,6 @@ export interface TelegramLogRecord {
   errorDetails?: string;
 }
 
-const DEFAULT_BOT_TOKEN = '8740100617:AAHDFzQ4DWVhbMk4UWIcQj11IuoaWGsz1-8';
 const DEFAULT_BOT_USERNAME = 'ehw_customer_bot';
 const DEFAULT_BOT_FIRST_NAME = 'customer_bot';
 
@@ -92,7 +115,7 @@ function loadConfig(): TelegramConfig {
       const data = fs.readFileSync(CONFIG_FILE, 'utf-8');
       const parsed = JSON.parse(data);
       if (!parsed.botToken) {
-        parsed.botToken = process.env.TELEGRAM_BOT_TOKEN || DEFAULT_BOT_TOKEN;
+        parsed.botToken = process.env.TELEGRAM_BOT_TOKEN || '';
       }
       if (!parsed.botUsername) {
         parsed.botUsername = DEFAULT_BOT_USERNAME;
@@ -106,13 +129,12 @@ function loadConfig(): TelegramConfig {
     console.error('Error reading config file:', e);
   }
   return {
-    botToken: process.env.TELEGRAM_BOT_TOKEN || DEFAULT_BOT_TOKEN,
+    botToken: process.env.TELEGRAM_BOT_TOKEN || '',
     defaultChatId: '',
     autoPolling: true,
     botUsername: DEFAULT_BOT_USERNAME,
     botFirstName: DEFAULT_BOT_FIRST_NAME,
-    lastTestStatus: 'connected',
-    lastTestedAt: new Date().toISOString(),
+    lastTestStatus: 'idle',
   };
 }
 
@@ -1332,20 +1354,25 @@ app.post('/api/telegram/sync-parties', (req: Request, res: Response) => {
 // ================= VITE / STATIC INTEGRATION =================
 async function initServer() {
   if (!isProd) {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        // Use the application's public port for HMR; no browser-facing localhost service.
+        hmr: process.env.DISABLE_HMR === 'true' ? false : { server: httpServer },
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.resolve(process.cwd(), 'dist');
+    const distPath = path.resolve(process.env.ACCOUNTING_STATIC_DIR || path.join(process.cwd(), 'dist'));
     app.use(express.static(distPath));
     app.get('*', (req: Request, res: Response) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
+  httpServer.listen(PORT, process.env.ACCOUNTING_HOST || '0.0.0.0', () => {
     console.log(`🚀 Accounting Full-Stack Server running on port ${PORT}`);
     startPolling();
   });

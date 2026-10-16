@@ -49,6 +49,7 @@ export type NavTab =
   | 'new_payment'
   | 'payments_list'
   | 'trade_hub'
+  | 'legacy_trade'
   | 'receipt_payment_hub'
   | 'customers'
   | 'warehouses'
@@ -62,7 +63,22 @@ export type NavTab =
   | 'currencies'
   | 'reports'
   | 'audit_log'
-  | 'telegram_manager';
+  | 'telegram_manager'
+  | 'cash_transfer'
+  | 'cash_exchange'
+  | 'cash_transfer_history'
+  | 'cash_log'
+  | 'income_receipt'
+  | 'expense_payment'
+  | 'legacy_receipt'
+  | 'legacy_payment'
+  | 'legacy_receipts_list'
+  | 'legacy_payments_list'
+  | 'settings'
+  | 'appearance'
+  | 'quick_backup'
+  | 'production'
+  | 'company_units';
 
 interface SidebarProps {
   activeTab: NavTab;
@@ -1210,7 +1226,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
               <div className="flex justify-between">
                 <span className="text-slate-500">توسعه و پشتیبانی:</span>
-                <span className="font-bold text-slate-800">تیم مهندسی نرم‌افزار واسعی</span>
+                <span className="font-bold text-slate-800">مدیریت سیستم</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">شماره تماس فوری:</span>

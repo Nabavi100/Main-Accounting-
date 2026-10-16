@@ -1,3 +1,6 @@
+import { CloseButton } from './CloseButton';
+import { usePageReport } from './PageActionsToolbar';
+import { tableReport } from '../utils/reportData';
 import React, { useState } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import { CurrencyDefinition } from '../types';
@@ -183,6 +186,11 @@ export const CurrenciesView: React.FC = () => {
       footerNotes: 'نرخ‌های فوق مبنای ثبت اسناد مالی و تبادله صندوق‌ها در سیستم حسابداری می‌باشد.',
     });
   };
+
+  usePageReport({
+    title: 'جدول نرخ اسعار', onCreate: handleOpenAdd, createLabel: 'ایجاد ارز جدید', search: { value: searchQuery, onChange: setSearchQuery, placeholder: "جستجو در کد، نام ارز یا کاربرد معاملات..." },
+    getReport: () => tableReport('جدول نرخ اسعار', ['کد ارز', 'نام', 'نماد', 'نرخ به AFN', 'نرخ به USD', 'ارز پایه', 'یادداشت'], filteredCurrencies.map(currency => [currency.code, currency.name, currency.symbol, currency.exchangeRateToAFN, currency.exchangeRateToUSD, currency.id === baseCurrency.id ? 'بلی' : 'خیر', currency.notes])),
+  });
 
   return (
     <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto overflow-y-auto">
@@ -411,16 +419,7 @@ export const CurrenciesView: React.FC = () => {
 
       {/* Search & Filter Bar */}
       <div className="bg-white rounded-3xl border border-slate-200 p-4 shadow-xs flex items-center justify-between gap-4">
-        <div className="relative flex-1">
-          <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="جستجو در کد، نام ارز یا کاربرد معاملات..."
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            className="w-full pr-10 pl-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 outline-none focus:bg-white focus:border-emerald-500"
-          />
-        </div>
+
         <span className="text-xs font-bold text-slate-500">
           نمایش {filteredCurrencies.length} از {currencies.length} ارز
         </span>
@@ -592,7 +591,7 @@ export const CurrenciesView: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-5 animate-in fade-in zoom-in-95 duration-150">
             {/* Modal Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100 app-modal-heading">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
                   <Coins className="w-5 h-5" />
@@ -604,12 +603,8 @@ export const CurrenciesView: React.FC = () => {
                   <p className="text-xs text-slate-400">ثبت کد بین‌المللی، نام فارسی، سمبل و نرخ برابری به افغانی</p>
                 </div>
               </div>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <CloseButton onClick={() => setIsModalOpen(false)}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition cursor-pointer" />
             </div>
 
             {/* Modal Form */}

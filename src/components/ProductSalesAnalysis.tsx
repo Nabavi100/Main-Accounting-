@@ -1,3 +1,6 @@
+import { CloseButton } from './CloseButton';
+import { usePageReport } from './PageActionsToolbar';
+import { tableReport } from '../utils/reportData';
 import React, { useState, useMemo, useRef } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import { Product, Invoice, InvoiceItem } from '../types';
@@ -575,10 +578,25 @@ export const ProductSalesAnalysis: React.FC<ProductSalesAnalysisProps> = ({
     window.print();
   };
 
+  usePageReport({
+    title: 'تحلیل فروش کالاها', enabled: !isModal,
+    filters: [
+      { id: 'currency', label: 'ارز', value: currencyFilter, onChange: value => setCurrencyFilter(value as typeof currencyFilter), options: [{ value: 'all', label: 'همه' }, { value: 'AFN', label: 'AFN' }, { value: 'USD', label: 'USD' }] },
+      { id: 'warehouse', label: 'گدام', value: warehouseFilter, onChange: setWarehouseFilter, options: [{ value: 'all', label: 'همه' }, ...warehouses.map(warehouse => ({ value: warehouse.id, label: warehouse.name }))] },
+      { id: 'from', kind: 'date', label: 'از تاریخ', value: startDate, onChange: value => { setDatePreset('custom'); setStartDate(value); } },
+      { id: 'to', kind: 'date', label: 'تا تاریخ', value: endDate, onChange: value => { setDatePreset('custom'); setEndDate(value); } },
+    ],
+    getReport: () => {
+      if (viewTab === 'periods') return tableReport('تحلیل دوره‌ای فروش کالاها', ['دوره', 'کالاها', 'تعداد فاکتور', 'مقدار تن', 'مقدار کیسه', 'فروش AFN', 'فروش USD'], groupedPeriods.map(period => [period.periodLabel, period.productsSold.map(product => product.productName).join('، '), period.invoiceCount, period.totalTons, period.totalBags, period.amountAFN, period.amountUSD]));
+      if (viewTab === 'comparison') return tableReport('مقایسه فروش کالاها', ['کالا', 'گروه', 'تعداد فاکتور', 'مقدار تن', 'مقدار کیسه', 'فروش AFN', 'فروش USD'], perProductBreakdown.map(product => [product.productName, product.category, product.invoiceCount, product.totalTons, product.totalBags, product.amountAFN, product.amountUSD]));
+      return tableReport('ریز اقلام فروش کالاها', ['شماره فاکتور', 'تاریخ', 'خریدار', 'کالا', 'مقدار تن', 'مقدار کیسه', 'قیمت فی واحد', 'واحد', 'مبلغ', 'ارز'], salesItems.map(item => [item.invoiceNumber, item.date, item.partyName, item.productName, item.tons, item.bags, item.unitPrice, item.unit, item.amount, item.currency]));
+    },
+  });
+
   return (
     <div className={`space-y-6 ${isModal ? 'p-6 max-h-[90vh] overflow-y-auto bg-slate-50 rounded-3xl' : ''}`}>
       {/* هدر اصلی ماژول */}
-      <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 app-modal-heading">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-2xl bg-rose-600 text-white flex items-center justify-center font-bold shadow-md shadow-rose-500/20">
             <BarChart2 className="w-6 h-6" />
@@ -618,14 +636,10 @@ export const ProductSalesAnalysis: React.FC<ProductSalesAnalysisProps> = ({
             <span>چاپ گزارش</span>
           </button>
           {isModal && onClose && (
-            <button
-              type="button"
+            <CloseButton type="button"
               onClick={onClose}
               className="p-2 rounded-xl bg-slate-100 hover:bg-rose-50 hover:text-rose-600 text-slate-600 transition cursor-pointer"
-              title="بستن پنجره"
-            >
-              <X className="w-5 h-5" />
-            </button>
+              title="بستن پنجره" />
           )}
         </div>
       </div>
@@ -640,7 +654,7 @@ export const ProductSalesAnalysis: React.FC<ProductSalesAnalysisProps> = ({
               <span>مرحله ۱: مشخص کردن کالا یا کالاها</span>
             </span>
             <div className="flex items-center bg-slate-100 p-1 rounded-2xl gap-1">
-              <button
+              <button aria-pressed={selectionMode === 'single'}
                 type="button"
                 onClick={() => setSelectionMode('single')}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
@@ -652,7 +666,7 @@ export const ProductSalesAnalysis: React.FC<ProductSalesAnalysisProps> = ({
                 <Package className="w-3.5 h-3.5" />
                 <span>یک کالا (تکی)</span>
               </button>
-              <button
+              <button aria-pressed={selectionMode === 'multiple'}
                 type="button"
                 onClick={() => setSelectionMode('multiple')}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
@@ -664,7 +678,7 @@ export const ProductSalesAnalysis: React.FC<ProductSalesAnalysisProps> = ({
                 <Layers className="w-3.5 h-3.5" />
                 <span>چندین کالای مشخص ({selectedMultipleProductIds.length})</span>
               </button>
-              <button
+              <button aria-pressed={selectionMode === 'all'}
                 type="button"
                 onClick={() => setSelectionMode('all')}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
@@ -796,7 +810,7 @@ export const ProductSalesAnalysis: React.FC<ProductSalesAnalysisProps> = ({
                 {filteredProductsForSelection.map(prod => {
                   const isSelected = selectedMultipleProductIds.includes(prod.id);
                   return (
-                    <button
+                    <button aria-pressed={isSelected}
                       type="button"
                       key={prod.id}
                       onClick={() => toggleSelectMultipleProduct(prod.id)}
@@ -842,7 +856,7 @@ export const ProductSalesAnalysis: React.FC<ProductSalesAnalysisProps> = ({
               <span>مرحله ۲: نحوه مشخص کردن فروشات (دوره)</span>
             </label>
             <div className="grid grid-cols-3 gap-1.5 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
-              <button
+              <button aria-pressed={timeBreakdown === 'daily'}
                 type="button"
                 onClick={() => setTimeBreakdown('daily')}
                 className={`py-2 px-2 rounded-xl text-xs font-bold transition cursor-pointer flex flex-col items-center justify-center gap-1 ${
@@ -854,7 +868,7 @@ export const ProductSalesAnalysis: React.FC<ProductSalesAnalysisProps> = ({
                 <Clock className="w-4 h-4" />
                 <span>فروش روزانه</span>
               </button>
-              <button
+              <button aria-pressed={timeBreakdown === 'monthly'}
                 type="button"
                 onClick={() => setTimeBreakdown('monthly')}
                 className={`py-2 px-2 rounded-xl text-xs font-bold transition cursor-pointer flex flex-col items-center justify-center gap-1 ${
@@ -866,7 +880,7 @@ export const ProductSalesAnalysis: React.FC<ProductSalesAnalysisProps> = ({
                 <Calendar className="w-4 h-4" />
                 <span>فروش ماهانه</span>
               </button>
-              <button
+              <button aria-pressed={timeBreakdown === 'yearly'}
                 type="button"
                 onClick={() => setTimeBreakdown('yearly')}
                 className={`py-2 px-2 rounded-xl text-xs font-bold transition cursor-pointer flex flex-col items-center justify-center gap-1 ${
@@ -1021,7 +1035,7 @@ export const ProductSalesAnalysis: React.FC<ProductSalesAnalysisProps> = ({
       {/* تب‌های داخلی برای مشاهده: جدول دوره‌ای / سهم هر کالا / ریز فاکتورها */}
       <div className="flex items-center justify-between border-b border-slate-200 pb-2">
         <div className="flex items-center gap-2">
-          <button
+          <button aria-pressed={viewTab === 'periods'}
             type="button"
             onClick={() => setViewTab('periods')}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
@@ -1037,7 +1051,7 @@ export const ProductSalesAnalysis: React.FC<ProductSalesAnalysisProps> = ({
           </button>
 
           {activeProductIds.length > 1 && (
-            <button
+            <button aria-pressed={viewTab === 'comparison'}
               type="button"
               onClick={() => setViewTab('comparison')}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
@@ -1051,7 +1065,7 @@ export const ProductSalesAnalysis: React.FC<ProductSalesAnalysisProps> = ({
             </button>
           )}
 
-          <button
+          <button aria-pressed={viewTab === 'invoices'}
             type="button"
             onClick={() => setViewTab('invoices')}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${

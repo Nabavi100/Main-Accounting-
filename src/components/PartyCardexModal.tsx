@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { CloseButton } from './CloseButton';
+import React, { useState, useEffect, useMemo, useRef, useId } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import { Party, PartyLedgerEntry, Currency, Invoice, FinancialTransaction } from '../types';
 import { formatNumber, formatCurrency, getPersianDate, isDateInRange, cleanCardexDescription } from '../utils/formatters';
@@ -40,7 +41,9 @@ export const PartyCardexModal: React.FC<PartyCardexModalProps> = ({
   onOpenPaymentModal,
   initialCurrency = 'AFN',
 }) => {
-  const { invoices, transactions, currencies, openPrintModal } = useAccounting();
+  const { invoices, transactions, currencies, openPrintModal, activePrintDoc } = useAccounting();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
 
   // Active Currency Tab ('AFN' | 'USD' | other currency | 'all')
   const [activeTab, setActiveTab] = useState<string>(initialCurrency);
@@ -62,16 +65,36 @@ export const PartyCardexModal: React.FC<PartyCardexModalProps> = ({
     }
   }, [isOpen, party]);
 
+  // The header search can open a cardex without navigating away from an unfinished form.
+  useEffect(() => {
+    if (!isOpen) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const frame = requestAnimationFrame(() => dialogRef.current?.querySelector<HTMLButtonElement>('.app-close-button')?.focus({ preventScroll: true }));
+    return () => {
+      cancelAnimationFrame(frame);
+      requestAnimationFrame(() => {
+        const anotherModal = Array.from(document.querySelectorAll('.app-modal-heading .app-close-button')).some(heading => heading.getClientRects().length);
+        if (previous?.isConnected && !anotherModal && !document.querySelector('dialog[open]')) previous.focus({ preventScroll: true });
+      });
+    };
+  }, [isOpen]);
+
   // Close on Escape key press
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        onClose();
+      if (!isOpen || activePrintDoc || e.defaultPrevented || document.querySelector('dialog[open]')) return;
+      if (e.key === 'Escape') { e.preventDefault(); onClose(); }
+      if (e.key === 'Tab') {
+        const controls = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex="0"]') || []).filter(control => control.getClientRects().length && !control.closest('[hidden], [inert]'));
+        const first = controls[0], last = controls.at(-1);
+        if (!first || !last) return;
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, activePrintDoc]);
 
   // Compute full chronological ledger entries for this party
   const {
@@ -461,6 +484,10 @@ export const PartyCardexModal: React.FC<PartyCardexModalProps> = ({
     >
       <div
         id="party-cardex-modal-container"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         className={`bg-white shadow-2xl border border-slate-200 overflow-hidden flex flex-col ${
           isFullScreen
             ? 'w-full h-full rounded-none border-none max-h-screen'
@@ -469,7 +496,7 @@ export const PartyCardexModal: React.FC<PartyCardexModalProps> = ({
         dir="rtl"
       >
         {/* Header with Navigation & Full-Page Toggle */}
-        <div className="px-6 py-4 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white flex items-center justify-between border-b border-slate-700 shrink-0">
+        <div className="px-6 py-4 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white flex items-center justify-between border-b border-slate-700 shrink-0 app-modal-heading">
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -485,7 +512,7 @@ export const PartyCardexModal: React.FC<PartyCardexModalProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-base sm:text-lg font-black text-white">
+                <h3 id={titleId} className="text-base sm:text-lg font-black text-white">
                   صفحه اختصاصی و کارتکس مالی: {party.name}
                 </h3>
                 {party.code && (
@@ -526,16 +553,11 @@ export const PartyCardexModal: React.FC<PartyCardexModalProps> = ({
               )}
             </button>
 
-            <button
-              id="party-cardex-modal-close-btn"
+            <CloseButton id="party-cardex-modal-close-btn"
               type="button"
               onClick={onClose}
               className="px-3 py-1.5 bg-white/10 hover:bg-rose-600 text-slate-200 hover:text-white rounded-xl transition border border-white/15 hover:border-rose-500 cursor-pointer flex items-center gap-1.5 text-xs font-bold shrink-0 shadow-xs"
-              title="بستن (ESC)"
-            >
-              <X className="w-4 h-4" />
-              <span>بستن</span>
-            </button>
+              title="بستن (ESC)" />
           </div>
         </div>
 
@@ -549,7 +571,7 @@ export const PartyCardexModal: React.FC<PartyCardexModalProps> = ({
               const symbol = getCurrencySymbol(currencyCode);
 
               return (
-                <button
+                <button aria-pressed={isActive}
                   key={currencyCode}
                   type="button"
                   onClick={() => setActiveTab(currencyCode)}
@@ -597,7 +619,7 @@ export const PartyCardexModal: React.FC<PartyCardexModalProps> = ({
             })}
 
             {/* Comprehensive "All Currencies" Tab */}
-            <button
+            <button aria-pressed={activeTab === 'all'}
               type="button"
               onClick={() => setActiveTab('all')}
               className={`px-4 py-2.5 rounded-t-2xl font-bold text-xs sm:text-sm flex items-center gap-2 transition-all relative border-t border-x cursor-pointer ${
@@ -839,7 +861,7 @@ export const PartyCardexModal: React.FC<PartyCardexModalProps> = ({
                 </div>
               </div>
 
-              <button
+              <button aria-pressed={typeFilter === 'exchange'}
                 type="button"
                 onClick={() => setTypeFilter(typeFilter === 'exchange' ? 'all' : 'exchange')}
                 className={`px-3 py-1.5 rounded-xl font-bold text-xs transition cursor-pointer shrink-0 border ${
@@ -1115,13 +1137,9 @@ export const PartyCardexModal: React.FC<PartyCardexModalProps> = ({
               <Printer className="w-3.5 h-3.5 text-slate-600" />
               <span>چاپ صورت‌حساب</span>
             </button>
-            <button
-              type="button"
+            <CloseButton type="button"
               onClick={onClose}
-              className="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition cursor-pointer"
-            >
-              بستن (ESC)
-            </button>
+              className="px-5 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition cursor-pointer" variant="outline" label="بستن (ESC)" aria-label="بستن (ESC)" />
           </div>
         </div>
       </div>

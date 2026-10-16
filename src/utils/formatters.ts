@@ -14,8 +14,8 @@ export const formatNumberEn = (num: number, maximumFractionDigits = 2): string =
   }).format(num);
 };
 
-export const formatCurrency = (amount: number, currency: Currency | string): string => {
-  const formatted = formatNumber(Math.abs(amount));
+export const formatCurrency = (amount: number, currency: Currency | string, maximumFractionDigits = 2): string => {
+  const formatted = formatNumber(Math.abs(amount), maximumFractionDigits);
   if (currency === 'USD') {
     return amount < 0 ? `-$${formatted}` : `$${formatted}`;
   }

@@ -1,0 +1,63 @@
+name: Windows installer
+
+on:
+  push:
+    branches: [arena/b57fb0a6-main-accounting]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-installer-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows-installer:
+    name: Build and test Windows x64 installer
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - name: Check out this exact revision
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+      - name: Download and verify official Electron runtime
+        run: node node_modules/electron/install.js
+      - name: Type check
+        run: npm run lint
+      - name: Unit tests
+        run: npm test
+      - name: Build the complete production app and bundled backend
+        run: npm run desktop:prepare
+      - name: Test native app, real PDF/XLSX saves and data persistence
+        run: npm run test:desktop
+      - name: Create complete offline NSIS installer
+        run: npx electron-builder --config desktop/electron-builder.cjs --win nsis --x64 --publish never
+      - name: Prepare installer, checksum and Persian instructions
+        run: node scripts/finalize-desktop.mjs
+      - name: Install and launch the actual packaged executable
+        run: node tests/installed-desktop-browser-smoke.cjs
+      - name: Upload review installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nabavi-Accounting-Windows-x64
+          path: desktop-release/
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 30
+      - name: Upload synthetic test screenshots and exports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Windows-desktop-test-results
+          path: out/desktop-test-artifacts/
+          if-no-files-found: ignore
+          retention-days: 14

@@ -1,3 +1,4 @@
+import { CloseButton } from './CloseButton';
 import React, { useState, useEffect } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import { Unit, StockTransfer } from '../types';
@@ -139,7 +140,7 @@ export const StockTransferModal: React.FC<StockTransferModalProps> = ({
         className="bg-white rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-2xl border border-slate-200 space-y-5"
       >
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div className="flex items-center justify-between pb-4 border-b border-slate-100 app-modal-heading">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold">
               <Repeat className="w-5 h-5" />
@@ -150,16 +151,11 @@ export const StockTransferModal: React.FC<StockTransferModalProps> = ({
             </div>
           </div>
 
-          <button
-            id="transfer-modal-close-btn"
+          <CloseButton id="transfer-modal-close-btn"
             type="button"
             onClick={onClose}
             className="px-3 py-1.5 bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 rounded-xl transition border border-slate-200 hover:border-rose-200 cursor-pointer flex items-center gap-1.5 text-xs font-bold shrink-0 shadow-2xs"
-            title="بستن فرم (ESC)"
-          >
-            <X className="w-4 h-4" />
-            <span className="hidden sm:inline">بستن (ESC)</span>
-          </button>
+            title="بستن فرم (ESC)" />
         </div>
 
         {/* Transfer Number & Date */}

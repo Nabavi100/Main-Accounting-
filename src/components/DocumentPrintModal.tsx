@@ -1,6 +1,8 @@
+import { CloseButton } from './CloseButton';
+import { PrintIncomeReceipt } from './print/PrintIncomeReceipt';
 import React, { useState, useRef } from 'react';
 import { useAccounting } from '../context/AccountingContext';
-import { PrintableDocumentPayload, InvoiceItem, Invoice, FinancialTransaction, StockTransfer, ExpenseItem } from '../types';
+import { PrintableDocumentPayload, InvoiceItem, Invoice, FinancialTransaction, StockTransfer, ExpenseItem, IncomeItem } from '../types';
 import { formatNumber, formatCurrency, getPersianDate, numberToPersianWords } from '../utils/formatters';
 import { PrintPartyStatement } from './print/PrintPartyStatement';
 import { PrintProductCardex } from './print/PrintProductCardex';
@@ -130,6 +132,10 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
   }, [companySettings]);
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [isPdfSaving, setIsPdfSaving] = useState(false);
+  const pdfSavingRef = useRef(false);
+  const [pdfError, setPdfError] = useState('');
+  React.useEffect(() => { setPdfError(''); }, [document]);
 
   // Escape key handler
   React.useEffect(() => {
@@ -161,6 +167,8 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
     (document.expenseNumber ? (document as unknown as ExpenseItem) : undefined) ||
     ((document as any).rawRecord && ((document as any).rawRecord.expenseNumber || (document as any).rawRecord.recipient) ? (document as any).rawRecord as ExpenseItem : undefined);
 
+  const incData = document.income || (document.incomeNumber ? document as unknown as IncomeItem : undefined) || ((document as any).rawRecord?.incomeNumber ? (document as any).rawRecord as IncomeItem : undefined);
+
   const customContent = document.customContent;
 
   const getSuggestedDocumentFileName = (): string => {
@@ -180,6 +188,8 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
       const dateStr = (invData.date || getPersianDate()).replace(/\//g, '_');
       return `${typeStr}${pName}${invNum}_${dateStr}`;
     }
+
+    if (incData) return `رسید عاید_${incData.incomeNumber || incData.id}_${incData.date.replace(/\//g, '_')}`;
 
     // 3. Payment or Transaction receipt
     if (trxData) {
@@ -242,8 +252,15 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
     }, 100);
   };
 
-  const handleSavePdf = () => {
-    handlePrint();
+  const handleSavePdf = async () => {
+    if (pdfSavingRef.current) return;
+    pdfSavingRef.current = true; setIsPdfSaving(true); setPdfError('');
+    try {
+      const paper = window.document.getElementById('printable-paper-canvas');
+      if (!paper) throw new Error('سند آمادهٔ خروجی نیست.');
+      await (await import('../utils/reportPdf')).downloadElementPdf(paper, getSuggestedDocumentFileName());
+    } catch (error) { setPdfError(error instanceof Error ? error.message : 'ذخیرهٔ فایل PDF انجام نشد.'); }
+    finally { pdfSavingRef.current = false; setIsPdfSaving(false); }
   };
 
   const handleSendToTelegram = async (isManualClick: boolean = true) => {
@@ -399,7 +416,7 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
         dir="rtl"
       >
         {/* Sticky Top Control Bar (Always visible during scrolling) */}
-        <div className="sticky top-0 bg-slate-900 text-white z-50 flex flex-wrap items-center justify-between gap-3 p-3.5 sm:px-5 -mx-4 -mt-4 sm:-mx-5 sm:-mt-5 mb-4 rounded-t-3xl border-b border-slate-700 shadow-md no-print">
+        <div className="sticky top-0 bg-slate-900 text-white z-50 flex flex-wrap items-center justify-between gap-3 p-3.5 sm:px-5 -mx-4 -mt-4 sm:-mx-5 sm:-mt-5 mb-4 rounded-t-3xl border-b border-slate-700 shadow-md no-print app-modal-heading">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
               <FileCheck className="w-5 h-5" />
@@ -455,7 +472,7 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
             {/* Invoice Layout Selector (فاکتور دو تکه، تمام صفحه رسمی، حرارتی) */}
             {(document.type === 'invoice' || !!invData) && (
               <div className="flex items-center bg-white/10 rounded-xl p-0.5 border border-white/10 text-xs">
-                <button
+                <button aria-pressed={invoiceLayout === 'invoice_full'}
                   type="button"
                   onClick={() => setInvoiceLayout('invoice_full')}
                   className={`px-2.5 py-1.5 rounded-lg font-bold transition cursor-pointer flex items-center gap-1 ${
@@ -468,7 +485,7 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
                   <FileText className="w-3.5 h-3.5" />
                   <span>تمام صفحه A4</span>
                 </button>
-                <button
+                <button aria-pressed={invoiceLayout === 'combo_a4'}
                   type="button"
                   onClick={() => setInvoiceLayout('combo_a4')}
                   className={`px-2.5 py-1.5 rounded-lg font-bold transition cursor-pointer flex items-center gap-1 ${
@@ -481,7 +498,7 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
                   <Layers className="w-3.5 h-3.5" />
                   <span>دو تکه (با حواله)</span>
                 </button>
-                <button
+                <button aria-pressed={invoiceLayout === 'thermal'}
                   type="button"
                   onClick={() => setInvoiceLayout('thermal')}
                   className={`px-2.5 py-1.5 rounded-lg font-bold transition cursor-pointer flex items-center gap-1 ${
@@ -514,11 +531,13 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
               id="doc-pdf-execute-btn"
               type="button"
               onClick={handleSavePdf}
+              disabled={isPdfSaving}
+              aria-busy={isPdfSaving}
               className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-xs cursor-pointer active:scale-95"
               title="ذخیره به فرمت فایل PDF"
             >
               <Download className="w-4 h-4" />
-              <span>خروجی PDF</span>
+              <span>{isPdfSaving ? 'در حال ساخت PDF…' : 'خروجی PDF'}</span>
             </button>
 
             {/* Customer Balance Toggle Button (نمایش یا مخفی سازی چاپ الباقی حساب مشتری روی فاکتور) */}
@@ -553,19 +572,15 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
             )}
 
             {/* Close Button */}
-            <button
-              id="document-print-modal-close-btn"
+            <CloseButton id="document-print-modal-close-btn"
               type="button"
               onClick={onClose}
               className="px-3 py-2 bg-white/10 hover:bg-rose-600 text-slate-200 hover:text-white rounded-xl transition border border-white/15 hover:border-rose-500 cursor-pointer flex items-center gap-1 text-xs font-bold shrink-0 active:scale-95"
-              title="بستن فرم (ESC)"
-            >
-              <X className="w-4 h-4" />
-              <span>بستن</span>
-            </button>
+              title="بستن فرم (ESC)" />
           </div>
         </div>
 
+        {pdfError && <p className="page-actions-error no-print" role="alert">{pdfError}</p>}
         {/* Telegram Status Notification Banner */}
         {telegramStatusMsg && (
           <div
@@ -673,6 +688,7 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
               party={document.party}
               partyName={document.customerName || (document.party ? document.party.name : undefined)}
               consignmentMovements={document.consignmentMovements || []}
+              balanceByScope={Boolean(document.balanceByScope)}
               companySettings={companySettings}
               showSignatures={showSignatures}
             />
@@ -709,6 +725,8 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
               showSignatures={showSignatures}
             />
           )}
+
+          {incData && !customContent && <PrintIncomeReceipt income={incData} companySettings={companySettings} showSignatures={showSignatures} />}
 
           {/* 6. EXPENSE VOUCHER */}
           {(document.type === 'expense_voucher' || (!invData && !trxData && !trfData && !customContent && expData)) && expData && (
@@ -915,9 +933,12 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
                     </div>
                   </div>
 
+                  {(trx.discountAmount || 0) > 0 && <div className="text-xs text-slate-700">تخفیف تسویه (غیرنقدی): <strong>{formatCurrency(trx.discountAmount!, trx.currency)}</strong></div>}
+                  {trx.isExchange && typeof trx.cashAmount === 'number' && <div className="text-xs text-slate-700">مبلغ نقدی واقعی صندوق: <strong>{formatCurrency(trx.cashAmount, trx.cashCurrency || trx.currency)}</strong></div>}
+
                   {/* Customer Balance Status on Transaction Receipt */}
                   {partyInfo && (() => {
-                    const partyBal = trx.currency === 'AFN' ? partyInfo.balanceAFN : partyInfo.balanceUSD;
+                    const partyBal = typeof trx.partyBalanceAfter === 'number' ? trx.partyBalanceAfter : trx.currency === 'AFN' ? partyInfo.balanceAFN : partyInfo.balanceUSD;
                     return (
                       <div className="flex items-center justify-between p-2.5 bg-slate-100 rounded-lg border border-slate-300 text-xs">
                         <span className="font-bold text-slate-700">الباقی کل مانده حساب شخص در سیستم:</span>
@@ -1009,9 +1030,7 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
               <div className="relative z-10 space-y-3">
                 <div className="p-3.5 rounded-xl border-2 border-indigo-600 bg-white flex items-center justify-between gap-3 shadow-xs">
                   <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-lg bg-indigo-700 text-white flex items-center justify-center font-black text-xl shadow-xs">
-                      گدام
-                    </div>
+                    {companySettings.logoUrl ? <img src={companySettings.logoUrl} alt={companySettings.name} className="w-12 h-12 object-contain rounded-lg" /> : <div className="w-12 h-12 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center font-black text-xl">{companySettings.logoIconText || 'ن'}</div>}
                     <div>
                       <h1 className="text-sm sm:text-base font-black text-slate-900 tracking-tight">
                         {companySettings.name} • حواله انتقال بین گدام‌ها
@@ -1094,7 +1113,7 @@ export const DocumentPrintModal: React.FC<DocumentPrintModalProps> = ({
           {/* ========================================================================= */}
           {/* 4. FINANCIAL REPORT / LEDGER / CARDS & TABLES                             */}
           {/* ========================================================================= */}
-          {!customContent && !invData && !trxData && !trfData && document.type !== 'party_statement' && document.type !== 'product_cardex' && document.type !== 'customer_consignment_cardex' && document.type !== 'consignment_delivery_slip' && !document.consignmentDelivery && document.type !== 'products_inventory_report' && document.type !== 'cash_transfer_voucher' && document.type !== 'currency_exchange' && (() => {
+          {!customContent && !invData && !expData && !incData && !trxData && !trfData && document.type !== 'party_statement' && document.type !== 'product_cardex' && document.type !== 'customer_consignment_cardex' && document.type !== 'consignment_delivery_slip' && !document.consignmentDelivery && document.type !== 'products_inventory_report' && document.type !== 'cash_transfer_voucher' && document.type !== 'currency_exchange' && (() => {
             const repTitle = document.title || 'گزارش رسمی مالی و کاردکس سیستم';
             const repSubtitle = document.subtitle || `سیستم حسابداری و کاردکس یکپارچه • تاریخ: ${getPersianDate()}`;
             const headers = document.tableHeaders || [];

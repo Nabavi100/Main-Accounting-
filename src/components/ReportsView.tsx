@@ -1,3 +1,7 @@
+import { usePageReport, type ReportFilter } from './PageActionsToolbar';
+import { tableReport, reportPaymentStatus } from '../utils/reportData';
+import { workspacePageTitle } from '../utils/navigation';
+import { projectCompanyCashTransactions } from '../utils/companyCash';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import { Party, Product, Invoice, FinancialTransaction, ExpenseItem, Unit, Currency } from '../types';
@@ -66,6 +70,7 @@ export type ReportSection =
 
 interface ReportsViewProps {
   initialSection?: string;
+  onNavigateSection?: (section: ReportSection) => void;
   onViewInvoice?: (id: string) => void;
   onOpenPaymentModal?: (type: 'receive_payment' | 'make_payment', partyId?: string) => void;
   onOpenTransferModal?: (warehouseId?: string) => void;
@@ -73,6 +78,7 @@ interface ReportsViewProps {
 
 export const ReportsView: React.FC<ReportsViewProps> = ({
   initialSection = 'parties',
+  onNavigateSection,
   onViewInvoice,
   onOpenPaymentModal,
   onOpenTransferModal,
@@ -87,7 +93,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     warehouses,
     products,
     productCategories: definedProductCategories,
-    transactions,
+    transactions: storedTransactions,
     expenses,
     expenseCategories,
     createExpense,
@@ -106,6 +112,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     baseCurrency,
     convertToBase,
   } = useAccounting();
+  const transactions = useMemo(() => projectCompanyCashTransactions(storedTransactions, incomes, expenses), [storedTransactions, incomes, expenses]);
 
   // Normalizer for sub-report section
   const normalizeReportSection = (sec?: string): ReportSection => {
@@ -115,17 +122,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     return sec as ReportSection;
   };
 
-  // Active sub-report section
-  const [activeSection, setActiveSection] = useState<ReportSection>(() =>
-    normalizeReportSection(initialSection)
-  );
-
-  // Synchronize when initialSection prop updates from sidebar
-  useEffect(() => {
-    if (initialSection) {
-      setActiveSection(normalizeReportSection(initialSection));
-    }
-  }, [initialSection]);
+  const activeSection = normalizeReportSection(initialSection);
 
   // Cardex modal targets
   const [selectedPartyForCardex, setSelectedPartyForCardex] = useState<Party | null>(null);
@@ -1123,26 +1120,29 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
   const handleAddExpense = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newExpTitle || newExpAmount <= 0) return;
+    e.stopPropagation();
+    try {
+      if (!newExpTitle || newExpAmount <= 0) return;
 
-    const selectedCat = expenseCategories.find(c => c.id === newExpCategoryId) || expenseCategories[0];
+      const selectedCat = expenseCategories.find(c => c.id === newExpCategoryId) || expenseCategories[0];
 
-    createExpense({
-      title: newExpTitle,
-      categoryId: selectedCat?.id || 'exp-cat-transport',
-      categoryName: selectedCat?.name || 'ترانسپورت و کرایه',
-      amount: newExpAmount,
-      currency: newExpCurrency,
-      date: getPersianDate(),
-      recipient: newExpRecipient || 'متفرقه',
-      cashRegisterId: newExpCurrency === 'USD' ? 'usd_cash' : 'afn_cash',
-      cashRegisterName: newExpCurrency === 'USD' ? 'صندوق شرکت دالری' : 'صندوق پولی افغانی',
-    });
+      createExpense({
+        title: newExpTitle,
+        categoryId: selectedCat?.id || 'exp-cat-transport',
+        categoryName: selectedCat?.name || 'ترانسپورت و کرایه',
+        amount: newExpAmount,
+        currency: newExpCurrency,
+        date: getPersianDate(),
+        recipient: newExpRecipient || 'متفرقه',
+        cashRegisterId: newExpCurrency === 'USD' ? 'usd_cash' : 'afn_cash',
+        cashRegisterName: newExpCurrency === 'USD' ? 'صندوق شرکت دالری' : 'صندوق پولی افغانی',
+      });
 
-    setNewExpTitle('');
-    setNewExpAmount(0);
-    setNewExpRecipient('');
-    setIsAddingExpense(false);
+      setNewExpTitle('');
+      setNewExpAmount(0);
+      setNewExpRecipient('');
+      setIsAddingExpense(false);
+    } catch (error) { window.alert(error instanceof Error ? error.message : 'ذخیرهٔ هزینه انجام نشد.'); }
   };
 
   const totalExpensesAFN = useMemo(() => {
@@ -1416,10 +1416,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           id: `jv-tx-${tx.id}`,
           voucherNo: `VOU-${tx.transactionNumber || tx.id.slice(-6)}`,
           date: tx.date,
-          title: `سند دریافت وجه نقد / تسویه طلبات (${tx.partyName || 'مشتری'})`,
+          title: tx.incomeId ? `سند دریافت عاید (${tx.transactionSubject || tx.partyName})` : `سند دریافت وجه نقد / تسویه طلبات (${tx.partyName || 'مشتری'})`,
           description: tx.notes || `دریافت وجه از طرف حساب ${tx.partyName}`,
           debitTitle: tx.cashRegisterName || (tx.currency === 'USD' ? 'صندوق شرکت دالری' : 'صندوق پولی افغانی'),
-          creditTitle: `حساب‌های دریافتنی (${tx.partyName || 'طرف حساب'})`,
+          creditTitle: tx.incomeId ? 'عواید شرکت' : `حساب‌های دریافتنی (${tx.partyName || 'طرف حساب'})`,
           amount: tx.amount,
           currency: tx.currency,
           type: 'payments',
@@ -1788,6 +1788,61 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
     );
   };
 
+  const reportTitle = workspacePageTitle('reports', activeSection);
+  const currencyOptions = [{ value: 'all', label: 'همه ارزها' }, { value: 'AFN', label: 'AFN' }, { value: 'USD', label: 'USD' }];
+  const reportSearch = activeSection === 'parties' ? { value: partySearchQuery, onChange: setPartySearchQuery, placeholder: "جستجوی نام شخص، شرکت، شماره تماس..." }
+    : activeSection === 'inventory' ? { value: stockSearchQuery, onChange: setStockSearchQuery, placeholder: "جستجوی نام کالا یا کد..." }
+    : activeSection === 'sales' ? { value: salesSearchQuery, onChange: setSalesSearchQuery, placeholder: "جستجوی شماره فاکتور، خریدار، کالا..." }
+    : activeSection === 'purchases' ? { value: buySearchQuery, onChange: setBuySearchQuery, placeholder: "جستجوی شماره فاکتور، فروشنده، کالا..." }
+    : activeSection === 'journal' ? { value: journalSearchQuery, onChange: setJournalSearchQuery, placeholder: "جستجو در اسناد، طرف حساب و شرح..." } : undefined;
+  const reportFilters: ReportFilter[] = activeSection === 'parties' ? [
+    { id: 'status', label: 'وضعیت حساب', value: partyStatusFilter, onChange: value => setPartyStatusFilter(value as typeof partyStatusFilter), options: [{ value: 'all', label: 'همه' }, { value: 'debtors', label: 'بدهکاران' }, { value: 'creditors', label: 'بستانکاران' }, { value: 'settled', label: 'تسویه‌شده' }] },
+    { id: 'group', label: 'گروه', value: partyGroupFilter, onChange: setPartyGroupFilter, options: [{ value: 'all', label: 'همه گروه‌ها' }, ...partyGroups.map(group => ({ value: group.id, label: group.name }))] },
+  ] : activeSection === 'inventory' ? [
+    { id: 'warehouse', label: 'گدام', value: stockWarehouseFilter, onChange: setStockWarehouseFilter, options: [{ value: 'all', label: 'همه' }, ...warehouses.map(warehouse => ({ value: warehouse.id, label: warehouse.name }))] },
+    { id: 'category', label: 'گروه کالا', value: stockCategoryFilter, onChange: setStockCategoryFilter, options: [{ value: 'all', label: 'همه' }, ...productCategories.map(category => ({ value: category, label: category }))] },
+    { id: 'status', label: 'وضعیت موجودی', value: stockStatusFilter, onChange: value => setStockStatusFilter(value as typeof stockStatusFilter), options: [{ value: 'all', label: 'همه' }, { value: 'available', label: 'کافی' }, { value: 'low', label: 'کم' }, { value: 'out', label: 'ناموجود' }] },
+  ] : activeSection === 'sales' || activeSection === 'purchases' ? [
+    { id: 'currency', label: 'ارز', value: activeSection === 'sales' ? salesCurrencyFilter : buyCurrencyFilter, onChange: value => activeSection === 'sales' ? setSalesCurrencyFilter(value as typeof salesCurrencyFilter) : setBuyCurrencyFilter(value as typeof buyCurrencyFilter), options: currencyOptions },
+    { id: 'from', kind: 'date', label: 'از تاریخ', value: activeSection === 'sales' ? salesFromDate : buyFromDate, onChange: activeSection === 'sales' ? setSalesFromDate : setBuyFromDate },
+    { id: 'to', kind: 'date', label: 'تا تاریخ', value: activeSection === 'sales' ? salesToDate : buyToDate, onChange: activeSection === 'sales' ? setSalesToDate : setBuyToDate },
+    { id: 'party', label: 'طرف حساب', value: activeSection === 'sales' ? salesPartyFilter : buyPartyFilter, onChange: activeSection === 'sales' ? setSalesPartyFilter : setBuyPartyFilter, options: [{ value: 'all', label: 'همه' }, ...parties.map(party => ({ value: party.id, label: party.name }))] },
+  ] : activeSection === 'profit_loss' ? [
+    { id: 'period', label: 'دوره مالی', value: pnlPeriod, onChange: value => setPnlPeriod(value as typeof pnlPeriod), options: [{ value: 'all', label: 'همه' }, { value: 'today', label: 'امروز' }, { value: 'month', label: 'ماه جاری' }, { value: 'year', label: 'سال جاری' }, { value: 'custom', label: 'انتخابی' }] },
+    { id: 'from', kind: 'date', label: 'از تاریخ', value: pnlStartDate, onChange: value => { setPnlPeriod('custom'); setPnlStartDate(value); } },
+    { id: 'to', kind: 'date', label: 'تا تاریخ', value: pnlEndDate, onChange: value => { setPnlPeriod('custom'); setPnlEndDate(value); } },
+  ] : activeSection === 'journal' ? [
+    { id: 'type', label: 'نوع سند', value: journalTypeFilter, onChange: value => setJournalTypeFilter(value as typeof journalTypeFilter), options: [{ value: 'all', label: 'همه' }, { value: 'sales', label: 'فروش' }, { value: 'purchases', label: 'خرید' }, { value: 'payments', label: 'دریافت / پرداخت' }, { value: 'expenses', label: 'هزینه' }] },
+  ] : [];
+  usePageReport({
+    title: reportTitle, enabled: !['product_sales', 'fixed_assets', 'shareholders', 'backup'].includes(activeSection), search: reportSearch, filters: reportFilters,
+    onCreate: activeSection === 'expenses' ? () => setIsAddingExpense(true) : undefined, createLabel: 'ایجاد هزینه جدید',
+    getReport: () => {
+      if (activeSection === 'parties') return tableReport(reportTitle, ['کد', 'نام', 'گروه', 'شماره تماس', 'مانده AFN', 'مانده USD'], filteredParties.map(party => [party.code, party.name, party.groupName, party.phone, party.balanceAFN, party.balanceUSD]));
+      if (activeSection === 'inventory') return { title: reportTitle, sections: [
+        { title: 'موجودی کلی کالاهای فیلترشده', headers: ['کد', 'نام کالا', 'گروه', 'حد نصاب تن', 'موجودی کل تن', 'موجودی کل کیسه', 'نرخ خرید AFN / تن', 'نرخ فروش AFN / تن', 'ارزش AFN', 'ارزش USD'], rows: filteredProductsWithStock.map(item => [item.product.code, item.product.name, item.product.category, item.minThreshold, item.overallStock.tons, item.overallStock.bags, item.product.buyPriceAFN, item.product.sellPriceAFN, item.valueAFN, item.valueUSD]) },
+        { title: 'موجودی تفکیکی گدام‌ها', headers: ['کد کالا', 'نام کالا', 'گدام', 'موجودی تن', 'موجودی کیسه'], rows: filteredProductsWithStock.flatMap(item => item.warehouseBreakdown.filter(warehouse => stockWarehouseFilter === 'all' || warehouse.warehouseId === stockWarehouseFilter).map(warehouse => [item.product.code, item.product.name, warehouse.warehouseName, warehouse.tons, warehouse.bags])) },
+      ] };
+      if (activeSection === 'sales' || activeSection === 'purchases') return tableReport(reportTitle, ['شماره فاکتور', 'تاریخ', 'طرف حساب', 'کالاها', 'مبلغ کل', 'پرداخت‌شده', 'باقی‌مانده', 'ارز', 'وضعیت'], (activeSection === 'sales' ? filteredSellInvoices : filteredBuyInvoices).map(invoice => [invoice.invoiceNumber, invoice.date, invoice.partyName, invoice.items.map(item => `${item.productName} — ${item.quantity} ${item.unit}`).join('؛ '), invoice.totalAmount, invoice.paidAmount, invoice.balanceAmount, invoice.currency, reportPaymentStatus(invoice.paymentStatus)]));
+      if (activeSection === 'expenses') return tableReport(reportTitle, ['شماره سند', 'تاریخ', 'عنوان', 'دسته‌بندی', 'دریافت‌کننده', 'مبلغ', 'ارز', 'شرح'], expenses.map(expense => [expense.expenseNumber, expense.date, expense.title, expense.categoryName, expense.recipient || expense.payee, expense.amount, expense.currency, expense.notes]));
+      if (activeSection === 'journal') return tableReport(reportTitle, ['شماره سند', 'تاریخ', 'عنوان', 'شرح', 'حساب بدهکار', 'حساب بستانکار', 'مبلغ', 'ارز'], filteredJournalEntries.map(entry => [entry.voucherNo, entry.date, entry.title, entry.description, entry.debitTitle, entry.creditTitle, entry.amount, entry.currency]));
+      if (activeSection === 'profit_loss') return { ...tableReport(reportTitle, ['شرح', 'ارز', 'مبلغ'], [
+        ['فروش خالص', 'AFN', pnlSalesTotals.totalAFN], ['فروش خالص', 'USD', pnlSalesTotals.totalUSD],
+        ['بهای تمام‌شده کالای فروش‌رفته', 'AFN', cogsCalculations.cogsAFN], ['بهای تمام‌شده کالای فروش‌رفته', 'USD', cogsCalculations.cogsUSD],
+        ['سود ناخالص', 'AFN', grossProfitAFN], ['سود ناخالص', 'USD', grossProfitUSD],
+        ['سایر عواید', 'AFN', pnlIncomesAFN], ['سایر عواید', 'USD', pnlIncomesUSD],
+        ['مصارف عملیاتی', 'AFN', pnlExpensesAFN], ['مصارف عملیاتی', 'USD', pnlExpensesUSD],
+        ['سود / زیان خالص معادل ارز پایه', baseCurrency.code, netProfitBase],
+      ]), metadata: [{ label: 'از تاریخ مؤثر', value: effectivePnlDateRange.from || 'ابتدا' }, { label: 'تا تاریخ مؤثر', value: effectivePnlDateRange.to || 'انتها' }] };
+      return tableReport(reportTitle, ['شرح', 'ارز', 'مبلغ'], [
+        ['نقدینگی صندوق افغانی', 'AFN', cashRegister.afnBalance], ['نقدینگی صندوق دالری', 'USD', cashRegister.usdBalance], ['صندوق دالری صرافی', 'USD', cashRegister.exchangeUsdBalance || 0],
+        ['ارزش موجودی کالا', 'AFN', stockStats.afnValue], ['طلبات مشتریان', 'AFN', partyMetrics.debtAFN], ['طلبات مشتریان', 'USD', partyMetrics.debtUSD],
+        ['جمع دارایی‌ها معادل افغانی', 'AFN', totalAssetsAFN], ['بدهی به تأمین‌کنندگان', 'AFN', partyMetrics.creditAFN], ['بدهی به تأمین‌کنندگان', 'USD', partyMetrics.creditUSD],
+        ['جمع بدهی‌ها معادل افغانی', 'AFN', totalLiabilitiesAFN], ['خالص حقوق سرمایه', 'AFN', netCompanyWorthAFN],
+      ]);
+    },
+  });
+
   return (
     <div className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto overflow-y-auto">
       {/* Top Header & Section Selector Tabs */}
@@ -1796,7 +1851,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           <div>
             <h2 className="text-xl md:text-2xl font-black text-slate-900 flex items-center gap-2.5">
               <FileBarChart className="w-7 h-7 text-indigo-600" />
-              <span>مرکز گزارشات جامع، مانده اشخاص و حسابداری</span>
+              <span>{workspacePageTitle('reports', activeSection)}</span>
             </h2>
             <p className="text-xs text-slate-500 mt-1">
               مشاهده طلبات، بدهیات، موجودی کالاها به تفکیک گدام، گزارش فروش و خرید، سود و زیان، و ترازنامه مالی
@@ -1813,179 +1868,6 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           </div>
         </div>
 
-        {/* Scrollable Sub-Menu Navigation Tabs */}
-        <div className="pt-4 flex items-center gap-2 overflow-x-auto custom-scrollbar no-scrollbar">
-          <button
-            id="tab-btn-parties"
-            onClick={() => setActiveSection('parties')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 shrink-0 cursor-pointer ${
-              activeSection === 'parties'
-                ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-500/20'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span>گزارش و مانده اشخاص (بدهکار/بستانکار)</span>
-            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-black ${activeSection === 'parties' ? 'bg-indigo-700 text-white' : 'bg-slate-200 text-slate-700'}`}>
-              {parties.length}
-            </span>
-          </button>
-
-          <button
-            id="tab-btn-inventory"
-            onClick={() => setActiveSection('inventory')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 shrink-0 cursor-pointer ${
-              activeSection === 'inventory'
-                ? 'bg-emerald-600 text-white shadow-sm shadow-emerald-500/20'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-            }`}
-          >
-            <Boxes className="w-4 h-4" />
-            <span>موجودی کالا (کلی و در گدام‌ها)</span>
-            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-black ${activeSection === 'inventory' ? 'bg-emerald-700 text-white' : 'bg-slate-200 text-slate-700'}`}>
-              {products.length}
-            </span>
-          </button>
-
-          <button
-            id="tab-btn-sales"
-            onClick={() => setActiveSection('sales')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 shrink-0 cursor-pointer ${
-              activeSection === 'sales'
-                ? 'bg-rose-600 text-white shadow-sm shadow-rose-500/20'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-            }`}
-          >
-            <TrendingUp className="w-4 h-4" />
-            <span>گزارش فروشات</span>
-            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-black ${activeSection === 'sales' ? 'bg-rose-700 text-white' : 'bg-slate-200 text-slate-700'}`}>
-              {sellInvoices.length}
-            </span>
-          </button>
-
-          <button
-            id="tab-btn-product-sales"
-            onClick={() => setActiveSection('product_sales')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 shrink-0 cursor-pointer ${
-              activeSection === 'product_sales'
-                ? 'bg-rose-600 text-white shadow-sm shadow-rose-500/20'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-            }`}
-          >
-            <BarChart2 className="w-4 h-4" />
-            <span>فروش کالاها (روزانه/ماهانه/سالانه)</span>
-            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-bold ${activeSection === 'product_sales' ? 'bg-rose-700 text-white' : 'bg-rose-100 text-rose-700'}`}>
-              تحلیلی
-            </span>
-          </button>
-
-          <button
-            id="tab-btn-purchases"
-            onClick={() => setActiveSection('purchases')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 shrink-0 cursor-pointer ${
-              activeSection === 'purchases'
-                ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/20'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-            }`}
-          >
-            <TrendingDown className="w-4 h-4" />
-            <span>گزارش خریدها</span>
-            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono font-black ${activeSection === 'purchases' ? 'bg-blue-700 text-white' : 'bg-slate-200 text-slate-700'}`}>
-              {buyInvoices.length}
-            </span>
-          </button>
-
-          <button
-            id="tab-btn-expenses"
-            onClick={() => setActiveSection('expenses')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 shrink-0 cursor-pointer ${
-              activeSection === 'expenses'
-                ? 'bg-amber-600 text-white shadow-sm shadow-amber-500/20'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-            }`}
-          >
-            <DollarSign className="w-4 h-4" />
-            <span>هزینه‌ها و مصارف</span>
-          </button>
-
-          <button
-            id="tab-btn-profit-loss"
-            onClick={() => setActiveSection('profit_loss')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 shrink-0 cursor-pointer ${
-              activeSection === 'profit_loss'
-                ? 'bg-teal-700 text-white shadow-sm shadow-teal-700/20'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-            }`}
-          >
-            <PieChart className="w-4 h-4" />
-            <span>سود و زیان (P&L)</span>
-          </button>
-
-          <button
-            id="tab-btn-balance-sheet"
-            onClick={() => setActiveSection('balance_sheet')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 shrink-0 cursor-pointer ${
-              activeSection === 'balance_sheet'
-                ? 'bg-slate-900 text-white shadow-sm shadow-slate-900/20'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-            }`}
-          >
-            <Calculator className="w-4 h-4" />
-            <span>ترازنامه و بیلاننس</span>
-          </button>
-
-          <button
-            id="tab-btn-journal"
-            onClick={() => setActiveSection('journal')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 shrink-0 cursor-pointer ${
-              activeSection === 'journal'
-                ? 'bg-purple-600 text-white shadow-sm shadow-purple-500/20'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-            }`}
-          >
-            <FileText className="w-4 h-4" />
-            <span>اسناد حسابداری</span>
-          </button>
-
-          <button
-            id="tab-btn-fixed-assets"
-            onClick={() => setActiveSection('fixed_assets')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 shrink-0 cursor-pointer ${
-              activeSection === 'fixed_assets'
-                ? 'bg-violet-600 text-white shadow-sm shadow-violet-500/20'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-            }`}
-          >
-            <Building className="w-4 h-4" />
-            <span>دارایی‌های ثابت</span>
-          </button>
-
-          <button
-            id="tab-btn-shareholders"
-            onClick={() => setActiveSection('shareholders')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 shrink-0 cursor-pointer ${
-              activeSection === 'shareholders'
-                ? 'bg-cyan-700 text-white shadow-sm shadow-cyan-700/20'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-            }`}
-          >
-            <Briefcase className="w-4 h-4" />
-            <span>امور سهامداران</span>
-          </button>
-
-          <button
-            id="tab-btn-backup"
-            onClick={() => setActiveSection('backup')}
-            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition flex items-center gap-2 shrink-0 cursor-pointer ${
-              activeSection === 'backup'
-                ? 'bg-slate-800 text-white shadow-sm'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-            }`}
-          >
-            <Download className="w-4 h-4" />
-            <span>پشتیبان‌گیری</span>
-          </button>
-        </div>
       </div>
 
       {/* ========================================================================= */}
@@ -1998,7 +1880,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             {/* Debtors in AFN & USD (Money owed to us) */}
             <div className="bg-white p-5 rounded-3xl border border-rose-200/80 shadow-xs space-y-2 bg-gradient-to-br from-rose-50/40 via-white to-white relative group">
               <div className="flex items-center justify-between text-xs font-bold text-rose-700">
-                <span>طلبات ما از مشتریان (بدهکاران)</span>
+                <span>بدهکاران به ما</span>
                 <div className="flex items-center gap-1.5">
                   <span className="text-[10px] bg-rose-100 text-rose-800 px-2 py-0.5 rounded-full font-mono">
                     {partyMetrics.totalDebtorsCount} نفر
@@ -2037,7 +1919,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             {/* Creditors in AFN & USD (Money we owe to suppliers) */}
             <div className="bg-white p-5 rounded-3xl border border-blue-200/80 shadow-xs space-y-2 bg-gradient-to-br from-blue-50/40 via-white to-white relative group">
               <div className="flex items-center justify-between text-xs font-bold text-blue-700">
-                <span>بدهی ما به تأمین‌کنندگان (بستانکاران)</span>
+                <span>طلبکاران از ما</span>
                 <div className="flex items-center gap-1.5">
                   <span className="text-[10px] bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-mono">
                     {partyMetrics.totalCreditorsCount} نفر
@@ -2113,20 +1995,11 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
           <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-xs space-y-4">
             <div className="flex flex-col md:flex-row items-center justify-between gap-4">
               {/* Search input */}
-              <div className="relative w-full md:w-80">
-                <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="جستجوی نام شخص، شرکت، شماره تماس..."
-                  value={partySearchQuery}
-                  onChange={e => setPartySearchQuery(e.target.value)}
-                  className="w-full pl-3 pr-10 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50 focus:bg-white"
-                />
-              </div>
+
 
               {/* Status Filter Buttons */}
               <div className="flex items-center gap-1.5 w-full md:w-auto overflow-x-auto">
-                <button
+                <button aria-pressed={partyStatusFilter === 'all'}
                   onClick={() => setPartyStatusFilter('all')}
                   className={`px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 ${
                     partyStatusFilter === 'all'
@@ -2136,7 +2009,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 >
                   همه ({parties.length})
                 </button>
-                <button
+                <button aria-pressed={partyStatusFilter === 'debtors'}
                   onClick={() => setPartyStatusFilter('debtors')}
                   className={`px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 ${
                     partyStatusFilter === 'debtors'
@@ -2146,7 +2019,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 >
                   بدهکاران به ما ({partyMetrics.totalDebtorsCount})
                 </button>
-                <button
+                <button aria-pressed={partyStatusFilter === 'creditors'}
                   onClick={() => setPartyStatusFilter('creditors')}
                   className={`px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 ${
                     partyStatusFilter === 'creditors'
@@ -2156,7 +2029,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 >
                   بستانکاران از ما ({partyMetrics.totalCreditorsCount})
                 </button>
-                <button
+                <button aria-pressed={partyStatusFilter === 'settled'}
                   onClick={() => setPartyStatusFilter('settled')}
                   className={`px-3 py-2 rounded-xl text-xs font-bold transition cursor-pointer shrink-0 ${
                     partyStatusFilter === 'settled'
@@ -2499,7 +2372,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 </div>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <button
+                <button aria-pressed={stockStatusFilter === 'low'}
                   onClick={() => setStockStatusFilter(stockStatusFilter === 'low' ? 'all' : 'low')}
                   className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs ${
                     stockStatusFilter === 'low'
@@ -2563,7 +2436,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 const hasLow = cat.lowCount > 0;
 
                 return (
-                  <button
+                  <button aria-pressed={isSelected}
                     type="button"
                     key={cat.name}
                     id={`category-stock-card-${cat.name.replace(/\s+/g, '-')}`}
@@ -2651,16 +2524,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
 
           {/* Search and Category Filters */}
           <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-xs flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="relative w-full md:w-80">
-              <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                placeholder="جستجوی نام کالا یا کد..."
-                value={stockSearchQuery}
-                onChange={e => setStockSearchQuery(e.target.value)}
-                className="w-full pl-3 pr-10 py-2.5 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50 focus:bg-white"
-              />
-            </div>
+
 
             <div className="flex items-center gap-3 w-full md:w-auto overflow-x-auto">
               <select
@@ -2963,7 +2827,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             </div>
             <button
               type="button"
-              onClick={() => setActiveSection('product_sales')}
+              onClick={() => onNavigateSection?.('product_sales')}
               className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shrink-0 shadow-xs"
             >
               <TrendingUp className="w-4 h-4" />
@@ -3007,16 +2871,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             {/* Detailed Select Filters */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5 pt-2 border-t border-slate-100">
               {/* Search query */}
-              <div className="relative sm:col-span-2">
-                <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="جستجوی شماره فاکتور، خریدار، کالا..."
-                  value={salesSearchQuery}
-                  onChange={e => setSalesSearchQuery(e.target.value)}
-                  className="w-full pl-3 pr-9 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-rose-500 bg-slate-50 focus:bg-white"
-                />
-              </div>
+
 
               {/* Party / Customer filter */}
               <select
@@ -3295,16 +3150,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             {/* Detailed Select Filters */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5 pt-2 border-t border-slate-100">
               {/* Search query */}
-              <div className="relative sm:col-span-2">
-                <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="جستجوی شماره فاکتور، فروشنده، کالا..."
-                  value={buySearchQuery}
-                  onChange={e => setBuySearchQuery(e.target.value)}
-                  className="w-full pl-3 pr-9 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 focus:bg-white"
-                />
-              </div>
+
 
               {/* Party / Supplier filter */}
               <select
@@ -3719,7 +3565,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               </span>
 
               <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
-                <button
+                <button aria-pressed={pnlPeriod === 'all'}
                   type="button"
                   onClick={() => setPnlPeriod('all')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
@@ -3728,7 +3574,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 >
                   همه دوره‌ها (کل)
                 </button>
-                <button
+                <button aria-pressed={pnlPeriod === 'today'}
                   type="button"
                   onClick={() => setPnlPeriod('today')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
@@ -3737,7 +3583,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 >
                   امروز
                 </button>
-                <button
+                <button aria-pressed={pnlPeriod === 'month'}
                   type="button"
                   onClick={() => setPnlPeriod('month')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
@@ -3746,7 +3592,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 >
                   این ماه
                 </button>
-                <button
+                <button aria-pressed={pnlPeriod === 'year'}
                   type="button"
                   onClick={() => setPnlPeriod('year')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
@@ -3755,7 +3601,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                 >
                   سال جاری
                 </button>
-                <button
+                <button aria-pressed={pnlPeriod === 'custom'}
                   type="button"
                   onClick={() => setPnlPeriod('custom')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
@@ -4047,7 +3893,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       {activeSection === 'journal' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between bg-slate-100 p-1 rounded-2xl w-fit">
-            <button
+            <button aria-pressed={journalDisplayMode === 'comprehensive'}
               type="button"
               onClick={() => setJournalDisplayMode('comprehensive')}
               className={`px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer ${
@@ -4058,7 +3904,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             >
               روزنامچه جامع رویدادها و تراکنش‌ها (طرح شیک و زنده)
             </button>
-            <button
+            <button aria-pressed={journalDisplayMode === 'double_entry'}
               type="button"
               onClick={() => setJournalDisplayMode('double_entry')}
               className={`px-4 py-2 rounded-xl text-xs font-black transition cursor-pointer ${
@@ -4088,49 +3934,40 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               </div>
 
               <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-                <div className="relative flex-1 md:w-56">
-                  <Search className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="جستجو در اسناد، طرف حساب و شرح..."
-                    value={journalSearchQuery}
-                    onChange={e => setJournalSearchQuery(e.target.value)}
-                    className="w-full pl-3 pr-8 py-1.5 bg-white border border-slate-200 rounded-xl text-xs"
-                  />
-                </div>
+
 
                 <div className="flex items-center gap-1 bg-slate-200/60 p-0.5 rounded-xl text-[11px] font-bold">
-                  <button
+                  <button aria-pressed={journalTypeFilter === 'all'}
                     onClick={() => setJournalTypeFilter('all')}
                     className={`px-2.5 py-1 rounded-lg transition ${journalTypeFilter === 'all' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}`}
                   >
                     همه
                   </button>
-                  <button
+                  <button aria-pressed={journalTypeFilter === 'sales'}
                     onClick={() => setJournalTypeFilter('sales')}
                     className={`px-2.5 py-1 rounded-lg transition ${journalTypeFilter === 'sales' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}`}
                   >
                     فروش
                   </button>
-                  <button
+                  <button aria-pressed={journalTypeFilter === 'purchases'}
                     onClick={() => setJournalTypeFilter('purchases')}
                     className={`px-2.5 py-1 rounded-lg transition ${journalTypeFilter === 'purchases' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}`}
                   >
                     خرید
                   </button>
-                  <button
+                  <button aria-pressed={journalTypeFilter === 'payments'}
                     onClick={() => setJournalTypeFilter('payments')}
                     className={`px-2.5 py-1 rounded-lg transition ${journalTypeFilter === 'payments' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}`}
                   >
                     دریافت/پرداخت
                   </button>
-                  <button
+                  <button aria-pressed={journalTypeFilter === 'expenses'}
                     onClick={() => setJournalTypeFilter('expenses')}
                     className={`px-2.5 py-1 rounded-lg transition ${journalTypeFilter === 'expenses' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}`}
                   >
                     مصارف
                   </button>
-                  <button
+                  <button aria-pressed={journalTypeFilter === 'exchange'}
                     onClick={() => setJournalTypeFilter('exchange')}
                     className={`px-2.5 py-1 rounded-lg transition ${journalTypeFilter === 'exchange' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600'}`}
                   >

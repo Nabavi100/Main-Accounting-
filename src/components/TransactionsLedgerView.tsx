@@ -1,3 +1,7 @@
+import { CloseButton } from './CloseButton';
+import { usePageReport } from './PageActionsToolbar';
+import { tableReport } from '../utils/reportData';
+import { ownedCompanyCashSource } from '../utils/companyCash';
 import React, { useState, useMemo } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import {
@@ -205,6 +209,7 @@ export const TransactionsLedgerView: React.FC<TransactionsLedgerViewProps> = ({
 
     // B. Financial Transactions (Payments, Receipts, Transfers, Exchanges)
     transactions.forEach(tx => {
+      if (ownedCompanyCashSource(tx, incomes, expenses)) return;
       const fromAcc = cashAccounts.find(a => a.id === tx.fromCashRegister || a.id === tx.cashRegister);
       const toAcc = cashAccounts.find(a => a.id === tx.toCashRegister);
 
@@ -620,6 +625,16 @@ export const TransactionsLedgerView: React.FC<TransactionsLedgerViewProps> = ({
     window.print();
   };
 
+  usePageReport({
+    title: 'دفتر کل تراکنش‌ها', enabled: activeDomainTab !== 'itemized', search: { value: searchQuery, onChange: setSearchQuery, placeholder: "جستجوی شماره سند، نام طرف حساب، کالا یا شرح..." },
+    filters: [
+      { id: 'currency', label: 'ارز', value: filterCurrency, onChange: value => setFilterCurrency(value as typeof filterCurrency), options: [{ value: 'all', label: 'همه' }, { value: 'AFN', label: 'AFN' }, { value: 'USD', label: 'USD' }] },
+      { id: 'party', label: 'طرف حساب', value: filterPartyId, onChange: setFilterPartyId, options: [{ value: 'all', label: 'همه' }, ...parties.map(party => ({ value: party.id, label: party.name }))] },
+      { id: 'period', label: 'بازه زمانی', value: filterDateRange, onChange: value => setFilterDateRange(value as typeof filterDateRange), options: [{ value: 'all', label: 'همه' }, { value: 'today', label: 'امروز' }, { value: '7days', label: '۷ روز اخیر' }, { value: '30days', label: '۳۰ روز اخیر' }] },
+    ],
+    getReport: () => tableReport('دفتر کل تراکنش‌ها', ['شماره سند', 'تاریخ', 'نوع', 'طرف حساب', 'شرح', 'مبلغ / مقدار', 'ارز / واحد', 'جزئیات', 'حساب مبدأ', 'حساب مقصد', 'وضعیت'], filteredOperations.map(operation => [operation.docNumber, operation.date, operation.kindLabel, operation.partyName, operation.description, operation.primaryAmount, operation.currency, operation.secondaryDetail, operation.sourceAccount, operation.targetAccount, operation.status])),
+  });
+
   return (
     <div className="space-y-6 animate-fadeIn pb-12" dir="rtl">
       {/* 1. Header & Quick Actions */}
@@ -799,7 +814,7 @@ export const TransactionsLedgerView: React.FC<TransactionsLedgerViewProps> = ({
       {/* 3. Multi-Domain Navigation Tabs */}
       <div className="bg-white rounded-2xl p-2 border border-slate-200 shadow-xs">
         <div className="flex flex-wrap gap-1.5 text-xs font-bold">
-          <button
+          <button aria-pressed={activeDomainTab === 'all'}
             type="button"
             onClick={() => setActiveDomainTab('all')}
             className={`px-4 py-2.5 rounded-xl transition flex items-center gap-2 cursor-pointer ${
@@ -812,7 +827,7 @@ export const TransactionsLedgerView: React.FC<TransactionsLedgerViewProps> = ({
             <span>همه عملیات‌ها و تراکنش‌ها ({unifiedOperations.length})</span>
           </button>
 
-          <button
+          <button aria-pressed={activeDomainTab === 'invoices'}
             type="button"
             onClick={() => setActiveDomainTab('invoices')}
             className={`px-4 py-2.5 rounded-xl transition flex items-center gap-2 cursor-pointer ${
@@ -825,7 +840,7 @@ export const TransactionsLedgerView: React.FC<TransactionsLedgerViewProps> = ({
             <span>فاکتورهای فروش و خرید ({invoices.length})</span>
           </button>
 
-          <button
+          <button aria-pressed={activeDomainTab === 'payments'}
             type="button"
             onClick={() => setActiveDomainTab('payments')}
             className={`px-4 py-2.5 rounded-xl transition flex items-center gap-2 cursor-pointer ${
@@ -836,11 +851,11 @@ export const TransactionsLedgerView: React.FC<TransactionsLedgerViewProps> = ({
           >
             <DollarSign className="w-4 h-4 text-emerald-500" />
             <span>
-              دریافت و پرداخت نقدی ({transactions.filter(t => t.type === 'receive_payment' || t.type === 'make_payment').length})
+              دریافت و پرداخت نقدی ({transactions.filter(t => (t.type === 'receive_payment' || t.type === 'make_payment') && !ownedCompanyCashSource(t, incomes, expenses)).length})
             </span>
           </button>
 
-          <button
+          <button aria-pressed={activeDomainTab === 'transfers'}
             type="button"
             onClick={() => setActiveDomainTab('transfers')}
             className={`px-4 py-2.5 rounded-xl transition flex items-center gap-2 cursor-pointer ${
@@ -855,7 +870,7 @@ export const TransactionsLedgerView: React.FC<TransactionsLedgerViewProps> = ({
             </span>
           </button>
 
-          <button
+          <button aria-pressed={activeDomainTab === 'expenses_incomes'}
             type="button"
             onClick={() => setActiveDomainTab('expenses_incomes')}
             className={`px-4 py-2.5 rounded-xl transition flex items-center gap-2 cursor-pointer ${
@@ -868,7 +883,7 @@ export const TransactionsLedgerView: React.FC<TransactionsLedgerViewProps> = ({
             <span>مصارف و عواید ({expenses.length + incomes.length})</span>
           </button>
 
-          <button
+          <button aria-pressed={activeDomainTab === 'stock_transfers'}
             type="button"
             onClick={() => setActiveDomainTab('stock_transfers')}
             className={`px-4 py-2.5 rounded-xl transition flex items-center gap-2 cursor-pointer ${
@@ -886,16 +901,7 @@ export const TransactionsLedgerView: React.FC<TransactionsLedgerViewProps> = ({
       {/* 4. Filter Toolbar */}
       <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs">
         {/* Search */}
-        <div className="relative">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            placeholder="جستجوی شماره سند، نام طرف حساب، کالا یا شرح..."
-            className="w-full pl-3 pr-9 py-2.5 rounded-xl border border-slate-300 text-slate-800 text-xs focus:outline-hidden focus:ring-2 focus:ring-blue-500"
-          />
-          <Search className="w-4 h-4 text-slate-400 absolute right-3 top-3 pointer-events-none" />
-        </div>
+
 
         {/* Currency Filter */}
         <div>
@@ -1159,15 +1165,11 @@ export const TransactionsLedgerView: React.FC<TransactionsLedgerViewProps> = ({
             onSubmit={handleSaveExpenseEdit}
             className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4"
           >
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 app-modal-heading">
               <h3 className="text-base font-black text-slate-900">ویرایش سند مصرف و هزینه</h3>
-              <button
-                type="button"
+              <CloseButton type="button"
                 onClick={() => setIsEditExpenseModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg" />
             </div>
 
             <div>
@@ -1264,15 +1266,11 @@ export const TransactionsLedgerView: React.FC<TransactionsLedgerViewProps> = ({
             onSubmit={handleSaveIncomeEdit}
             className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4"
           >
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 app-modal-heading">
               <h3 className="text-base font-black text-slate-900">ویرایش سند عاید و درآمد متفرقه</h3>
-              <button
-                type="button"
+              <CloseButton type="button"
                 onClick={() => setIsEditIncomeModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg" />
             </div>
 
             <div>

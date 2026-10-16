@@ -110,6 +110,8 @@ export interface ExpenseItem {
   cashRegisterId?: string; // صندوق پرداختی
   cashRegisterName?: string;
   notes?: string; // توضیحات و بارنامه
+  issueTime?: string;
+  createdByName?: string;
   createdAt: string;
 }
 
@@ -138,6 +140,8 @@ export interface IncomeItem {
   cashRegisterId?: string; // صندوق واریزی (صندوق افغانی، صندوق دالری و...)
   cashRegisterName?: string;
   notes?: string; // توضیحات تکمیلی
+  issueTime?: string;
+  createdByName?: string;
   createdAt: string;
 }
 
@@ -277,6 +281,8 @@ export interface Invoice {
   consignmentWarehouseId?: string; // گدام مقصد امانی در معاملات امانی
   consignmentWarehouseName?: string; // نام گدام مقصد امانی
   exchangeRate?: number; // نرخ تسعیر نسبت به ارز پایه
+  exchangeRateBaseCurrency?: Currency; // ارز پایهٔ نرخ ثبت‌شده؛ جلوگیری از تفسیر اشتباه نرخ‌های قدیمی
+  usdToAfnRate?: number; // نرخ تاریخیِ نمایشی و بدون ابهام: هر ۱ دلار چند افغانی
   shippingCost?: number; // کرایه خروجی (+)
   tax?: number; // مالیات و عوارض قانونی
   extraExpenses?: Array<{
@@ -286,6 +292,8 @@ export interface Invoice {
     title: string;
     currency: Currency;
     amount: number;
+    exchangeRateToInvoice?: number; // نرخ تاریخی تبدیل هزینه به ارز همین فاکتور
+    amountInInvoiceCurrency?: number; // مبلغ تبدیل‌شده، با حفظ مبلغ و ارز اصلی
   }>;
   extraExpensesTotal?: number; // مجموع هزینه‌های جانبی
   paymentType?: 'cash' | 'credit' | 'hybrid' | string; // نوع پرداخت: نقدی، قرضه، ترکیبی
@@ -405,6 +413,17 @@ export interface FinancialTransaction {
   description: string;
   notes?: string;
   trackingNumber?: string;
+  discountAmount?: number; // تخفیف تسویه در ارز حساب شخص؛ پول نقد نیست
+  transactionSubject?: string;
+  treasuryCategory?: 'personal' | 'refund' | 'transfer' | 'income' | 'expense';
+  createdByName?: string;
+  partyBalanceBefore?: number;
+  partyBalanceAfter?: number;
+  quoteToBase?: number;
+  usdToAfnRate?: number; // نرخ تاریخی هر ۱ دلار به افغانی، مستقل از جهت تبدیل سند
+  exchangeRateBaseCurrency?: Currency;
+  incomeId?: string; // سند اصلی عاید؛ تراکنش فقط نمای گردش نقدی است
+  expenseId?: string; // سند اصلی هزینه؛ جلوگیری از ثبت دوبارهٔ اثر صندوق
   invoiceId?: string;
   createdAt: string;
 }
@@ -516,6 +535,10 @@ export interface ConsignmentMovement {
   type: 'deposit' | 'withdrawal' | 'return'; // ورودی امانی، تحویل/خروج به مشتری، برگشت
   documentType: 'invoice' | 'delivery_slip' | 'return_slip' | 'manual';
   documentNumber: string;
+  invoiceId?: string; // فاکتورِ تخصیص امانت، در صورت وجود
+  invoiceItemId?: string;
+  unit?: Unit;
+  bagWeightKg?: number; // ضریب بسته‌بندی در زمان حواله
   quantityTons: number;
   quantityBags: number;
   driverName?: string;

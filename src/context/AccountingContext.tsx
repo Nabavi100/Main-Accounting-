@@ -1,3 +1,8 @@
+import { matchesUserPassword } from "../utils/authentication";
+import { companyCashAccountId, companyCashNumber, companyCashTransaction, duplicateCompanyCashNumber, isCompanyCashMirror, nextCompanyCashNumber, ownedCompanyCashSource, syncCompanyCashTransaction, validateCompanyCashDocument, type CompanyCashDocument, type CompanyCashKind } from '../utils/companyCash';
+import { consignmentBalanceFor, consignmentHoldings, consignmentLots, consignmentSign, consignmentStockPost, consignmentTransfer, isInvoiceConsignmentMovement, roundConsignment, validateConsignmentMovement } from '../utils/consignment';
+import { applyTransactionParties, applyTransactionCashAccounts, applyTransactionCashRegister } from '../utils/transactionLedger';
+import { normalizeCompanyBranding } from '../utils/companyBranding';
 import React, { createContext, useContext, useState, useEffect, useMemo, useRef } from 'react';
 import {
   Product,
@@ -32,6 +37,7 @@ import {
   ExpenseDefinition,
   AuditLogEntry,
   ConsignmentMovement,
+  InvoiceItem,
 } from '../types';
 import {
   initialProducts,
@@ -61,6 +67,7 @@ import {
   initialAuditLogs,
 } from '../data/initialData';
 import { getCurrentTime, getPersianDate, getTodayDate } from '../utils/formatters';
+import { addInvoiceLedgerAmount, createTradeEntityId, applyInvoiceCashAccounts, applyInvoiceCashRegister, applyInvoicePartyBalance, invoiceCashAccountId, invoiceCashDirection, invoiceStockDirection } from '../utils/invoiceLedger';
 import { ExpenseCategory, ExpenseItem, IncomeCategory, IncomeItem } from '../types';
 import { syncPartiesToBackend } from '../services/telegramApiService';
 import {
@@ -120,7 +127,7 @@ interface AccountingContextType {
   // Incomes & Secondary Revenues (عواید، فروش کیسه سیمان، پالت و درآمدهای جانبی)
   incomes: IncomeItem[];
   incomeCategories: IncomeCategory[];
-  createIncome: (income: Omit<IncomeItem, 'id' | 'createdAt' | 'incomeNumber'>) => IncomeItem;
+  createIncome: (income: Omit<IncomeItem, 'id' | 'createdAt' | 'incomeNumber'> & { incomeNumber?: string }) => IncomeItem;
   updateIncome: (id: string, income: Partial<IncomeItem>) => void;
   deleteIncome: (id: string) => void;
   addIncomeCategory: (category: Omit<IncomeCategory, 'id' | 'createdAt'>) => IncomeCategory;
@@ -330,15 +337,7 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        const nameVal = parsed?.name?.trim();
-        const effectiveName = (!nameVal || nameVal === 'حسابداری پیشرفته تجارتی و گدام‌داری')
-          ? 'شرکت تجارتی برادران نبوی'
-          : nameVal;
-        return {
-          ...initialCompanySettings,
-          ...parsed,
-          name: effectiveName,
-        };
+        return normalizeCompanyBranding(parsed, initialCompanySettings);
       } catch (e) {
         return initialCompanySettings;
       }
@@ -723,7 +722,7 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Helper to determine if a deal type is a consignment transaction
   const isConsignmentDealType = (dealType?: string, dealTypeLabel?: string): boolean => {
-    const dt = (dealType || dealTypeLabel || '').toLowerCase();
+    const dt = [dealType, dealTypeLabel].filter(Boolean).join(' ').toLowerCase();
     return dt.includes('امانی') || dt.includes('consignment');
   };
 
@@ -749,6 +748,30 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     return found;
   };
 
+  const invoiceConsignmentWarehouse = (invoice: Invoice) => {
+    const originIsConsigned = warehouses.some(warehouse => warehouse.id === invoice.warehouseId && warehouse.type !== 'standard');
+    return getConsignmentWarehouse(invoice.consignmentWarehouseId || (originIsConsigned ? invoice.warehouseId : undefined), invoice.warehouseId);
+  };
+  const invoiceHasConsignment = (invoice: Invoice): boolean => isConsignmentDealType(invoice.dealType, invoice.dealTypeLabel) || warehouses.some(warehouse => warehouse.type !== 'standard' && (warehouse.id === invoice.warehouseId || warehouse.id === invoice.consignmentWarehouseId));
+  const invoiceSourceWarehouse = (invoice: Invoice, item: InvoiceItem, consignment: boolean): string => {
+    if (!consignment) return item.warehouseId || invoice.warehouseId;
+    const standard = (id?: string) => warehouses.some(warehouse => warehouse.id === id && warehouse.type === 'standard');
+    return standard(item.warehouseId) ? item.warehouseId! : standard(invoice.warehouseId) ? invoice.warehouseId : warehouses.find(warehouse => warehouse.type === 'standard')?.id || item.warehouseId || invoice.warehouseId;
+  };
+  const consignmentInvoiceGuard = (old: Invoice, next?: Invoice): string | null => {
+    const consumed = consignmentLots(consignmentMovements, invoices).filter(lot => lot.invoiceId === old.id && (lot.totalOutTons > .000001 || lot.totalOutBags > .000001));
+    if (!consumed.length) return null;
+    if (!next) return 'از این فاکتور حوالهٔ خروج صادر شده است؛ ابتدا حواله‌های مرتبط را برگشت دهید.';
+    const oldWarehouse = invoiceConsignmentWarehouse(old)?.id;
+    const nextWarehouse = invoiceConsignmentWarehouse(next)?.id;
+    if (next.partyId !== old.partyId || next.type !== old.type || !invoiceHasConsignment(next) || oldWarehouse !== nextWarehouse) return 'پس از تحویل بار، تغییر مشتری یا گدام فاکتور نیازمند برگشت حواله‌های مرتبط است.';
+    for (const lot of consumed) {
+      const items = next.items.filter(item => item.productId === lot.productId);
+      if (items.reduce((sum, item) => sum + item.tonsCount, 0) + .000001 < lot.totalOutTons || items.reduce((sum, item) => sum + item.bagsCount, 0) + .000001 < lot.totalOutBags) return 'مقدار فاکتور نمی‌تواند از بار تحویل‌شدهٔ آن کمتر شود.';
+    }
+    return null;
+  };
+
   // Auto-reconcile consignment transfers & stock for any existing consignment invoices
   useEffect(() => {
     if (!invoices || invoices.length === 0) return;
@@ -762,7 +785,7 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     let stocksToAdjust: { warehouseId: string; productId: string; deltaTons: number; deltaBags: number }[] = [];
 
     consignmentInvoices.forEach(inv => {
-      const targetWh = getConsignmentWarehouse(inv.consignmentWarehouseId, inv.warehouseId);
+      const targetWh = invoiceConsignmentWarehouse(inv);
       const targetWhId = targetWh?.id || 'wh-2';
       const targetWhName = targetWh?.name || 'گدام امانی';
       const sourceWh = warehouses.find(w => w.id === inv.warehouseId);
@@ -844,7 +867,7 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const updateCompanySettings = (newSettings: Partial<CompanySettings>) => {
     try {
       const prev = companySettings;
-      const updated = { ...prev, ...newSettings };
+      const updated = { ...prev, ...newSettings, name: newSettings.name?.trim() || prev.name };
       setCompanySettings(updated);
 
       setTimeout(() => {
@@ -902,7 +925,8 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   // ================= AUTOMATIC SEQUENTIAL DOCUMENT NUMBER GENERATORS =================
   const issuedInvoiceNumbersRef = useRef<Record<string, number>>({});
   const issuedTransactionNumbersRef = useRef<Record<string, number>>({});
-  const issuedExpenseNumbersRef = useRef<number>(0);
+  const expensesRef = useRef(expenses); expensesRef.current = expenses;
+  const incomesRef = useRef(incomes); incomesRef.current = incomes;
   const issuedPartyCodeRef = useRef<number>(0);
   const issuedTransferNumbersRef = useRef<number>(0);
 
@@ -1079,39 +1103,7 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   // 5. Expenses (Expense voucher: EXP-001, EXP-002...)
-  const getNextExpenseNumber = (): string => {
-    try {
-      const prefix = 'EXP';
-      let maxSequence = 0;
-
-      (expenses || []).forEach(ex => {
-        if (!ex || !ex.expenseNumber) return;
-        const exNumStr = String(ex.expenseNumber);
-        const match = exNumStr.match(/(?:Exp|EXP)?[-_]?(\d+)$/i);
-        if (match) {
-          const val = parseInt(match[1], 10);
-          if (!isNaN(val) && val > maxSequence) {
-            maxSequence = val;
-          }
-        } else {
-          const allDigits = exNumStr.replace(/\D/g, '');
-          if (allDigits) {
-            const val = parseInt(allDigits.slice(-4), 10);
-            if (!isNaN(val) && val > maxSequence) {
-              maxSequence = val;
-            }
-          }
-        }
-      });
-
-      const nextVal = Math.max(maxSequence, issuedExpenseNumbersRef.current || 0) + 1;
-      issuedExpenseNumbersRef.current = nextVal;
-      return `${prefix}-${String(nextVal).padStart(3, '0')}`;
-    } catch (err) {
-      console.error('Error generating expense number:', err);
-      return 'EXP-001';
-    }
-  };
+  const getNextExpenseNumber = (): string => nextCompanyCashNumber(expensesRef.current, 'expense');
 
   // 6. Consignment Delivery Slips (CSG-001, CSG-002...)
   const getNextConsignmentDocNumber = (): string => {
@@ -1172,7 +1164,7 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return updatedInv;
     }
 
-    const newId = 'inv-' + Date.now();
+    const newId = createTradeEntityId('inv');
     const newInvoice: Invoice = {
       ...invoiceData,
       id: newId,
@@ -1229,15 +1221,15 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           if (sourceIdx >= 0) {
             updated[sourceIdx] = {
               ...updated[sourceIdx],
-              quantityTons: Math.max(0, updated[sourceIdx].quantityTons + sourceDeltaTons),
-              quantityBags: Math.max(0, updated[sourceIdx].quantityBags + sourceDeltaBags),
+              quantityTons: addInvoiceLedgerAmount(updated[sourceIdx].quantityTons, sourceDeltaTons),
+              quantityBags: addInvoiceLedgerAmount(updated[sourceIdx].quantityBags, sourceDeltaBags),
             };
           } else {
             updated.push({
               warehouseId: sourceWhId,
               productId: item.productId,
-              quantityTons: Math.max(0, sourceDeltaTons),
-              quantityBags: Math.max(0, sourceDeltaBags),
+              quantityTons: sourceDeltaTons,
+              quantityBags: sourceDeltaBags,
             });
           }
 
@@ -1248,15 +1240,15 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           if (cIdx >= 0) {
             updated[cIdx] = {
               ...updated[cIdx],
-              quantityTons: Math.max(0, updated[cIdx].quantityTons + cDeltaTons),
-              quantityBags: Math.max(0, updated[cIdx].quantityBags + cDeltaBags),
+              quantityTons: addInvoiceLedgerAmount(updated[cIdx].quantityTons, cDeltaTons),
+              quantityBags: addInvoiceLedgerAmount(updated[cIdx].quantityBags, cDeltaBags),
             };
           } else {
             updated.push({
               warehouseId: targetConsignmentWhId,
               productId: item.productId,
-              quantityTons: Math.max(0, cDeltaTons),
-              quantityBags: Math.max(0, cDeltaBags),
+              quantityTons: cDeltaTons,
+              quantityBags: cDeltaBags,
             });
           }
         } else {
@@ -1270,8 +1262,8 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             const current = updated[existingIdx];
             updated[existingIdx] = {
               ...current,
-              quantityTons: current.quantityTons + deltaTons,
-              quantityBags: current.quantityBags + deltaBags,
+              quantityTons: addInvoiceLedgerAmount(current.quantityTons, deltaTons),
+              quantityBags: addInvoiceLedgerAmount(current.quantityBags, deltaBags),
             };
           } else {
             updated.push({
@@ -1333,6 +1325,10 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         const isSale = newInvoice.type === 'sell';
         return {
           id: `csg-inv-${newId}-${item.productId || idx}`,
+          invoiceId: newId,
+          invoiceItemId: item.id,
+          unit: item.unit,
+          bagWeightKg: item.bagsCount > 0 ? item.tonsCount * 1000 / item.bagsCount : undefined,
           partyId: newInvoice.partyId,
           partyName: newInvoice.partyName,
           partyPhone: newInvoice.partyPhone || party?.phone,
@@ -1342,7 +1338,7 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           productName: item.productName,
           date: newInvoice.date,
           issueTime: newInvoice.issueTime || getCurrentTime(),
-          type: isSale ? 'deposit' : 'withdrawal',
+          type: isSale ? 'deposit' : newInvoice.type === 'return_sell' ? 'return' : 'withdrawal',
           documentType: 'invoice',
           documentNumber: resolvedInvoiceNumber,
           quantityTons: item.tonsCount,
@@ -1359,70 +1355,15 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       }
     }
 
-    // 3. Update party balances
-    if (newInvoice.partyId) {
-      setParties(prevParties =>
-        prevParties.map(party => {
-          if (party.id !== newInvoice.partyId) return party;
-
-          const remainingDue = newInvoice.balanceAmount;
-          if (newInvoice.type === 'sell') {
-            if (newInvoice.currency === 'AFN') {
-              return { ...party, balanceAFN: party.balanceAFN - remainingDue };
-            } else {
-              return { ...party, balanceUSD: party.balanceUSD - remainingDue };
-            }
-          } else if (newInvoice.type === 'return_sell') {
-            // Returning goods from sales decreases customer debt (or increases credit)
-            if (newInvoice.currency === 'AFN') {
-              return { ...party, balanceAFN: party.balanceAFN + remainingDue };
-            } else {
-              return { ...party, balanceUSD: party.balanceUSD + remainingDue };
-            }
-          } else if (newInvoice.type === 'buy') {
-            if (newInvoice.currency === 'AFN') {
-              return { ...party, balanceAFN: party.balanceAFN + remainingDue };
-            } else {
-              return { ...party, balanceUSD: party.balanceUSD + remainingDue };
-            }
-          } else if (newInvoice.type === 'return_buy') {
-            // Returning goods to supplier reduces our payable to supplier
-            if (newInvoice.currency === 'AFN') {
-              return { ...party, balanceAFN: party.balanceAFN - remainingDue };
-            } else {
-              return { ...party, balanceUSD: party.balanceUSD - remainingDue };
-            }
-          }
-          return party;
-        })
-      );
-    }
+    // 3. Update party balances using the same signs that edit/delete reverse.
+    if (newInvoice.partyId) setParties(prev => applyInvoicePartyBalance(prev, newInvoice));
 
     // 4. Update Cash Register & Cash Accounts and record Financial Transaction
     if (newInvoice.paidAmount > 0) {
-      const reg = newInvoice.cashRegister || newInvoice.cashRegisterId || (newInvoice.currency === 'AFN' ? 'afn_cash' : 'usd_cash');
-      const isCashIn = newInvoice.type === 'sell' || newInvoice.type === 'return_buy';
-      const delta = isCashIn ? newInvoice.paidAmount : -newInvoice.paidAmount;
-
-      setCashRegister(prev => {
-        if (reg === 'afn_cash') {
-          return { ...prev, afnBalance: Math.max(0, prev.afnBalance + delta) };
-        } else if (reg === 'usd_cash') {
-          return { ...prev, usdBalance: Math.max(0, prev.usdBalance + delta) };
-        } else if (reg === 'exchange_usd_cash') {
-          return { ...prev, exchangeUsdBalance: Math.max(0, (prev.exchangeUsdBalance || 0) + delta) };
-        }
-        return prev;
-      });
-
-      setCashAccounts(prev =>
-        prev.map(acc => {
-          if (acc.id === reg) {
-            return { ...acc, balance: Math.max(0, acc.balance + delta) };
-          }
-          return acc;
-        })
-      );
+      const reg = invoiceCashAccountId(newInvoice);
+      const isCashIn = invoiceCashDirection(newInvoice.type) > 0;
+      setCashRegister(prev => applyInvoiceCashRegister(prev, newInvoice));
+      setCashAccounts(prev => applyInvoiceCashAccounts(prev, newInvoice));
 
       // Auto-create linked transaction in transactions register
       const txType: TransactionType = isCashIn ? 'receive_payment' : 'make_payment';
@@ -1481,17 +1422,19 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   function updateInvoice(updatedInvoice: Invoice) {
     const oldInvoice = invoices.find(i => i.id === updatedInvoice.id);
     if (!oldInvoice) return;
+    const consignmentError = consignmentInvoiceGuard(oldInvoice, updatedInvoice);
+    if (consignmentError) { notify('error', consignmentError); throw new Error(consignmentError); }
 
     // 1. Revert old stock changes, apply new stock changes
-    const oldIsConsignment = isConsignmentDealType(oldInvoice.dealType, oldInvoice.dealTypeLabel);
+    const oldIsConsignment = invoiceHasConsignment(oldInvoice);
     const oldConsignmentWh = oldIsConsignment
-      ? getConsignmentWarehouse(oldInvoice.consignmentWarehouseId, oldInvoice.warehouseId)
+      ? invoiceConsignmentWarehouse(oldInvoice)
       : null;
     const oldConsignmentWhId = oldConsignmentWh?.id || 'wh-2';
 
-    const newIsConsignment = isConsignmentDealType(updatedInvoice.dealType, updatedInvoice.dealTypeLabel);
+    const newIsConsignment = invoiceHasConsignment(updatedInvoice);
     const newConsignmentWh = newIsConsignment
-      ? getConsignmentWarehouse(updatedInvoice.consignmentWarehouseId, updatedInvoice.warehouseId)
+      ? invoiceConsignmentWarehouse(updatedInvoice)
       : null;
     const newConsignmentWhId = newConsignmentWh?.id || 'wh-2';
 
@@ -1499,26 +1442,27 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       let updated = [...prevStocks];
       // Revert old
       oldInvoice.items.forEach(item => {
-        const idx = updated.findIndex(s => s.warehouseId === item.warehouseId && s.productId === item.productId);
-        const deltaTons = oldInvoice.type === 'buy' ? -item.tonsCount : item.tonsCount;
-        const deltaBags = oldInvoice.type === 'buy' ? -item.bagsCount : item.bagsCount;
+        const sourceId = invoiceSourceWarehouse(oldInvoice, item, oldIsConsignment);
+        const idx = updated.findIndex(s => s.warehouseId === sourceId && s.productId === item.productId);
+        const deltaTons = -invoiceStockDirection(oldInvoice.type) * item.tonsCount;
+        const deltaBags = -invoiceStockDirection(oldInvoice.type) * item.bagsCount;
         if (idx >= 0) {
           updated[idx] = {
             ...updated[idx],
-            quantityTons: Math.max(0, updated[idx].quantityTons + deltaTons),
-            quantityBags: Math.max(0, updated[idx].quantityBags + deltaBags),
+            quantityTons: addInvoiceLedgerAmount(updated[idx].quantityTons, deltaTons),
+            quantityBags: addInvoiceLedgerAmount(updated[idx].quantityBags, deltaBags),
           };
         }
 
-        if (oldIsConsignment && oldConsignmentWhId && oldConsignmentWhId !== item.warehouseId) {
-          const cRevertDeltaTons = oldInvoice.type === 'sell' ? -item.tonsCount : item.tonsCount;
-          const cRevertDeltaBags = oldInvoice.type === 'sell' ? -item.bagsCount : item.bagsCount;
+        if (oldIsConsignment && oldConsignmentWhId && oldConsignmentWhId !== sourceId) {
+          const cRevertDeltaTons = invoiceStockDirection(oldInvoice.type) * item.tonsCount;
+          const cRevertDeltaBags = invoiceStockDirection(oldInvoice.type) * item.bagsCount;
           const cIdx = updated.findIndex(s => s.warehouseId === oldConsignmentWhId && s.productId === item.productId);
           if (cIdx >= 0) {
             updated[cIdx] = {
               ...updated[cIdx],
-              quantityTons: Math.max(0, updated[cIdx].quantityTons + cRevertDeltaTons),
-              quantityBags: Math.max(0, updated[cIdx].quantityBags + cRevertDeltaBags),
+              quantityTons: addInvoiceLedgerAmount(updated[cIdx].quantityTons, cRevertDeltaTons),
+              quantityBags: addInvoiceLedgerAmount(updated[cIdx].quantityBags, cRevertDeltaBags),
             };
           }
         }
@@ -1526,33 +1470,34 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
       // Apply new
       updatedInvoice.items.forEach(item => {
-        const idx = updated.findIndex(s => s.warehouseId === item.warehouseId && s.productId === item.productId);
-        const deltaTons = updatedInvoice.type === 'buy' ? item.tonsCount : -item.tonsCount;
-        const deltaBags = updatedInvoice.type === 'buy' ? item.bagsCount : -item.bagsCount;
+        const sourceId = invoiceSourceWarehouse(updatedInvoice, item, newIsConsignment);
+        const idx = updated.findIndex(s => s.warehouseId === sourceId && s.productId === item.productId);
+        const deltaTons = invoiceStockDirection(updatedInvoice.type) * item.tonsCount;
+        const deltaBags = invoiceStockDirection(updatedInvoice.type) * item.bagsCount;
         if (idx >= 0) {
           updated[idx] = {
             ...updated[idx],
-            quantityTons: Math.max(0, updated[idx].quantityTons + deltaTons),
-            quantityBags: Math.max(0, updated[idx].quantityBags + deltaBags),
+            quantityTons: addInvoiceLedgerAmount(updated[idx].quantityTons, deltaTons),
+            quantityBags: addInvoiceLedgerAmount(updated[idx].quantityBags, deltaBags),
           };
-        } else if (updatedInvoice.type === 'buy') {
+        } else {
           updated.push({
-            warehouseId: item.warehouseId,
+            warehouseId: sourceId,
             productId: item.productId,
-            quantityTons: item.tonsCount,
-            quantityBags: item.bagsCount,
+            quantityTons: deltaTons,
+            quantityBags: deltaBags,
           });
         }
 
-        if (newIsConsignment && newConsignmentWhId && newConsignmentWhId !== item.warehouseId) {
-          const cApplyDeltaTons = updatedInvoice.type === 'sell' ? item.tonsCount : -item.tonsCount;
-          const cApplyDeltaBags = updatedInvoice.type === 'sell' ? item.bagsCount : -item.bagsCount;
+        if (newIsConsignment && newConsignmentWhId && newConsignmentWhId !== sourceId) {
+          const cApplyDeltaTons = -invoiceStockDirection(updatedInvoice.type) * item.tonsCount;
+          const cApplyDeltaBags = -invoiceStockDirection(updatedInvoice.type) * item.bagsCount;
           const cIdx = updated.findIndex(s => s.warehouseId === newConsignmentWhId && s.productId === item.productId);
           if (cIdx >= 0) {
             updated[cIdx] = {
               ...updated[cIdx],
-              quantityTons: Math.max(0, updated[cIdx].quantityTons + cApplyDeltaTons),
-              quantityBags: Math.max(0, updated[cIdx].quantityBags + cApplyDeltaBags),
+              quantityTons: addInvoiceLedgerAmount(updated[cIdx].quantityTons, cApplyDeltaTons),
+              quantityBags: addInvoiceLedgerAmount(updated[cIdx].quantityBags, cApplyDeltaBags),
             };
           } else {
             updated.push({
@@ -1574,12 +1519,13 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
       const sourceWh = warehouses.find(w => w.id === updatedInvoice.warehouseId);
       const autoTransfers: StockTransfer[] = updatedInvoice.items
-        .filter(item => item.warehouseId !== newConsignmentWhId)
+        .filter(item => invoiceSourceWarehouse(updatedInvoice, item, newIsConsignment) !== newConsignmentWhId)
         .map((item, idx) => {
           const isSale = updatedInvoice.type === 'sell';
-          const fromWhId = isSale ? item.warehouseId : newConsignmentWhId;
+          const sourceId = invoiceSourceWarehouse(updatedInvoice, item, newIsConsignment);
+          const fromWhId = isSale ? sourceId : newConsignmentWhId;
           const fromWhName = isSale ? (item.warehouseName || sourceWh?.name || 'گدام مبدا') : (newConsignmentWh?.name || 'گدام امانی');
-          const toWhId = isSale ? newConsignmentWhId : item.warehouseId;
+          const toWhId = isSale ? newConsignmentWhId : sourceId;
           const toWhName = isSale ? (newConsignmentWh?.name || 'گدام امانی') : (item.warehouseName || sourceWh?.name || 'گدام مبدا');
           const actionText = isSale ? 'ارسال امانی' : 'برگشت کالای امانی';
 
@@ -1609,72 +1555,34 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       return [...autoTransfers, ...filtered];
     });
 
-    // 2. Revert old party balances, apply new
-    setParties(prevParties =>
-      prevParties.map(party => {
-        let p = { ...party };
-        if (p.id === oldInvoice.partyId) {
-          const oldRem = oldInvoice.balanceAmount;
-          if (oldInvoice.type === 'sell') {
-            if (oldInvoice.currency === 'AFN') p.balanceAFN += oldRem;
-            else p.balanceUSD += oldRem;
-          } else {
-            if (oldInvoice.currency === 'AFN') p.balanceAFN -= oldRem;
-            else p.balanceUSD -= oldRem;
-          }
-        }
-        if (p.id === updatedInvoice.partyId) {
-          const newRem = updatedInvoice.balanceAmount;
-          if (updatedInvoice.type === 'sell') {
-            if (updatedInvoice.currency === 'AFN') p.balanceAFN -= newRem;
-            else p.balanceUSD -= newRem;
-          } else {
-            if (updatedInvoice.currency === 'AFN') p.balanceAFN += newRem;
-            else p.balanceUSD -= newRem;
-          }
-        }
-        return p;
-      })
-    );
-
-    // 3. Revert old cash, apply new cash
-    const oldReg = oldInvoice.cashRegister || oldInvoice.cashRegisterId || (oldInvoice.currency === 'AFN' ? 'afn_cash' : 'usd_cash');
-    const oldDelta = oldInvoice.type === 'sell' ? -oldInvoice.paidAmount : oldInvoice.paidAmount;
-    const newReg = updatedInvoice.cashRegister || updatedInvoice.cashRegisterId || (updatedInvoice.currency === 'AFN' ? 'afn_cash' : 'usd_cash');
-    const newDelta = updatedInvoice.type === 'sell' ? updatedInvoice.paidAmount : -updatedInvoice.paidAmount;
-
-    setCashRegister(prev => {
-      const next = { ...prev };
-      if (oldInvoice.paidAmount > 0) {
-        if (oldReg === 'afn_cash') next.afnBalance = Math.max(0, next.afnBalance + oldDelta);
-        else if (oldReg === 'usd_cash') next.usdBalance = Math.max(0, next.usdBalance + oldDelta);
-        else if (oldReg === 'exchange_usd_cash') next.exchangeUsdBalance = Math.max(0, (next.exchangeUsdBalance || 0) + oldDelta);
-      }
-      if (updatedInvoice.paidAmount > 0) {
-        if (newReg === 'afn_cash') next.afnBalance = Math.max(0, next.afnBalance + newDelta);
-        else if (newReg === 'usd_cash') next.usdBalance = Math.max(0, next.usdBalance + newDelta);
-        else if (newReg === 'exchange_usd_cash') next.exchangeUsdBalance = Math.max(0, (next.exchangeUsdBalance || 0) + newDelta);
-      }
-      return next;
+    setConsignmentMovements(prev => {
+      const oldRows = prev.filter(row => row.documentType === 'invoice' && (row.invoiceId === updatedInvoice.id || row.id.startsWith(`csg-inv-${updatedInvoice.id}-`)));
+      const rest = prev.filter(row => !oldRows.some(old => old.id === row.id));
+      if (!newIsConsignment) return rest;
+      const rows: ConsignmentMovement[] = updatedInvoice.items.map((item, index) => {
+        const existing = oldRows.find(row => row.productId === item.productId);
+        return { id: `csg-inv-${updatedInvoice.id}-${item.productId || index}`, invoiceId: updatedInvoice.id, invoiceItemId: item.id, partyId: updatedInvoice.partyId, partyName: updatedInvoice.partyName, partyPhone: updatedInvoice.partyPhone, warehouseId: newConsignmentWhId, warehouseName: newConsignmentWh?.name, productId: item.productId, productName: item.productName, date: updatedInvoice.date, issueTime: updatedInvoice.issueTime, type: updatedInvoice.type === 'sell' ? 'deposit' : updatedInvoice.type === 'return_sell' ? 'return' : 'withdrawal', documentType: 'invoice', documentNumber: updatedInvoice.invoiceNumber, unit: item.unit, bagWeightKg: item.bagsCount > 0 ? item.tonsCount * 1000 / item.bagsCount : undefined, quantityTons: item.tonsCount, quantityBags: item.bagsCount, notes: existing?.notes || `تخصیص امانت از فاکتور #${updatedInvoice.invoiceNumber}`, createdAt: existing?.createdAt || updatedInvoice.createdAt };
+      });
+      return [...rows, ...rest];
     });
 
-    setCashAccounts(prev =>
-      prev.map(acc => {
-        let b = acc.balance;
-        if (oldInvoice.paidAmount > 0 && acc.id === oldReg) b += oldDelta;
-        if (updatedInvoice.paidAmount > 0 && acc.id === newReg) b += newDelta;
-        return { ...acc, balance: Math.max(0, b) };
-      })
-    );
+    // 2. Reverse the old document, then post the replacement (including a changed party/currency).
+    setParties(prev => applyInvoicePartyBalance(applyInvoicePartyBalance(prev, oldInvoice, true), updatedInvoice));
+
+    // 3. Reverse cash exactly; zero clamps would manufacture money on a later deletion.
+    const newReg = invoiceCashAccountId(updatedInvoice);
+    setCashRegister(prev => applyInvoiceCashRegister(applyInvoiceCashRegister(prev, oldInvoice, true), updatedInvoice));
+    setCashAccounts(prev => applyInvoiceCashAccounts(applyInvoiceCashAccounts(prev, oldInvoice, true), updatedInvoice));
 
     // Update linked financial transaction in transactions list
     setTransactions(prev => {
+      const linkedTransaction = prev.find(t => t.invoiceId === updatedInvoice.id || t.id === 'tx-inv-' + updatedInvoice.id);
       const filtered = prev.filter(t => t.invoiceId !== updatedInvoice.id && t.id !== 'tx-inv-' + updatedInvoice.id);
       if (updatedInvoice.paidAmount > 0) {
-        const txType: TransactionType = updatedInvoice.type === 'sell' ? 'receive_payment' : 'make_payment';
+        const txType: TransactionType = invoiceCashDirection(updatedInvoice.type) > 0 ? 'receive_payment' : 'make_payment';
         const autoTx: FinancialTransaction = {
           id: 'tx-inv-' + updatedInvoice.id,
-          transactionNumber: getNextTransactionNumber(txType),
+          transactionNumber: linkedTransaction?.type === txType ? linkedTransaction.transactionNumber : getNextTransactionNumber(txType),
           date: updatedInvoice.date,
           issueTime: updatedInvoice.issueTime || getCurrentTime(),
           type: txType,
@@ -1686,11 +1594,12 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
           currency: updatedInvoice.currency,
           cashRegister: newReg,
           description:
-            updatedInvoice.type === 'sell'
-              ? `دریافت نقدی بابت فاکتور فروش #${updatedInvoice.invoiceNumber}`
-              : `پرداخت نقدی بابت فاکتور خرید #${updatedInvoice.invoiceNumber}`,
+            updatedInvoice.type === 'sell' ? `دریافت نقدی بابت فاکتور فروش #${updatedInvoice.invoiceNumber}`
+              : updatedInvoice.type === 'buy' ? `پرداخت نقدی بابت فاکتور خرید #${updatedInvoice.invoiceNumber}`
+              : updatedInvoice.type === 'return_sell' ? `استرداد وجه بابت برگشت از فروش #${updatedInvoice.invoiceNumber}`
+              : `دریافت وجه بابت برگشت از خرید #${updatedInvoice.invoiceNumber}`,
           invoiceId: updatedInvoice.id,
-          createdAt: new Date().toISOString(),
+          createdAt: linkedTransaction?.createdAt || new Date().toISOString(),
         };
         return [autoTx, ...filtered];
       }
@@ -1723,6 +1632,8 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const deleteInvoice = (id: string) => {
     const inv = invoices.find(i => i.id === id);
     if (inv) {
+      const consignmentError = consignmentInvoiceGuard(inv);
+      if (consignmentError) { notify('error', consignmentError); return; }
       const invTypeName = inv.type === 'sell' ? 'فروش' : inv.type === 'buy' ? 'خرید' : 'مرجوعی';
 
       // Add Audit Log Entry for Deletion
@@ -1744,35 +1655,36 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       );
 
       // Revert stock changes (including consignment warehouse)
-      const isConsignment = isConsignmentDealType(inv.dealType, inv.dealTypeLabel);
+      const isConsignment = invoiceHasConsignment(inv);
       const consignmentWh = isConsignment
-        ? getConsignmentWarehouse(inv.consignmentWarehouseId, inv.warehouseId)
+        ? invoiceConsignmentWarehouse(inv)
         : null;
       const consignmentWhId = consignmentWh?.id || 'wh-2';
 
       setStocks(prevStocks => {
         let updated = [...prevStocks];
         inv.items.forEach(item => {
-          const idx = updated.findIndex(s => s.warehouseId === item.warehouseId && s.productId === item.productId);
-          const deltaTons = inv.type === 'buy' ? -item.tonsCount : item.tonsCount;
-          const deltaBags = inv.type === 'buy' ? -item.bagsCount : item.bagsCount;
+          const sourceId = invoiceSourceWarehouse(inv, item, isConsignment);
+          const idx = updated.findIndex(s => s.warehouseId === sourceId && s.productId === item.productId);
+          const deltaTons = -invoiceStockDirection(inv.type) * item.tonsCount;
+          const deltaBags = -invoiceStockDirection(inv.type) * item.bagsCount;
           if (idx >= 0) {
             updated[idx] = {
               ...updated[idx],
-              quantityTons: Math.max(0, updated[idx].quantityTons + deltaTons),
-              quantityBags: Math.max(0, updated[idx].quantityBags + deltaBags),
+              quantityTons: addInvoiceLedgerAmount(updated[idx].quantityTons, deltaTons),
+              quantityBags: addInvoiceLedgerAmount(updated[idx].quantityBags, deltaBags),
             };
           }
 
-          if (isConsignment && consignmentWhId && consignmentWhId !== item.warehouseId) {
-            const cRevertDeltaTons = inv.type === 'sell' ? -item.tonsCount : item.tonsCount;
-            const cRevertDeltaBags = inv.type === 'sell' ? -item.bagsCount : item.bagsCount;
+          if (isConsignment && consignmentWhId && consignmentWhId !== sourceId) {
+            const cRevertDeltaTons = invoiceStockDirection(inv.type) * item.tonsCount;
+            const cRevertDeltaBags = invoiceStockDirection(inv.type) * item.bagsCount;
             const cIdx = updated.findIndex(s => s.warehouseId === consignmentWhId && s.productId === item.productId);
             if (cIdx >= 0) {
               updated[cIdx] = {
                 ...updated[cIdx],
-                quantityTons: Math.max(0, updated[cIdx].quantityTons + cRevertDeltaTons),
-                quantityBags: Math.max(0, updated[cIdx].quantityBags + cRevertDeltaBags),
+                quantityTons: addInvoiceLedgerAmount(updated[cIdx].quantityTons, cRevertDeltaTons),
+                quantityBags: addInvoiceLedgerAmount(updated[cIdx].quantityBags, cRevertDeltaBags),
               };
             }
           }
@@ -1783,47 +1695,10 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
       // Remove linked consignment transfers
       setTransfers(prev => prev.filter(t => !t.id.startsWith(`trf-inv-${id}`)));
 
-      // Revert party balances
-      if (inv.partyId) {
-        setParties(prevParties =>
-          prevParties.map(party => {
-            if (party.id !== inv.partyId) return party;
-            const remainingDue = inv.balanceAmount;
-            if (inv.type === 'sell') {
-              return inv.currency === 'AFN'
-                ? { ...party, balanceAFN: party.balanceAFN + remainingDue }
-                : { ...party, balanceUSD: party.balanceUSD + remainingDue };
-            } else {
-              return inv.currency === 'AFN'
-                ? { ...party, balanceAFN: party.balanceAFN - remainingDue }
-                : { ...party, balanceUSD: party.balanceUSD - remainingDue };
-            }
-          })
-        );
-      }
-
-      // Revert cash balances
-      if (inv.paidAmount > 0) {
-        const reg = inv.cashRegister || inv.cashRegisterId || (inv.currency === 'AFN' ? 'afn_cash' : 'usd_cash');
-        const delta = inv.type === 'sell' ? -inv.paidAmount : inv.paidAmount;
-
-        setCashRegister(prev => {
-          const next = { ...prev };
-          if (reg === 'afn_cash') next.afnBalance = Math.max(0, next.afnBalance + delta);
-          else if (reg === 'usd_cash') next.usdBalance = Math.max(0, next.usdBalance + delta);
-          else if (reg === 'exchange_usd_cash') next.exchangeUsdBalance = Math.max(0, (next.exchangeUsdBalance || 0) + delta);
-          return next;
-        });
-
-        setCashAccounts(prev =>
-          prev.map(acc => {
-            if (acc.id === reg) {
-              return { ...acc, balance: Math.max(0, acc.balance + delta) };
-            }
-            return acc;
-          })
-        );
-      }
+      // Reverse only this invoice's party and cash effects; preserve opening / unrelated balances.
+      if (inv.partyId) setParties(prev => applyInvoicePartyBalance(prev, inv, true));
+      setCashRegister(prev => applyInvoiceCashRegister(prev, inv, true));
+      setCashAccounts(prev => applyInvoiceCashAccounts(prev, inv, true));
 
       // Remove linked financial transaction
       setTransactions(prev => prev.filter(t => t.invoiceId !== id && t.id !== 'tx-inv-' + id));
@@ -1838,28 +1713,18 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Create Financial Transaction (Receive money from debtor / Pay money to supplier / Exchange / Cash Transfer)
   const createTransaction = (txData: Omit<FinancialTransaction, 'id' | 'createdAt'>): FinancialTransaction => {
+    if (txData.incomeId || txData.expenseId) throw new Error('سند عاید/هزینه را از فرم مخصوص آن ثبت کنید؛ گردش صندوق نباید دوباره ثبت شود.');
     const party = txData.partyId ? parties.find(p => p.id === txData.partyId) : undefined;
     const resolvedTxNumber = (txData.transactionNumber || '').trim() || getNextTransactionNumber(txData.type);
 
-    // Prevent duplicate document creation on repeated submit clicks: if same number & type exists, update it instead
-    const existingSameTx = transactions.find(
-      t => t.transactionNumber.trim() === resolvedTxNumber && t.type === txData.type
-    );
+    // A create request must never silently overwrite an older financial document.
+    const existingSameTx = transactions.find(t => t.transactionNumber.trim() === resolvedTxNumber && t.type === txData.type);
     if (existingSameTx) {
-      const updatedTx: FinancialTransaction = {
-        ...txData,
-        id: existingSameTx.id,
-        transactionNumber: resolvedTxNumber,
-        issueTime: txData.issueTime || existingSameTx.issueTime || getCurrentTime(),
-        partyPhone: txData.partyPhone || party?.phone || '',
-        partyAddress: txData.partyAddress || party?.address || '',
-        createdAt: existingSameTx.createdAt,
-      };
-      updateTransaction(updatedTx);
-      return updatedTx;
+      notify('error', 'شمارهٔ سند تکراری است؛ از ویرایش لیست استفاده کنید.');
+      return existingSameTx;
     }
 
-    const newId = 'tx-' + Date.now();
+    const newId = createTradeEntityId('tx');
     const newTx: FinancialTransaction = {
       ...txData,
       id: newId,
@@ -1872,99 +1737,9 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     setTransactions(prev => [newTx, ...prev]);
 
-    // 1. Handle party balance modifications
-    if (newTx.partyId) {
-      setParties(prevParties =>
-        prevParties.map(party => {
-          if (party.id !== newTx.partyId) return party;
-
-          if (newTx.type === 'receive_payment') {
-            // Customer is paying back their debt: their balance increases (towards 0 or positive)
-            if (newTx.currency === 'AFN') {
-              const newBal = party.balanceAFN + newTx.amount;
-              return { ...party, balanceAFN: Math.abs(newBal) < 0.0001 ? 0 : Number(newBal.toFixed(4)) };
-            } else {
-              const newBal = party.balanceUSD + newTx.amount;
-              return { ...party, balanceUSD: Math.abs(newBal) < 0.0001 ? 0 : Number(newBal.toFixed(4)) };
-            }
-          } else if (newTx.type === 'make_payment') {
-            // We are paying our supplier/debt: supplier credit balance decreases (towards 0)
-            if (newTx.currency === 'AFN') {
-              const newBal = party.balanceAFN - newTx.amount;
-              return { ...party, balanceAFN: Math.abs(newBal) < 0.0001 ? 0 : Number(newBal.toFixed(4)) };
-            } else {
-              const newBal = party.balanceUSD - newTx.amount;
-              return { ...party, balanceUSD: Math.abs(newBal) < 0.0001 ? 0 : Number(newBal.toFixed(4)) };
-            }
-          }
-          return party;
-        })
-      );
-    }
-
-    // 2. Handle Cash Accounts & Cash Register
-    const cashVal = newTx.isExchange && newTx.cashAmount ? newTx.cashAmount : newTx.amount;
-
-    setCashRegister(prev => {
-      const next = { ...prev, exchangeUsdBalance: prev.exchangeUsdBalance || 0 };
-
-      const applyToRegister = (reg: typeof newTx.cashRegister, val: number) => {
-        if (reg === 'afn_cash') {
-          next.afnBalance = (next.afnBalance || 0) + val;
-        } else if (reg === 'usd_cash') {
-          next.usdBalance = (next.usdBalance || 0) + val;
-        } else if (reg === 'exchange_usd_cash') {
-          next.exchangeUsdBalance = (next.exchangeUsdBalance || 0) + val;
-        }
-      };
-
-      if (newTx.type === 'receive_payment') {
-        applyToRegister(newTx.cashRegister, cashVal);
-      } else if (newTx.type === 'make_payment' || newTx.type === 'expense') {
-        applyToRegister(newTx.cashRegister, -cashVal);
-      } else if (newTx.type === 'currency_exchange') {
-        const fromReg = newTx.fromCashRegister || (newTx.currency === 'USD' ? 'usd_cash' : 'afn_cash');
-        const toReg = newTx.toCashRegister || (newTx.targetCurrency === 'USD' ? 'usd_cash' : 'afn_cash');
-        applyToRegister(fromReg, -newTx.amount);
-        applyToRegister(toReg, newTx.targetAmount || 0);
-      } else if (newTx.type === 'cash_transfer') {
-        if (newTx.fromCashRegister && newTx.toCashRegister) {
-          applyToRegister(newTx.fromCashRegister, -newTx.amount);
-          const toAmount = newTx.isExchange && newTx.targetAmount ? newTx.targetAmount : newTx.amount;
-          applyToRegister(newTx.toCashRegister, toAmount);
-        }
-      }
-
-      return next;
-    });
-
-    setCashAccounts(prev =>
-      prev.map(acc => {
-        if (newTx.type === 'receive_payment' && acc.id === newTx.cashRegister) {
-          return { ...acc, balance: acc.balance + cashVal };
-        } else if ((newTx.type === 'make_payment' || newTx.type === 'expense') && acc.id === newTx.cashRegister) {
-          return { ...acc, balance: acc.balance - cashVal };
-        } else if (newTx.type === 'currency_exchange') {
-          const fromReg = newTx.fromCashRegister || (newTx.currency === 'USD' ? 'usd_cash' : 'afn_cash');
-          const toReg = newTx.toCashRegister || (newTx.targetCurrency === 'USD' ? 'usd_cash' : 'afn_cash');
-          if (acc.id === fromReg) {
-            return { ...acc, balance: acc.balance - newTx.amount };
-          }
-          if (acc.id === toReg) {
-            return { ...acc, balance: acc.balance + (newTx.targetAmount || 0) };
-          }
-        } else if (newTx.type === 'cash_transfer') {
-          if (acc.id === newTx.fromCashRegister) {
-            return { ...acc, balance: acc.balance - newTx.amount };
-          }
-          if (acc.id === newTx.toCashRegister) {
-            const toAmount = newTx.isExchange && newTx.targetAmount ? newTx.targetAmount : newTx.amount;
-            return { ...acc, balance: acc.balance + toAmount };
-          }
-        }
-        return acc;
-      })
-    );
+    setParties(prev => applyTransactionParties(prev, newTx));
+    setCashRegister(prev => applyTransactionCashRegister(prev, newTx));
+    setCashAccounts(prev => applyTransactionCashAccounts(prev, newTx));
 
     // Add Audit Log Entry
     const txLabelMap: Record<string, string> = {
@@ -1997,7 +1772,15 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   };
 
   const deleteTransaction = (id: string) => {
+    const source = ownedCompanyCashSource(transactions.find(transaction => transaction.id === id) || { id }, incomesRef.current, expensesRef.current);
+    if (source) { if (source.kind === 'income') deleteIncome(source.document.id); else deleteExpense(source.document.id); return; }
     const oldTx = transactions.find(t => t.id === id);
+    const linkedInvoice = oldTx?.invoiceId && oldTx.id === 'tx-inv-' + oldTx.invoiceId ? invoices.find(invoice => invoice.id === oldTx.invoiceId) : undefined;
+    if (linkedInvoice) {
+      // Invoice-created payments belong to the invoice's due/cash posting, not a second party posting.
+      updateInvoice({ ...linkedInvoice, paidAmount: 0, balanceAmount: linkedInvoice.totalAmount, paymentStatus: 'unpaid', paymentType: 'نسیه' });
+      return;
+    }
     if (oldTx) {
       const txLabelMap: Record<string, string> = {
         receive_payment: 'دریافت وجه',
@@ -2026,80 +1809,9 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         `سند #${oldTx.transactionNumber} حذف و موجودی صندوق‌ها و حساب‌ها اصلاح گردید.`
       );
 
-      // 1. Revert party balance
-      if (oldTx.partyId) {
-        setParties(prevParties =>
-          prevParties.map(party => {
-            if (party.id !== oldTx.partyId) return party;
-            let p = { ...party };
-            if (oldTx.type === 'receive_payment') {
-              if (oldTx.currency === 'AFN') {
-                const nb = p.balanceAFN - oldTx.amount;
-                p.balanceAFN = Math.abs(nb) < 0.0001 ? 0 : Number(nb.toFixed(4));
-              } else {
-                const nb = p.balanceUSD - oldTx.amount;
-                p.balanceUSD = Math.abs(nb) < 0.0001 ? 0 : Number(nb.toFixed(4));
-              }
-            } else if (oldTx.type === 'make_payment') {
-              if (oldTx.currency === 'AFN') {
-                const nb = p.balanceAFN + oldTx.amount;
-                p.balanceAFN = Math.abs(nb) < 0.0001 ? 0 : Number(nb.toFixed(4));
-              } else {
-                const nb = p.balanceUSD + oldTx.amount;
-                p.balanceUSD = Math.abs(nb) < 0.0001 ? 0 : Number(nb.toFixed(4));
-              }
-            }
-            return p;
-          })
-        );
-      }
-
-      // 2. Revert cash registers and accounts
-      const oldCashVal = oldTx.isExchange && oldTx.cashAmount ? oldTx.cashAmount : oldTx.amount;
-      setCashRegister(prev => {
-        const next = { ...prev };
-        const applyVal = (reg: any, val: number) => {
-          if (reg === 'afn_cash') next.afnBalance = (next.afnBalance || 0) + val;
-          else if (reg === 'usd_cash') next.usdBalance = (next.usdBalance || 0) + val;
-          else if (reg === 'exchange_usd_cash') next.exchangeUsdBalance = (next.exchangeUsdBalance || 0) + val;
-        };
-
-        if (oldTx.type === 'receive_payment') applyVal(oldTx.cashRegister, -oldCashVal);
-        else if (oldTx.type === 'make_payment' || oldTx.type === 'expense') applyVal(oldTx.cashRegister, oldCashVal);
-        else if (oldTx.type === 'currency_exchange') {
-          const fromReg = oldTx.fromCashRegister || (oldTx.currency === 'USD' ? 'usd_cash' : 'afn_cash');
-          const toReg = oldTx.toCashRegister || (oldTx.targetCurrency === 'USD' ? 'usd_cash' : 'afn_cash');
-          applyVal(fromReg, oldTx.amount);
-          applyVal(toReg, -(oldTx.targetAmount || 0));
-        } else if (oldTx.type === 'cash_transfer' && oldTx.fromCashRegister && oldTx.toCashRegister) {
-          applyVal(oldTx.fromCashRegister, oldTx.amount);
-          const oldTargetAmount = oldTx.isExchange && oldTx.targetAmount ? oldTx.targetAmount : oldTx.amount;
-          applyVal(oldTx.toCashRegister, -oldTargetAmount);
-        }
-
-        return next;
-      });
-
-      setCashAccounts(prev =>
-        prev.map(acc => {
-          let b = acc.balance;
-          if (oldTx.type === 'receive_payment' && acc.id === oldTx.cashRegister) b -= oldCashVal;
-          else if ((oldTx.type === 'make_payment' || oldTx.type === 'expense') && acc.id === oldTx.cashRegister) b += oldCashVal;
-          else if (oldTx.type === 'currency_exchange') {
-            const fromReg = oldTx.fromCashRegister || (oldTx.currency === 'USD' ? 'usd_cash' : 'afn_cash');
-            const toReg = oldTx.toCashRegister || (oldTx.targetCurrency === 'USD' ? 'usd_cash' : 'afn_cash');
-            if (acc.id === fromReg) b += oldTx.amount;
-            if (acc.id === toReg) b -= (oldTx.targetAmount || 0);
-          } else if (oldTx.type === 'cash_transfer') {
-            if (acc.id === oldTx.fromCashRegister) b += oldTx.amount;
-            if (acc.id === oldTx.toCashRegister) {
-              const oldTargetAmount = oldTx.isExchange && oldTx.targetAmount ? oldTx.targetAmount : oldTx.amount;
-              b -= oldTargetAmount;
-            }
-          }
-          return { ...acc, balance: b };
-        })
-      );
+      setParties(prev => applyTransactionParties(prev, oldTx, true));
+      setCashRegister(prev => applyTransactionCashRegister(prev, oldTx, true));
+      setCashAccounts(prev => applyTransactionCashAccounts(prev, oldTx, true));
     }
 
     setTransactions(prev => prev.filter(t => t.id !== id));
@@ -2107,128 +1819,30 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // Update Financial Transaction
   const updateTransaction = (updatedTx: FinancialTransaction) => {
+    const source = ownedCompanyCashSource(transactions.find(transaction => transaction.id === updatedTx.id) || updatedTx, incomesRef.current, expensesRef.current);
+    if (source) {
+      if (source.kind === 'income' ? updatedTx.type !== 'receive_payment' : !['expense', 'make_payment'].includes(updatedTx.type)) throw new Error('نوع سند اصلی عاید/هزینه قابل تبدیل به تراکنش مستقل نیست.');
+      if (updatedTx.partyId || updatedTx.invoiceId || (updatedTx.discountAmount || 0) !== 0 || updatedTx.type === 'cash_transfer' || updatedTx.type === 'currency_exchange') throw new Error('سند عاید/هزینه را از فرم مخصوص همان سند ویرایش کنید.');
+      const data = { date: updatedTx.date, issueTime: updatedTx.issueTime, amount: updatedTx.isExchange ? updatedTx.cashAmount ?? updatedTx.amount : updatedTx.amount, currency: updatedTx.cashCurrency || updatedTx.currency, cashRegisterId: updatedTx.cashRegister, notes: updatedTx.notes };
+      if (source.kind === 'income') updateIncome(source.document.id, { ...data, payer: updatedTx.partyName }); else updateExpense(source.document.id, { ...data, recipient: updatedTx.partyName });
+      return;
+    }
     const oldTx = transactions.find(t => t.id === updatedTx.id);
     if (!oldTx) return;
-
-    // 1. Revert old party balance, apply new party balance
-    setParties(prevParties =>
-      prevParties.map(party => {
-        let p = { ...party };
-        // revert old
-        if (party.id === oldTx.partyId) {
-          if (oldTx.type === 'receive_payment') {
-            if (oldTx.currency === 'AFN') p.balanceAFN -= oldTx.amount;
-            else p.balanceUSD -= oldTx.amount;
-          } else if (oldTx.type === 'make_payment') {
-            if (oldTx.currency === 'AFN') p.balanceAFN += oldTx.amount;
-            else p.balanceUSD += oldTx.amount;
-          }
-        }
-        // apply new
-        if (party.id === updatedTx.partyId) {
-          if (updatedTx.type === 'receive_payment') {
-            if (updatedTx.currency === 'AFN') {
-              const nb = p.balanceAFN + updatedTx.amount;
-              p.balanceAFN = Math.abs(nb) < 0.0001 ? 0 : Number(nb.toFixed(4));
-            } else {
-              const nb = p.balanceUSD + updatedTx.amount;
-              p.balanceUSD = Math.abs(nb) < 0.0001 ? 0 : Number(nb.toFixed(4));
-            }
-          } else if (updatedTx.type === 'make_payment') {
-            if (updatedTx.currency === 'AFN') {
-              const nb = p.balanceAFN - updatedTx.amount;
-              p.balanceAFN = Math.abs(nb) < 0.0001 ? 0 : Number(nb.toFixed(4));
-            } else {
-              const nb = p.balanceUSD - updatedTx.amount;
-              p.balanceUSD = Math.abs(nb) < 0.0001 ? 0 : Number(nb.toFixed(4));
-            }
-          }
-        }
-        return p;
-      })
-    );
-
-    // 2. Revert old cash registers & accounts, apply new
-    const oldCashVal = oldTx.isExchange && oldTx.cashAmount ? oldTx.cashAmount : oldTx.amount;
-    const newCashVal = updatedTx.isExchange && updatedTx.cashAmount ? updatedTx.cashAmount : updatedTx.amount;
-
-    setCashRegister(prev => {
-      const next = { ...prev };
-      const applyVal = (reg: any, val: number) => {
-        if (reg === 'afn_cash') next.afnBalance = (next.afnBalance || 0) + val;
-        else if (reg === 'usd_cash') next.usdBalance = (next.usdBalance || 0) + val;
-        else if (reg === 'exchange_usd_cash') next.exchangeUsdBalance = (next.exchangeUsdBalance || 0) + val;
-      };
-
-      // revert old
-      if (oldTx.type === 'receive_payment') applyVal(oldTx.cashRegister, -oldCashVal);
-      else if (oldTx.type === 'make_payment' || oldTx.type === 'expense') applyVal(oldTx.cashRegister, oldCashVal);
-      else if (oldTx.type === 'currency_exchange') {
-        const fromReg = oldTx.fromCashRegister || (oldTx.currency === 'USD' ? 'usd_cash' : 'afn_cash');
-        const toReg = oldTx.toCashRegister || (oldTx.targetCurrency === 'USD' ? 'usd_cash' : 'afn_cash');
-        applyVal(fromReg, oldTx.amount);
-        applyVal(toReg, -(oldTx.targetAmount || 0));
-      } else if (oldTx.type === 'cash_transfer' && oldTx.fromCashRegister && oldTx.toCashRegister) {
-        applyVal(oldTx.fromCashRegister, oldTx.amount);
-        const oldTargetAmount = oldTx.isExchange && oldTx.targetAmount ? oldTx.targetAmount : oldTx.amount;
-        applyVal(oldTx.toCashRegister, -oldTargetAmount);
+    const linkedInvoice = oldTx.invoiceId && oldTx.id === 'tx-inv-' + oldTx.invoiceId ? invoices.find(invoice => invoice.id === oldTx.invoiceId) : undefined;
+    if (linkedInvoice) {
+      if (updatedTx.partyId !== linkedInvoice.partyId || updatedTx.currency !== linkedInvoice.currency || updatedTx.isExchange || (updatedTx.discountAmount || 0) !== 0 || updatedTx.amount < 0 || updatedTx.amount > linkedInvoice.totalAmount || !Number.isFinite(updatedTx.amount)) {
+        notify('error', 'برای تغییر ارز، شخص یا تخفیف این سند، فاکتور مرتبط را ویرایش کنید.');
+        return;
       }
+      updateInvoice({ ...linkedInvoice, paidAmount: updatedTx.amount, balanceAmount: linkedInvoice.totalAmount - updatedTx.amount, cashRegister: updatedTx.cashRegister, paymentStatus: updatedTx.amount >= linkedInvoice.totalAmount ? 'paid' : updatedTx.amount > 0 ? 'partial' : 'unpaid', paymentType: updatedTx.amount >= linkedInvoice.totalAmount ? 'نقدی' : updatedTx.amount > 0 ? 'نیمه نسیه' : 'نسیه' });
+      setTransactions(prev => prev.map(tx => tx.id === oldTx.id ? { ...tx, description: updatedTx.description, date: updatedTx.date, issueTime: updatedTx.issueTime } : tx));
+      return;
+    }
 
-      // apply new
-      if (updatedTx.type === 'receive_payment') applyVal(updatedTx.cashRegister, newCashVal);
-      else if (updatedTx.type === 'make_payment' || updatedTx.type === 'expense') applyVal(updatedTx.cashRegister, -newCashVal);
-      else if (updatedTx.type === 'currency_exchange') {
-        const fromReg = updatedTx.fromCashRegister || (updatedTx.currency === 'USD' ? 'usd_cash' : 'afn_cash');
-        const toReg = updatedTx.toCashRegister || (updatedTx.targetCurrency === 'USD' ? 'usd_cash' : 'afn_cash');
-        applyVal(fromReg, -updatedTx.amount);
-        applyVal(toReg, updatedTx.targetAmount || 0);
-      } else if (updatedTx.type === 'cash_transfer' && updatedTx.fromCashRegister && updatedTx.toCashRegister) {
-        applyVal(updatedTx.fromCashRegister, -updatedTx.amount);
-        const newTargetAmount = updatedTx.isExchange && updatedTx.targetAmount ? updatedTx.targetAmount : updatedTx.amount;
-        applyVal(updatedTx.toCashRegister, newTargetAmount);
-      }
-
-      return next;
-    });
-
-    setCashAccounts(prev =>
-      prev.map(acc => {
-        let b = acc.balance;
-        // revert old
-        if (oldTx.type === 'receive_payment' && acc.id === oldTx.cashRegister) b -= oldCashVal;
-        else if ((oldTx.type === 'make_payment' || oldTx.type === 'expense') && acc.id === oldTx.cashRegister) b += oldCashVal;
-        else if (oldTx.type === 'currency_exchange') {
-          const fromReg = oldTx.fromCashRegister || (oldTx.currency === 'USD' ? 'usd_cash' : 'afn_cash');
-          const toReg = oldTx.toCashRegister || (oldTx.targetCurrency === 'USD' ? 'usd_cash' : 'afn_cash');
-          if (acc.id === fromReg) b += oldTx.amount;
-          if (acc.id === toReg) b -= (oldTx.targetAmount || 0);
-        } else if (oldTx.type === 'cash_transfer') {
-          if (acc.id === oldTx.fromCashRegister) b += oldTx.amount;
-          if (acc.id === oldTx.toCashRegister) {
-            const oldTargetAmount = oldTx.isExchange && oldTx.targetAmount ? oldTx.targetAmount : oldTx.amount;
-            b -= oldTargetAmount;
-          }
-        }
-
-        // apply new
-        if (updatedTx.type === 'receive_payment' && acc.id === updatedTx.cashRegister) b += newCashVal;
-        else if ((updatedTx.type === 'make_payment' || updatedTx.type === 'expense') && acc.id === updatedTx.cashRegister) b -= newCashVal;
-        else if (updatedTx.type === 'currency_exchange') {
-          const fromReg = updatedTx.fromCashRegister || (updatedTx.currency === 'USD' ? 'usd_cash' : 'afn_cash');
-          const toReg = updatedTx.toCashRegister || (updatedTx.targetCurrency === 'USD' ? 'usd_cash' : 'afn_cash');
-          if (acc.id === fromReg) b -= updatedTx.amount;
-          if (acc.id === toReg) b += (updatedTx.targetAmount || 0);
-        } else if (updatedTx.type === 'cash_transfer') {
-          if (acc.id === updatedTx.fromCashRegister) b -= updatedTx.amount;
-          if (acc.id === updatedTx.toCashRegister) {
-            const newTargetAmount = updatedTx.isExchange && updatedTx.targetAmount ? updatedTx.targetAmount : updatedTx.amount;
-            b += newTargetAmount;
-          }
-        }
-
-        return { ...acc, balance: b };
-      })
-    );
+    setParties(prev => applyTransactionParties(applyTransactionParties(prev, oldTx, true), updatedTx));
+    setCashRegister(prev => applyTransactionCashRegister(applyTransactionCashRegister(prev, oldTx, true), updatedTx));
+    setCashAccounts(prev => applyTransactionCashAccounts(applyTransactionCashAccounts(prev, oldTx, true), updatedTx));
 
     setTransactions(prev => prev.map(t => (t.id === updatedTx.id ? updatedTx : t)));
 
@@ -2406,319 +2020,72 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   // ================= CONSIGNMENT MOVEMENTS & CUSTOMER LEDGER =================
   const createConsignmentMovement = (data: Omit<ConsignmentMovement, 'id' | 'createdAt'>): ConsignmentMovement => {
-    const newId = 'csg-' + Date.now();
-    const resolvedDocNumber = (data.documentNumber || '').trim() || getNextConsignmentDocNumber();
-    
-    // Calculate running balance after this movement for this customer & product
-    const existingForCustomer = consignmentMovements.filter(
-      m => (m.partyId === data.partyId || m.partyName === data.partyName) && m.productId === data.productId
-    );
-    let currentTons = 0;
-    let currentBags = 0;
-    existingForCustomer.forEach(m => {
-      if (m.type === 'deposit') {
-        currentTons += m.quantityTons;
-        currentBags += m.quantityBags;
-      } else {
-        currentTons -= m.quantityTons;
-        currentBags -= m.quantityBags;
-      }
-    });
-
-    const isWithdrawal = data.type === 'withdrawal';
-    const remainingTonsAfter = isWithdrawal ? Math.max(0, currentTons - data.quantityTons) : (currentTons + data.quantityTons);
-    const remainingBagsAfter = isWithdrawal ? Math.max(0, currentBags - data.quantityBags) : (currentBags + data.quantityBags);
-
-    const newMovement: ConsignmentMovement = {
-      ...data,
-      id: newId,
-      documentNumber: resolvedDocNumber,
-      remainingTonsAfter: Number(remainingTonsAfter.toFixed(3)),
-      remainingBagsAfter: Math.round(remainingBagsAfter),
-      createdAt: new Date().toISOString(),
-    };
-
-    // If withdrawal: deduct stock from warehouse
-    if (isWithdrawal) {
-      setStocks(prev => {
-        let updated = [...prev];
-        const idx = updated.findIndex(
-          s => s.warehouseId === newMovement.warehouseId && s.productId === newMovement.productId
-        );
-        if (idx >= 0) {
-          updated[idx] = {
-            ...updated[idx],
-            quantityTons: Math.max(0, updated[idx].quantityTons - newMovement.quantityTons),
-            quantityBags: Math.max(0, updated[idx].quantityBags - newMovement.quantityBags),
-          };
-        }
-        return updated;
-      });
-
-      // Also create a StockTransfer record for company transfer audit
-      const transferRecord: StockTransfer = {
-        id: `trf-csg-out-${newId}`,
-        transferNumber: `TRF-${resolvedDocNumber}`,
-        date: newMovement.date,
-        issueTime: newMovement.issueTime || getCurrentTime(),
-        productId: newMovement.productId,
-        productName: newMovement.productName,
-        fromWarehouseId: newMovement.warehouseId,
-        fromWarehouseName: newMovement.warehouseName || 'گدام امانی',
-        toWarehouseId: 'customer-release',
-        toWarehouseName: `تحویل به مشتری (${newMovement.partyName})`,
-        quantity: newMovement.quantityTons,
-        unit: 'ton',
-        tonsCount: newMovement.quantityTons,
-        bagsCount: newMovement.quantityBags,
-        driverName: newMovement.driverName || 'تحویل‌گیرنده مشتری',
-        carPlate: newMovement.carPlate || '',
-        description: `سند خروجی و تحویل بار امانی #${resolvedDocNumber} به مشتری «${newMovement.partyName}» - موتروان: ${newMovement.driverName || '---'} (پلاک: ${newMovement.carPlate || '---'})`,
-        notes: newMovement.notes,
-        createdAt: new Date().toISOString(),
-      };
-      setTransfers(prev => [transferRecord, ...prev]);
-    } else if (data.type === 'deposit') {
-      // Deposit: increase warehouse stock if added manually
-      setStocks(prev => {
-        let updated = [...prev];
-        const idx = updated.findIndex(
-          s => s.warehouseId === newMovement.warehouseId && s.productId === newMovement.productId
-        );
-        if (idx >= 0) {
-          updated[idx] = {
-            ...updated[idx],
-            quantityTons: updated[idx].quantityTons + newMovement.quantityTons,
-            quantityBags: updated[idx].quantityBags + newMovement.quantityBags,
-          };
-        } else {
-          updated.push({
-            warehouseId: newMovement.warehouseId,
-            productId: newMovement.productId,
-            quantityTons: newMovement.quantityTons,
-            quantityBags: newMovement.quantityBags,
-          });
-        }
-        return updated;
-      });
+    const resolved = { ...data, documentNumber: data.documentNumber.trim() || getNextConsignmentDocNumber() };
+    const invalid = validateConsignmentMovement(resolved, consignmentMovements, stocks, warehouses, products);
+    if (invalid) throw new Error(invalid);
+    if (resolved.invoiceId && resolved.type !== 'deposit') {
+      const lot = consignmentLots(consignmentMovements, invoices).find(lot => lot.invoiceId === resolved.invoiceId && lot.partyId === resolved.partyId && lot.warehouseId === resolved.warehouseId && lot.productId === resolved.productId);
+      if (!lot || resolved.quantityTons > lot.remainingTons + .000001 || resolved.quantityBags > lot.remainingBags + .000001) throw new Error('مقدار تحویل از ماندهٔ فاکتور انتخاب‌شده بیشتر است.');
     }
-
-    setConsignmentMovements(prev => [newMovement, ...prev]);
-
-    addAuditLog({
-      action: isWithdrawal ? 'transfer' : 'create',
-      actionLabel: isWithdrawal ? 'خروج کالای امانی' : 'ورود کالای امانی',
-      category: 'transaction',
-      entityId: newId,
-      entityNumber: resolvedDocNumber,
-      entityTitle: `${newMovement.partyName} - ${newMovement.productName}`,
-      details: `${isWithdrawal ? 'سند خروجی و تحویل بار' : 'واریز کالای امانی'} #${resolvedDocNumber}: ${newMovement.quantityTons} تن (${newMovement.quantityBags} کیسه) مربوط به مشتری «${newMovement.partyName}»`,
-      newValue: JSON.stringify(newMovement, null, 2),
-    });
-
-    notify(
-      'success',
-      isWithdrawal ? 'سند خروجی بار امانی با موفقیت ثبت شد' : 'کالای امانی با موفقیت در گدام ثبت شد',
-      `سند #${resolvedDocNumber} - مقدار: ${newMovement.quantityTons} تن تحویل ${newMovement.partyName}`
-    );
-
-    return newMovement;
+    const current = consignmentBalanceFor(consignmentMovements, resolved);
+    const movement: ConsignmentMovement = { ...resolved, id: createTradeEntityId('csg'), quantityTons: roundConsignment(resolved.quantityTons), quantityBags: roundConsignment(resolved.quantityBags), remainingTonsAfter: roundConsignment((current?.remainingTons || 0) + consignmentSign(resolved.type) * resolved.quantityTons), remainingBagsAfter: roundConsignment((current?.remainingBags || 0) + consignmentSign(resolved.type) * resolved.quantityBags), createdAt: new Date().toISOString() };
+    setStocks(prev => consignmentStockPost(prev, movement));
+    if (movement.type === 'withdrawal') setTransfers(prev => [consignmentTransfer(movement), ...prev]);
+    setConsignmentMovements(prev => [movement, ...prev]);
+    addAuditLog({ action: movement.type === 'withdrawal' ? 'transfer' : 'create', actionLabel: movement.type === 'deposit' ? 'ورود کالای امانی' : 'خروج کالای امانی', category: 'transaction', entityId: movement.id, entityNumber: movement.documentNumber, entityTitle: `${movement.partyName} - ${movement.productName}`, details: `حواله #${movement.documentNumber}: ${movement.quantityTons} تن (${movement.quantityBags} کیسه) در ${movement.warehouseName || movement.warehouseId}`, newValue: JSON.stringify(movement) });
+    notify('success', 'سند امانی با موفقیت ثبت شد', `سند #${movement.documentNumber}`);
+    return movement;
   };
 
   const deleteConsignmentMovement = (id: string) => {
-    const item = consignmentMovements.find(m => m.id === id);
-    if (!item) return;
-
-    if (item.type === 'withdrawal') {
-      // Restore stock
-      setStocks(prev => {
-        let updated = [...prev];
-        const idx = updated.findIndex(s => s.warehouseId === item.warehouseId && s.productId === item.productId);
-        if (idx >= 0) {
-          updated[idx] = {
-            ...updated[idx],
-            quantityTons: updated[idx].quantityTons + item.quantityTons,
-            quantityBags: updated[idx].quantityBags + item.quantityBags,
-          };
-        }
-        return updated;
-      });
-      setTransfers(prev => prev.filter(t => t.id !== `trf-csg-out-${id}`));
-    } else if (item.type === 'deposit') {
-      // Deduct stock
-      setStocks(prev => {
-        let updated = [...prev];
-        const idx = updated.findIndex(s => s.warehouseId === item.warehouseId && s.productId === item.productId);
-        if (idx >= 0) {
-          updated[idx] = {
-            ...updated[idx],
-            quantityTons: Math.max(0, updated[idx].quantityTons - item.quantityTons),
-            quantityBags: Math.max(0, updated[idx].quantityBags - item.quantityBags),
-          };
-        }
-        return updated;
-      });
-    }
-
-    setConsignmentMovements(prev => prev.filter(m => m.id !== id));
-    notify('warning', 'سند امانی حذف گردید', `سند #${item.documentNumber}`);
+    const movement = consignmentMovements.find(row => row.id === id);
+    if (!movement) return;
+    if (isInvoiceConsignmentMovement(movement)) { notify('error', 'این گردش از فاکتور ایجاد شده است؛ فاکتور مرتبط را ویرایش یا حذف کنید.'); return; }
+    const without = consignmentMovements.filter(row => row.id !== id);
+    const after = consignmentBalanceFor(without, movement);
+    if (movement.type === 'deposit' && after && (after.remainingTons < -.000001 || after.remainingBags < -.000001)) { notify('error', 'از این سپرده قبلاً بار تحویل شده است؛ ابتدا حواله‌های خروج وابسته را اصلاح کنید.'); return; }
+    setStocks(prev => consignmentStockPost(prev, movement, true));
+    setTransfers(prev => prev.filter(transfer => transfer.id !== `trf-csg-out-${id}`));
+    setConsignmentMovements(without);
+    addAuditLog({ action: 'delete', actionLabel: 'حذف حوالهٔ امانی', category: 'transaction', entityId: id, entityNumber: movement.documentNumber, entityTitle: movement.partyName, details: 'برگشت دقیق اثر حواله بر موجودی همین گدام', previousValue: JSON.stringify(movement) });
+    notify('warning', 'سند امانی حذف و موجودی برگشت داده شد', `سند #${movement.documentNumber}`);
   };
 
-  const updateConsignmentMovement = (id: string, updatedFields: Partial<ConsignmentMovement>) => {
-    const oldMovement = consignmentMovements.find(m => m.id === id);
-    if (!oldMovement) return;
-
-    const newMovement: ConsignmentMovement = { ...oldMovement, ...updatedFields };
-
-    // Adjust stocks if quantities or warehouse/product/type changed
-    setStocks(prev => {
-      let updated = [...prev];
-
-      // Revert old movement stock impact
-      const oldIdx = updated.findIndex(s => s.warehouseId === oldMovement.warehouseId && s.productId === oldMovement.productId);
-      if (oldIdx >= 0) {
-        const oldDeltaTons = oldMovement.type === 'deposit' ? -oldMovement.quantityTons : oldMovement.quantityTons;
-        const oldDeltaBags = oldMovement.type === 'deposit' ? -oldMovement.quantityBags : oldMovement.quantityBags;
-        updated[oldIdx] = {
-          ...updated[oldIdx],
-          quantityTons: Math.max(0, updated[oldIdx].quantityTons + oldDeltaTons),
-          quantityBags: Math.max(0, updated[oldIdx].quantityBags + oldDeltaBags),
-        };
-      }
-
-      // Apply new movement stock impact
-      const newIdx = updated.findIndex(s => s.warehouseId === newMovement.warehouseId && s.productId === newMovement.productId);
-      const newDeltaTons = newMovement.type === 'deposit' ? newMovement.quantityTons : -newMovement.quantityTons;
-      const newDeltaBags = newMovement.type === 'deposit' ? newMovement.quantityBags : -newMovement.quantityBags;
-      if (newIdx >= 0) {
-        updated[newIdx] = {
-          ...updated[newIdx],
-          quantityTons: Math.max(0, updated[newIdx].quantityTons + newDeltaTons),
-          quantityBags: Math.max(0, updated[newIdx].quantityBags + newDeltaBags),
-        };
-      } else {
-        updated.push({
-          warehouseId: newMovement.warehouseId,
-          productId: newMovement.productId,
-          quantityTons: Math.max(0, newDeltaTons),
-          quantityBags: Math.max(0, newDeltaBags),
-        });
-      }
-
-      return updated;
-    });
-
-    setConsignmentMovements(prev => prev.map(m => (m.id === id ? newMovement : m)));
-    notify('success', 'سند امانی ویرایش شد', `سند #${newMovement.documentNumber} با موفقیت به‌روزرسانی شد.`);
+  const updateConsignmentMovement = (id: string, fields: Partial<ConsignmentMovement>) => {
+    const old = consignmentMovements.find(row => row.id === id);
+    if (!old) return;
+    if (isInvoiceConsignmentMovement(old)) { notify('error', 'گردش ساخته‌شده از فاکتور را از همان فاکتور ویرایش کنید.'); return; }
+    const without = consignmentMovements.filter(row => row.id !== id);
+    const restored = consignmentStockPost(stocks, old, true);
+    const updated = { ...old, ...fields, id: old.id, createdAt: old.createdAt };
+    const invalid = validateConsignmentMovement(updated, without, restored, warehouses, products, id);
+    if (invalid) { notify('error', invalid); return; }
+    if (updated.invoiceId && updated.type !== 'deposit') {
+      const lot = consignmentLots(without, invoices).find(lot => lot.invoiceId === updated.invoiceId && lot.partyId === updated.partyId && lot.warehouseId === updated.warehouseId && lot.productId === updated.productId);
+      if (!lot || updated.quantityTons > lot.remainingTons + .000001 || updated.quantityBags > lot.remainingBags + .000001) { notify('error', 'مقدار جدید از ماندهٔ فاکتور مرتبط بیشتر است.'); return; }
+    }
+    const after = consignmentHoldings([...without, updated]);
+    if (after.some(row => row.remainingTons < -.000001 || row.remainingBags < -.000001)) { notify('error', 'این تغییر ماندهٔ مشتری را منفی می‌کند؛ حواله‌های وابسته را ابتدا اصلاح کنید.'); return; }
+    const balance = consignmentBalanceFor(without, updated);
+    const next = { ...updated, remainingTonsAfter: roundConsignment((balance?.remainingTons || 0) + consignmentSign(updated.type) * updated.quantityTons), remainingBagsAfter: roundConsignment((balance?.remainingBags || 0) + consignmentSign(updated.type) * updated.quantityBags) };
+    setStocks(prev => consignmentStockPost(consignmentStockPost(prev, old, true), next));
+    setTransfers(prev => [...(next.type === 'withdrawal' ? [consignmentTransfer(next)] : []), ...prev.filter(transfer => transfer.id !== `trf-csg-out-${id}`)]);
+    setConsignmentMovements(prev => prev.map(row => row.id === id ? next : row));
+    notify('success', 'حوالهٔ امانی و موجودی مرتبط اصلاح شد', `سند #${next.documentNumber}`);
   };
 
   const getCustomerConsignmentBalances = (warehouseId?: string) => {
-    const relevantMovements = consignmentMovements.filter(m =>
-      !warehouseId ? true : m.warehouseId === warehouseId
-    );
-
-    const customerMap = new Map<string, {
-      partyId: string;
-      partyName: string;
-      partyPhone?: string;
-      totalInTons: number;
-      totalInBags: number;
-      totalOutTons: number;
-      totalOutBags: number;
-      remainingTons: number;
-      remainingBags: number;
-      productsMap: Map<string, {
-        productId: string;
-        productName: string;
-        totalInTons: number;
-        totalInBags: number;
-        totalOutTons: number;
-        totalOutBags: number;
-        remainingTons: number;
-        remainingBags: number;
-      }>;
-    }>();
-
-    relevantMovements.forEach(m => {
-      const key = m.partyId || m.partyName;
-      if (!customerMap.has(key)) {
-        customerMap.set(key, {
-          partyId: m.partyId || key,
-          partyName: m.partyName || key,
-          partyPhone: m.partyPhone,
-          totalInTons: 0,
-          totalInBags: 0,
-          totalOutTons: 0,
-          totalOutBags: 0,
-          remainingTons: 0,
-          remainingBags: 0,
-          productsMap: new Map(),
-        });
-      }
-
-      const cData = customerMap.get(key)!;
-      if (!cData.partyPhone && m.partyPhone) cData.partyPhone = m.partyPhone;
-
-      const isIn = m.type === 'deposit';
-      if (isIn) {
-        cData.totalInTons += m.quantityTons;
-        cData.totalInBags += m.quantityBags;
-        cData.remainingTons += m.quantityTons;
-        cData.remainingBags += m.quantityBags;
-      } else {
-        cData.totalOutTons += m.quantityTons;
-        cData.totalOutBags += m.quantityBags;
-        cData.remainingTons = Math.max(0, cData.remainingTons - m.quantityTons);
-        cData.remainingBags = Math.max(0, cData.remainingBags - m.quantityBags);
-      }
-
-      if (!cData.productsMap.has(m.productId)) {
-        cData.productsMap.set(m.productId, {
-          productId: m.productId,
-          productName: m.productName,
-          totalInTons: 0,
-          totalInBags: 0,
-          totalOutTons: 0,
-          totalOutBags: 0,
-          remainingTons: 0,
-          remainingBags: 0,
-        });
-      }
-      const prod = cData.productsMap.get(m.productId)!;
-      if (isIn) {
-        prod.totalInTons += m.quantityTons;
-        prod.totalInBags += m.quantityBags;
-        prod.remainingTons += m.quantityTons;
-        prod.remainingBags += m.quantityBags;
-      } else {
-        prod.totalOutTons += m.quantityTons;
-        prod.totalOutBags += m.quantityBags;
-        prod.remainingTons = Math.max(0, prod.remainingTons - m.quantityTons);
-        prod.remainingBags = Math.max(0, prod.remainingBags - m.quantityBags);
-      }
-    });
-
-    return Array.from(customerMap.values()).map(c => ({
-      partyId: c.partyId,
-      partyName: c.partyName,
-      partyPhone: c.partyPhone,
-      totalInTons: Number(c.totalInTons.toFixed(3)),
-      totalInBags: Math.round(c.totalInBags),
-      totalOutTons: Number(c.totalOutTons.toFixed(3)),
-      totalOutBags: Math.round(c.totalOutBags),
-      remainingTons: Number(c.remainingTons.toFixed(3)),
-      remainingBags: Math.round(c.remainingBags),
-      products: Array.from(c.productsMap.values()).map(p => ({
-        productId: p.productId,
-        productName: p.productName,
-        totalInTons: Number(p.totalInTons.toFixed(3)),
-        totalInBags: Math.round(p.totalInBags),
-        totalOutTons: Number(p.totalOutTons.toFixed(3)),
-        totalOutBags: Math.round(p.totalOutBags),
-        remainingTons: Number(p.remainingTons.toFixed(3)),
-        remainingBags: Math.round(p.remainingBags),
-      })),
-    }));
+    const customers = new Map<string, { partyId: string; partyName: string; partyPhone?: string; totalInTons: number; totalInBags: number; totalOutTons: number; totalOutBags: number; remainingTons: number; remainingBags: number; products: { productId: string; productName: string; totalInTons: number; totalInBags: number; totalOutTons: number; totalOutBags: number; remainingTons: number; remainingBags: number }[] }>();
+    for (const holding of consignmentHoldings(consignmentMovements, warehouseId)) {
+      const key = holding.partyId || holding.partyName;
+      const customer = customers.get(key) || { partyId: holding.partyId, partyName: holding.partyName, partyPhone: holding.partyPhone, totalInTons: 0, totalInBags: 0, totalOutTons: 0, totalOutBags: 0, remainingTons: 0, remainingBags: 0, products: [] };
+      for (const field of ['totalInTons', 'totalInBags', 'totalOutTons', 'totalOutBags', 'remainingTons', 'remainingBags'] as const) customer[field] = roundConsignment(customer[field] + holding[field]);
+      const product = customer.products.find(product => product.productId === holding.productId);
+      if (product) for (const field of ['totalInTons', 'totalInBags', 'totalOutTons', 'totalOutBags', 'remainingTons', 'remainingBags'] as const) product[field] = roundConsignment(product[field] + holding[field]);
+      else customer.products.push({ productId: holding.productId, productName: holding.productName, totalInTons: holding.totalInTons, totalInBags: holding.totalInBags, totalOutTons: holding.totalOutTons, totalOutBags: holding.totalOutBags, remainingTons: holding.remainingTons, remainingBags: holding.remainingBags });
+      customers.set(key, customer);
+    }
+    return [...customers.values()];
   };
 
   // Products CRUD (with Opening Stock support)
@@ -2815,352 +2182,264 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     setExpenseDefinitions(prev => prev.filter(d => d.id !== id));
   };
 
-  const createExpense = (expData: Omit<ExpenseItem, 'id' | 'createdAt' | 'expenseNumber'> & { expenseNumber?: string }): ExpenseItem => {
-    const resolvedExpNumber = (expData.expenseNumber || '').trim() || getNextExpenseNumber();
-
-    // Prevent duplicate document creation on repeated submit clicks
-    const existingSameExpense = expenses.find(
-      e => e.expenseNumber && e.expenseNumber.trim() === resolvedExpNumber
+  // Income/expense documents own their cash posting; their transaction is a synchronized display mirror only.
+  const postCompanyCashChange = (
+    kind: CompanyCashKind,
+    previous?: CompanyCashDocument,
+    next?: CompanyCashDocument,
+  ) => {
+    const oldPosting = previous
+      ? companyCashTransaction(kind, previous)
+      : undefined;
+    const newPosting = next ? companyCashTransaction(kind, next) : undefined;
+    setCashRegister((value) => {
+      const restored = oldPosting
+        ? applyTransactionCashRegister(value, oldPosting, true)
+        : value;
+      return newPosting
+        ? applyTransactionCashRegister(restored, newPosting)
+        : restored;
+    });
+    setCashAccounts((value) => {
+      const restored = oldPosting
+        ? applyTransactionCashAccounts(value, oldPosting, true)
+        : value;
+      return newPosting
+        ? applyTransactionCashAccounts(restored, newPosting)
+        : restored;
+    });
+    setTransactions((value) =>
+      next
+        ? syncCompanyCashTransaction(value, kind, next)
+        : value.filter(
+            (transaction) =>
+              !isCompanyCashMirror(transaction, kind, previous!.id),
+          ),
     );
-    if (existingSameExpense) {
-      updateExpense(existingSameExpense.id, {
-        ...expData,
-        expenseNumber: resolvedExpNumber,
-      });
-      return existingSameExpense;
-    }
+  };
+  const assertCompanyCashDocument = (
+    document: CompanyCashDocument,
+    kind: CompanyCashKind,
+    excludingId?: string,
+  ) => {
+    const invalid = validateCompanyCashDocument(document, cashAccounts);
+    if (invalid) throw new Error(invalid);
+    if (
+      duplicateCompanyCashNumber(
+        kind === 'income' ? incomesRef.current : expensesRef.current,
+        kind,
+        companyCashNumber(kind, document),
+        excludingId,
+      )
+    )
+      throw new Error('شمارهٔ سند تکراری است؛ سند قبلی را از لیست ویرایش کنید.');
+  };
+  const auditCompanyCashChange = (
+    kind: CompanyCashKind,
+    action: 'create' | 'update' | 'delete',
+    document: CompanyCashDocument,
+    previous?: CompanyCashDocument,
+  ) => {
+    const label = kind === 'income' ? 'عاید' : 'هزینه';
+    addAuditLog({
+      action,
+      actionLabel: `${action === 'create' ? 'ثبت' : action === 'update' ? 'ویرایش' : 'حذف'} ${label}`,
+      category: kind === 'expense' ? 'transaction' : 'income',
+      entityId: document.id,
+      entityNumber: companyCashNumber(kind, document),
+      entityTitle: document.title,
+      details: `${document.amount} ${document.currency} • ${document.cashRegisterName || companyCashAccountId(document)}`,
+      previousValue: previous
+        ? JSON.stringify(previous)
+        : action === 'delete'
+          ? JSON.stringify(document)
+          : undefined,
+      newValue: action !== 'delete' ? JSON.stringify(document) : undefined,
+    });
+  };
 
-    const numMatch = resolvedExpNumber.match(/(?:Exp|EXP)?[-_]?(\d+)$/i);
-    if (numMatch) {
-      const val = parseInt(numMatch[1], 10);
-      if (!isNaN(val)) issuedExpenseNumbersRef.current = Math.max(issuedExpenseNumbersRef.current, val);
-    }
-
-    const newId = 'exp-' + Date.now();
-    const cat = expenseCategories.find(c => c.id === expData.categoryId);
-    const cashAcc = cashAccounts.find(a => a.id === expData.cashRegisterId);
-
-    const newExp: ExpenseItem = {
-      ...expData,
-      id: newId,
-      expenseNumber: resolvedExpNumber,
-      categoryName: expData.categoryName || cat?.name || 'مصارف عمومی',
-      cashRegisterName: cashAcc?.name || (expData.cashRegisterId === 'usd_cash' ? 'صندوق شرکت دالری' : 'صندوق پولی افغانی'),
+  const createExpense = (
+    data: Omit<ExpenseItem, 'id' | 'createdAt' | 'expenseNumber'> & {
+      expenseNumber?: string;
+    },
+  ): ExpenseItem => {
+    const accountId =
+      data.cashRegisterId || (data.currency === 'USD' ? 'usd_cash' : 'afn_cash');
+    const expense: ExpenseItem = {
+      ...data,
+      recipient: data.recipient || data.payee,
+      payee: data.recipient || data.payee,
+      amount: addInvoiceLedgerAmount(0, data.amount),
+      id: createTradeEntityId('exp'),
+      expenseNumber: data.expenseNumber?.trim() || getNextExpenseNumber(),
+      cashRegisterId: accountId,
+      cashRegisterName: cashAccounts.find((account) => account.id === accountId)
+        ?.name,
+      categoryName:
+        data.categoryName ||
+        expenseCategories.find((category) => category.id === data.categoryId)
+          ?.name ||
+        'مصارف عمومی',
+      createdByName: data.createdByName || currentUser.name,
+      issueTime: data.issueTime || getCurrentTime(),
       createdAt: new Date().toISOString(),
     };
-
-    setExpenses(prev => [newExp, ...prev]);
-
-    // Automatically deduct from cash register
-    const reg = newExp.cashRegisterId || (newExp.currency === 'USD' ? 'usd_cash' : 'afn_cash');
-    setCashRegister(prev => {
-      if (reg === 'afn_cash') return { ...prev, afnBalance: Math.max(0, prev.afnBalance - newExp.amount) };
-      if (reg === 'usd_cash') return { ...prev, usdBalance: Math.max(0, prev.usdBalance - newExp.amount) };
-      if (reg === 'exchange_usd_cash') return { ...prev, exchangeUsdBalance: Math.max(0, (prev.exchangeUsdBalance || 0) - newExp.amount) };
-      return prev;
-    });
-
-    setCashAccounts(prev =>
-      prev.map(acc => {
-        if (acc.id === reg) {
-          return { ...acc, balance: Math.max(0, acc.balance - newExp.amount) };
-        }
-        return acc;
-      })
-    );
-
-    return newExp;
+    assertCompanyCashDocument(expense, 'expense');
+    expensesRef.current = [expense, ...expensesRef.current];
+    setExpenses(expensesRef.current);
+    postCompanyCashChange('expense', undefined, expense);
+    auditCompanyCashChange('expense', 'create', expense);
+    notify('success', 'هزینه ثبت و از صندوق انتخاب‌شده کسر شد', expense.title);
+    return expense;
   };
-
-  const updateExpense = (id: string, expData: Partial<ExpenseItem>) => {
-    const oldExp = expenses.find(e => e.id === id);
-    if (!oldExp) return;
-
-    const updatedExp: ExpenseItem = { ...oldExp, ...expData };
-
-    // Revert old cash deduction and apply new cash deduction
-    const oldReg = oldExp.cashRegisterId || (oldExp.currency === 'USD' ? 'usd_cash' : 'afn_cash');
-    const newReg = updatedExp.cashRegisterId || (updatedExp.currency === 'USD' ? 'usd_cash' : 'afn_cash');
-
-    setCashRegister(prev => {
-      const next = { ...prev };
-      // revert old
-      if (oldReg === 'afn_cash') next.afnBalance = Math.max(0, next.afnBalance + oldExp.amount);
-      else if (oldReg === 'usd_cash') next.usdBalance = Math.max(0, next.usdBalance + oldExp.amount);
-      else if (oldReg === 'exchange_usd_cash') next.exchangeUsdBalance = Math.max(0, (next.exchangeUsdBalance || 0) + oldExp.amount);
-      // apply new
-      if (newReg === 'afn_cash') next.afnBalance = Math.max(0, next.afnBalance - updatedExp.amount);
-      else if (newReg === 'usd_cash') next.usdBalance = Math.max(0, next.usdBalance - updatedExp.amount);
-      else if (newReg === 'exchange_usd_cash') next.exchangeUsdBalance = Math.max(0, (next.exchangeUsdBalance || 0) - updatedExp.amount);
-      return next;
-    });
-
-    setCashAccounts(prev =>
-      prev.map(acc => {
-        let b = acc.balance;
-        if (acc.id === oldReg) b += oldExp.amount;
-        if (acc.id === newReg) b -= updatedExp.amount;
-        return { ...acc, balance: Math.max(0, b) };
-      })
+  const updateExpense = (id: string, data: Partial<ExpenseItem>) => {
+    const previous = expensesRef.current.find((document) => document.id === id);
+    if (!previous) return;
+    const recipient =
+      data.recipient ?? data.payee ?? previous.recipient ?? previous.payee;
+    const updated = {
+      ...previous,
+      ...data,
+      recipient,
+      payee: recipient,
+      amount: addInvoiceLedgerAmount(0, data.amount ?? previous.amount),
+      id,
+      createdAt: previous.createdAt,
+    };
+    updated.cashRegisterId = companyCashAccountId(updated);
+    updated.cashRegisterName = cashAccounts.find(
+      (account) => account.id === updated.cashRegisterId,
+    )?.name;
+    assertCompanyCashDocument(updated, 'expense', id);
+    expensesRef.current = expensesRef.current.map((document) =>
+      document.id === id ? updated : document,
     );
-
-    setExpenses(prev => prev.map(e => (e.id === id ? updatedExp : e)));
+    setExpenses(expensesRef.current);
+    postCompanyCashChange('expense', previous, updated);
+    auditCompanyCashChange('expense', 'update', updated, previous);
+    notify('success', 'سند هزینه و موجودی صندوق اصلاح شد', updated.title);
   };
-
   const deleteExpense = (id: string) => {
-    const oldExp = expenses.find(e => e.id === id);
-    if (oldExp) {
-      const reg = oldExp.cashRegisterId || (oldExp.currency === 'USD' ? 'usd_cash' : 'afn_cash');
-      setCashRegister(prev => {
-        if (reg === 'afn_cash') return { ...prev, afnBalance: prev.afnBalance + oldExp.amount };
-        if (reg === 'usd_cash') return { ...prev, usdBalance: prev.usdBalance + oldExp.amount };
-        if (reg === 'exchange_usd_cash') return { ...prev, exchangeUsdBalance: (prev.exchangeUsdBalance || 0) + oldExp.amount };
-        return prev;
-      });
-      setCashAccounts(prev =>
-        prev.map(acc => {
-          if (acc.id === reg) return { ...acc, balance: acc.balance + oldExp.amount };
-          return acc;
-        })
-      );
-    }
-    setExpenses(prev => prev.filter(e => e.id !== id));
+    const previous = expensesRef.current.find((document) => document.id === id);
+    if (!previous) return;
+    expensesRef.current = expensesRef.current.filter(
+      (document) => document.id !== id,
+    );
+    setExpenses(expensesRef.current);
+    postCompanyCashChange('expense', previous);
+    auditCompanyCashChange('expense', 'delete', previous);
+    notify(
+      'warning',
+      'هزینه حذف و مبلغ آن به همان صندوق برگشت داده شد',
+      previous.title,
+    );
   };
 
   // Incomes & Secondary Revenues CRUD (ثبت و مدیریت عواید، فروش کیسه سیمان، پالت و ...)
-  const getNextIncomeNumber = (): string => {
-    const prefix = 'INC';
-    let maxSequence = 0;
+  const getNextIncomeNumber = (): string =>
+    nextCompanyCashNumber(incomesRef.current, 'income');
 
-    incomes.forEach(inc => {
-      const match = (inc.incomeNumber || '').match(/(?:INC|Inc)?[-_]?(\d+)$/i);
-      if (match) {
-        const val = parseInt(match[1], 10);
-        if (!isNaN(val) && val > maxSequence) {
-          maxSequence = val;
-        }
-      } else {
-        const allDigits = (inc.incomeNumber || '').replace(/\D/g, '');
-        if (allDigits) {
-          const val = parseInt(allDigits.slice(-4), 10);
-          if (!isNaN(val) && val > maxSequence) {
-            maxSequence = val;
-          }
-        }
-      }
-    });
-
-    const nextVal = maxSequence + 1;
-    return `${prefix}-${String(nextVal).padStart(3, '0')}`;
-  };
-
-  const addIncomeCategory = (categoryData: Omit<IncomeCategory, 'id' | 'createdAt'>): IncomeCategory => {
+  const addIncomeCategory = (
+    categoryData: Omit<IncomeCategory, 'id' | 'createdAt'>,
+  ): IncomeCategory => {
     const newCat: IncomeCategory = {
       ...categoryData,
       id: 'inc-cat-' + Date.now(),
       createdAt: new Date().toLocaleDateString('fa-AF'),
     };
-    setIncomeCategories(prev => [...prev, newCat]);
+    setIncomeCategories((prev) => [...prev, newCat]);
     return newCat;
   };
 
-  const updateIncomeCategory = (id: string, categoryData: Partial<IncomeCategory>) => {
-    setIncomeCategories(prev => prev.map(c => (c.id === id ? { ...c, ...categoryData } : c)));
+  const updateIncomeCategory = (
+    id: string,
+    categoryData: Partial<IncomeCategory>,
+  ) => {
+    setIncomeCategories((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, ...categoryData } : c)),
+    );
     if (categoryData.name) {
-      setIncomes(prev =>
-        prev.map(i => (i.categoryId === id ? { ...i, categoryName: categoryData.name! } : i))
+      setIncomes((prev) =>
+        prev.map((i) =>
+          i.categoryId === id ? { ...i, categoryName: categoryData.name! } : i,
+        ),
       );
     }
   };
 
   const deleteIncomeCategory = (id: string) => {
-    setIncomeCategories(prev => prev.filter(c => c.id !== id));
+    setIncomeCategories((prev) => prev.filter((c) => c.id !== id));
   };
 
-  const createIncome = (incomeData: Omit<IncomeItem, 'id' | 'createdAt' | 'incomeNumber'>): IncomeItem => {
-    const newId = 'inc-' + Date.now();
-    const incNum = getNextIncomeNumber();
-    const cat = incomeCategories.find(c => c.id === incomeData.categoryId);
-    const cashAcc = cashAccounts.find(a => a.id === incomeData.cashRegisterId);
-
-    const newIncome: IncomeItem = {
-      ...incomeData,
-      id: newId,
-      incomeNumber: incNum,
-      categoryName: incomeData.categoryName || cat?.name || 'عواید متفرقه',
-      cashRegisterName:
-        cashAcc?.name ||
-        (incomeData.cashRegisterId === 'usd_cash'
-          ? 'صندوق شرکت دالری'
-          : incomeData.cashRegisterId === 'exchange_usd_cash'
-          ? 'صندوق صرافی دالری'
-          : 'صندوق پولی افغانی'),
+  const createIncome = (
+    data: Omit<IncomeItem, 'id' | 'createdAt' | 'incomeNumber'> & {
+      incomeNumber?: string;
+    },
+  ): IncomeItem => {
+    const accountId =
+      data.cashRegisterId || (data.currency === 'USD' ? 'usd_cash' : 'afn_cash');
+    const income: IncomeItem = {
+      ...data,
+      amount: addInvoiceLedgerAmount(0, data.amount),
+      id: createTradeEntityId('inc'),
+      incomeNumber: data.incomeNumber?.trim() || getNextIncomeNumber(),
+      cashRegisterId: accountId,
+      cashRegisterName: cashAccounts.find((account) => account.id === accountId)
+        ?.name,
+      categoryName:
+        data.categoryName ||
+        incomeCategories.find((category) => category.id === data.categoryId)
+          ?.name ||
+        'عواید متفرقه',
+      createdByName: data.createdByName || currentUser.name,
+      issueTime: data.issueTime || getCurrentTime(),
       createdAt: new Date().toISOString(),
     };
-
-    setIncomes(prev => [newIncome, ...prev]);
-
-    // Automatically deposit into cash register and cash accounts
-    const reg = newIncome.cashRegisterId || (newIncome.currency === 'USD' ? 'usd_cash' : 'afn_cash');
-    setCashRegister(prev => {
-      if (reg === 'afn_cash') return { ...prev, afnBalance: prev.afnBalance + newIncome.amount };
-      if (reg === 'usd_cash') return { ...prev, usdBalance: prev.usdBalance + newIncome.amount };
-      if (reg === 'exchange_usd_cash')
-        return { ...prev, exchangeUsdBalance: (prev.exchangeUsdBalance || 0) + newIncome.amount };
-      return prev;
-    });
-
-    setCashAccounts(prev =>
-      prev.map(acc => {
-        if (acc.id === reg) {
-          return { ...acc, balance: acc.balance + newIncome.amount };
-        }
-        return acc;
-      })
-    );
-
-    // Also record a FinancialTransaction for full cash register transparency & ledger visibility
-    const incTx: FinancialTransaction = {
-      id: 'tx-inc-' + newIncome.id,
-      transactionNumber: 'TRX-INC-' + (newIncome.incomeNumber || '').replace(/[^0-9]/g, ''),
-      type: 'receive_payment',
-      date: newIncome.date,
-      amount: newIncome.amount,
-      currency: newIncome.currency,
-      cashRegister: reg,
-      partyName: newIncome.payer || ('عاید شرکت: ' + newIncome.title),
-      description: `ثبت عاید شرکت: ${newIncome.title} (${newIncome.categoryName})` + (newIncome.notes ? ` - ${newIncome.notes}` : ''),
-      createdAt: newIncome.createdAt,
+    assertCompanyCashDocument(income, 'income');
+    incomesRef.current = [income, ...incomesRef.current];
+    setIncomes(incomesRef.current);
+    postCompanyCashChange('income', undefined, income);
+    auditCompanyCashChange('income', 'create', income);
+    notify('success', 'عاید ثبت و به صندوق انتخاب‌شده اضافه شد', income.title);
+    return income;
+  };
+  const updateIncome = (id: string, data: Partial<IncomeItem>) => {
+    const previous = incomesRef.current.find((document) => document.id === id);
+    if (!previous) return;
+    const updated = {
+      ...previous,
+      ...data,
+      amount: addInvoiceLedgerAmount(0, data.amount ?? previous.amount),
+      id,
+      createdAt: previous.createdAt,
     };
-    setTransactions(prev => [incTx, ...prev]);
-
-    // Add Audit Log
-    addAuditLog({
-      action: 'create',
-      actionLabel: 'ثبت عاید شرکت',
-      category: 'income',
-      entityId: newIncome.id,
-      entityNumber: newIncome.incomeNumber,
-      entityTitle: `${newIncome.title} (${newIncome.incomeNumber})`,
-      details: `ثبت عاید جدید شرکت به مبلغ ${newIncome.amount.toLocaleString()} ${newIncome.currency} در ${newIncome.cashRegisterName}`,
-      newValue: JSON.stringify(newIncome, null, 2),
-    });
-
-    notify(
-      'success',
-      'عاید با موفقیت ثبت و به صندوق اضافه شد',
-      `${newIncome.title} • ${newIncome.amount.toLocaleString()} ${newIncome.currency}`
+    updated.cashRegisterId = companyCashAccountId(updated);
+    updated.cashRegisterName = cashAccounts.find(
+      (account) => account.id === updated.cashRegisterId,
+    )?.name;
+    assertCompanyCashDocument(updated, 'income', id);
+    incomesRef.current = incomesRef.current.map((document) =>
+      document.id === id ? updated : document,
     );
-
-    return newIncome;
+    setIncomes(incomesRef.current);
+    postCompanyCashChange('income', previous, updated);
+    auditCompanyCashChange('income', 'update', updated, previous);
+    notify('success', 'سند عاید و موجودی صندوق اصلاح شد', updated.title);
   };
-
-  const updateIncome = (id: string, incData: Partial<IncomeItem>) => {
-    const oldInc = incomes.find(i => i.id === id);
-    if (!oldInc) return;
-
-    const updatedInc: IncomeItem = { ...oldInc, ...incData };
-
-    // Revert old cash addition and apply new cash addition
-    const oldReg = oldInc.cashRegisterId || (oldInc.currency === 'USD' ? 'usd_cash' : 'afn_cash');
-    const newReg = updatedInc.cashRegisterId || (updatedInc.currency === 'USD' ? 'usd_cash' : 'afn_cash');
-
-    setCashRegister(prev => {
-      const next = { ...prev };
-      // revert old addition
-      if (oldReg === 'afn_cash') next.afnBalance = Math.max(0, next.afnBalance - oldInc.amount);
-      else if (oldReg === 'usd_cash') next.usdBalance = Math.max(0, next.usdBalance - oldInc.amount);
-      else if (oldReg === 'exchange_usd_cash')
-        next.exchangeUsdBalance = Math.max(0, (next.exchangeUsdBalance || 0) - oldInc.amount);
-
-      // apply new addition
-      if (newReg === 'afn_cash') next.afnBalance += updatedInc.amount;
-      else if (newReg === 'usd_cash') next.usdBalance += updatedInc.amount;
-      else if (newReg === 'exchange_usd_cash')
-        next.exchangeUsdBalance = (next.exchangeUsdBalance || 0) + updatedInc.amount;
-
-      return next;
-    });
-
-    setCashAccounts(prev =>
-      prev.map(acc => {
-        let b = acc.balance;
-        if (acc.id === oldReg) b -= oldInc.amount;
-        if (acc.id === newReg) b += updatedInc.amount;
-        return { ...acc, balance: Math.max(0, b) };
-      })
-    );
-
-    // Update synced transaction
-    setTransactions(prev =>
-      prev.map(t => {
-        if (t.id === 'tx-inc-' + id) {
-          return {
-            ...t,
-            date: updatedInc.date,
-            amount: updatedInc.amount,
-            currency: updatedInc.currency,
-            cashRegister: newReg,
-            partyName: updatedInc.payer || ('عاید شرکت: ' + updatedInc.title),
-            description: `ثبت عاید شرکت: ${updatedInc.title} (${updatedInc.categoryName})` + (updatedInc.notes ? ` - ${updatedInc.notes}` : ''),
-          };
-        }
-        return t;
-      })
-    );
-
-    setIncomes(prev => prev.map(i => (i.id === id ? updatedInc : i)));
-
-    // Add Audit Log
-    addAuditLog({
-      action: 'update',
-      actionLabel: 'ویرایش عاید شرکت',
-      category: 'income',
-      entityId: id,
-      entityNumber: updatedInc.incomeNumber,
-      entityTitle: `${updatedInc.title} (${updatedInc.incomeNumber})`,
-      details: `ویرایش عاید شماره #${updatedInc.incomeNumber}. مبلغ قبل: ${oldInc.amount.toLocaleString()} ${oldInc.currency} -> مبلغ جدید: ${updatedInc.amount.toLocaleString()} ${updatedInc.currency}`,
-      previousValue: JSON.stringify(oldInc, null, 2),
-      newValue: JSON.stringify(updatedInc, null, 2),
-    });
-
-    notify('success', 'عاید با موفقیت اصلاح شد', updatedInc.title);
-  };
-
   const deleteIncome = (id: string) => {
-    const oldInc = incomes.find(i => i.id === id);
-    if (oldInc) {
-      addAuditLog({
-        action: 'delete',
-        actionLabel: 'حذف عاید شرکت',
-        category: 'income',
-        entityId: id,
-        entityNumber: oldInc.incomeNumber,
-        entityTitle: `${oldInc.title} (${oldInc.incomeNumber})`,
-        details: `حذف عاید شماره #${oldInc.incomeNumber} به مبلغ ${oldInc.amount.toLocaleString()} ${oldInc.currency} و کسر خودکار از موجودی صندوق`,
-        previousValue: JSON.stringify(oldInc, null, 2),
-      });
-
-      notify('warning', 'عاید از سیستم حذف شد', `${oldInc.title} (${oldInc.incomeNumber})`);
-
-      const reg = oldInc.cashRegisterId || (oldInc.currency === 'USD' ? 'usd_cash' : 'afn_cash');
-      setCashRegister(prev => {
-        if (reg === 'afn_cash') return { ...prev, afnBalance: Math.max(0, prev.afnBalance - oldInc.amount) };
-        if (reg === 'usd_cash') return { ...prev, usdBalance: Math.max(0, prev.usdBalance - oldInc.amount) };
-        if (reg === 'exchange_usd_cash')
-          return { ...prev, exchangeUsdBalance: Math.max(0, (prev.exchangeUsdBalance || 0) - oldInc.amount) };
-        return prev;
-      });
-      setCashAccounts(prev =>
-        prev.map(acc => {
-          if (acc.id === reg) return { ...acc, balance: Math.max(0, acc.balance - oldInc.amount) };
-          return acc;
-        })
-      );
-      // Remove synced transaction
-      setTransactions(prev => prev.filter(t => t.id !== 'tx-inc-' + id));
-    }
-    setIncomes(prev => prev.filter(i => i.id !== id));
+    const previous = incomesRef.current.find((document) => document.id === id);
+    if (!previous) return;
+    incomesRef.current = incomesRef.current.filter(
+      (document) => document.id !== id,
+    );
+    setIncomes(incomesRef.current);
+    postCompanyCashChange('income', previous);
+    auditCompanyCashChange('income', 'delete', previous);
+    notify(
+      'warning',
+      'عاید حذف و اثر آن از همان صندوق برگردانده شد',
+      previous.title,
+    );
   };
 
   // Warehouses CRUD
@@ -3649,12 +2928,7 @@ export const AccountingProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     if (!foundUser) {
       return { success: false, message: 'کاربری با این نام کاربری یافت نشد.' };
     }
-    const expectedPassword = foundUser.password || '123';
-    const isMatchingPassword =
-      passwordAttempt.trim() === expectedPassword.trim() ||
-      passwordAttempt.trim() === 'admin@123' ||
-      passwordAttempt.trim() === '123' ||
-      passwordAttempt.trim() === 'admin';
+    const isMatchingPassword = matchesUserPassword(foundUser.password, passwordAttempt);
 
     if (!isMatchingPassword) {
       return { success: false, message: 'رمز عبور وارد شده نادرست است.' };

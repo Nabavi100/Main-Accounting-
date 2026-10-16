@@ -1,3 +1,6 @@
+import { CloseButton } from './CloseButton';
+import { usePageReport } from './PageActionsToolbar';
+import { tableReport } from '../utils/reportData';
 import React, { useState, useEffect } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import { Product, ProductCategory } from '../types';
@@ -321,6 +324,16 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onViewInvoice }) => 
     return true;
   });
 
+  usePageReport({
+    title: 'لیست کالاها و موجودی', onCreate: openAddModal, createLabel: 'ایجاد کالای جدید',
+    search: { value: searchQuery, onChange: setSearchQuery, placeholder: "جستجوی کالا یا گروه..." },
+    filters: [
+      { id: 'category', label: 'گروه کالا', value: selectedCategoryFilter, onChange: setSelectedCategoryFilter, options: [{ value: 'all', label: 'همه گروه‌ها' }, ...productCategories.map(category => ({ value: category.id, label: category.name }))] },
+      { id: 'stock', label: 'وضعیت موجودی', value: stockFilter, onChange: value => setStockFilter(value as typeof stockFilter), options: [{ value: 'all', label: 'همه' }, { value: 'low', label: 'کم / ناموجود' }, { value: 'ok', label: 'موجودی کافی' }] },
+    ],
+    getReport: () => tableReport('لیست کالاها و موجودی', ['کد', 'نام کالا', 'گروه', 'موجودی تن', 'موجودی کیسه', 'قیمت خرید AFN / تن', 'قیمت خرید USD / تن', 'قیمت فروش AFN / تن', 'قیمت فروش USD / تن'], filteredProducts.map(({ product, stock }) => [product.code, product.name, product.category, stock.tons, stock.bags, product.buyPriceAFN, product.buyPriceUSD, product.sellPriceAFN, product.sellPriceUSD])),
+  });
+
   return (
     <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto overflow-y-auto">
       {/* Top Header & Actions */}
@@ -336,16 +349,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onViewInvoice }) => 
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
-          <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="جستجوی کالا یا گروه..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              className="pl-3 pr-9 py-2 bg-white border border-slate-200 rounded-xl text-xs w-52 md:w-60 outline-none focus:border-emerald-500"
-            />
-          </div>
+
 
           {/* Warehouse Filter */}
           <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs">
@@ -441,7 +445,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onViewInvoice }) => 
 
         {/* کارت‌های تعداد باقیمانده هر گروه در زیر جمله */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2.5">
-          <button
+          <button aria-pressed={selectedCategoryFilter === 'all'}
             type="button"
             onClick={() => setSelectedCategoryFilter('all')}
             className={`p-3 rounded-xl border text-right transition cursor-pointer flex flex-col justify-between ${
@@ -466,7 +470,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onViewInvoice }) => 
             const isSelected = selectedCategoryFilter === cat.name;
             const isZero = cat.totalTons <= 0;
             return (
-              <button
+              <button aria-pressed={isSelected}
                 type="button"
                 key={cat.name}
                 id={`product-cat-card-${cat.name.replace(/\s+/g, '-')}`}
@@ -521,7 +525,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onViewInvoice }) => 
           </span>
         </div>
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-          <button
+          <button aria-pressed={selectedCategoryFilter === 'all'}
             onClick={() => setSelectedCategoryFilter('all')}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer ${
               selectedCategoryFilter === 'all'
@@ -534,7 +538,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onViewInvoice }) => 
           {categoryStockSummary.map(cat => {
             const isSelected = selectedCategoryFilter === cat.name;
             return (
-              <button
+              <button aria-pressed={isSelected}
                 key={cat.name}
                 onClick={() => setSelectedCategoryFilter(isSelected ? 'all' : cat.name)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
@@ -574,7 +578,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onViewInvoice }) => 
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button
+            <button aria-pressed={stockFilter === 'low'}
               onClick={() => setStockFilter(stockFilter === 'low' ? 'all' : 'low')}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-2xs ${
                 stockFilter === 'low'
@@ -591,7 +595,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onViewInvoice }) => 
 
       {/* Status Filter Tabs */}
       <div className="flex items-center gap-2">
-        <button
+        <button aria-pressed={stockFilter === 'all'}
           onClick={() => setStockFilter('all')}
           className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer ${
             stockFilter === 'all'
@@ -601,7 +605,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onViewInvoice }) => 
         >
           همه وضعیت‌ها ({products.length})
         </button>
-        <button
+        <button aria-pressed={stockFilter === 'low'}
           onClick={() => setStockFilter('low')}
           className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
             stockFilter === 'low'
@@ -612,7 +616,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onViewInvoice }) => 
           <AlertTriangle className="w-3.5 h-3.5" />
           <span>نیازمند سفارش / هشدار کسری ({lowStockItems.length})</span>
         </button>
-        <button
+        <button aria-pressed={stockFilter === 'ok'}
           onClick={() => setStockFilter('ok')}
           className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
             stockFilter === 'ok'
@@ -775,20 +779,15 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onViewInvoice }) => 
             className="bg-white rounded-3xl max-w-xl w-full max-h-[92vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
           >
             {/* Sticky Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-white shrink-0">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-white shrink-0 app-modal-heading">
               <h3 className="text-base font-bold text-slate-900">
                 {editingProduct ? 'ویرایش اطلاعات کالا' : 'تعریف کالای جدید'}
               </h3>
-              <button
-                id="product-form-modal-close-btn"
+              <CloseButton id="product-form-modal-close-btn"
                 type="button"
                 onClick={() => setIsAddModalOpen(false)}
                 className="px-3 py-1 bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 rounded-xl transition border border-slate-200 hover:border-rose-200 cursor-pointer flex items-center gap-1 text-xs font-bold shrink-0 shadow-2xs"
-                title="بستن فرم (ESC)"
-              >
-                <X className="w-4 h-4" />
-                <span>بستن (ESC)</span>
-              </button>
+                title="بستن فرم (ESC)" />
             </div>
 
             {/* Scrollable Form Content */}
@@ -1023,7 +1022,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onViewInvoice }) => 
       {isCategoryModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-2xl border border-slate-200 space-y-5 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 app-modal-heading">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center">
                   <Layers className="w-4 h-4 text-emerald-700" />
@@ -1033,13 +1032,9 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onViewInvoice }) => 
                   <p className="text-[11px] text-slate-500">تعریف گروه‌های سیمان، گچ، پودر سنگ و سایر مصالح</p>
                 </div>
               </div>
-              <button
-                type="button"
+              <CloseButton type="button"
                 onClick={() => setIsCategoryModalOpen(false)}
-                className="px-3 py-1 bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 rounded-xl transition border border-slate-200 text-xs font-bold shrink-0 cursor-pointer"
-              >
-                <X className="w-4 h-4" />
-              </button>
+                className="px-3 py-1 bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 rounded-xl transition border border-slate-200 text-xs font-bold shrink-0 cursor-pointer" />
             </div>
 
             {/* Quick Add Form */}
@@ -1161,7 +1156,7 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onViewInvoice }) => 
       {(selectedProductForSales || isGlobalSalesAnalysisOpen) && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 z-50 animate-in fade-in duration-200">
           <div className="bg-slate-50 rounded-3xl w-full max-w-6xl max-h-[92vh] overflow-hidden shadow-2xl flex flex-col border border-slate-200">
-            <div className="p-4 bg-white border-b border-slate-200 flex items-center justify-between shrink-0">
+            <div className="p-4 bg-white border-b border-slate-200 flex items-center justify-between shrink-0 app-modal-heading">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-2xl bg-rose-600 text-white flex items-center justify-center font-bold shadow-xs">
                   <BarChart2 className="w-5 h-5" />
@@ -1179,17 +1174,13 @@ export const ProductsView: React.FC<ProductsViewProps> = ({ onViewInvoice }) => 
                   </p>
                 </div>
               </div>
-              <button
-                type="button"
+              <CloseButton type="button"
                 onClick={() => {
                   setSelectedProductForSales(null);
                   setIsGlobalSalesAnalysisOpen(false);
                 }}
                 className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 cursor-pointer transition"
-                title="بستن پنجره"
-              >
-                <X className="w-5 h-5" />
-              </button>
+                title="بستن پنجره" />
             </div>
             <div className="flex-1 overflow-y-auto p-4 sm:p-6">
               <ProductSalesAnalysis

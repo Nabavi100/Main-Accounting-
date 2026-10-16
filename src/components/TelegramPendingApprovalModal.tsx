@@ -1,3 +1,4 @@
+import { CloseButton } from './CloseButton';
 import React, { useState, useEffect } from 'react';
 import { useAccounting } from '../context/AccountingContext';
 import {
@@ -138,7 +139,7 @@ export const TelegramPendingApprovalModal: React.FC<TelegramPendingApprovalModal
     >
       <div className="w-full max-w-3xl bg-white rounded-3xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="p-4 sm:p-5 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white flex items-center justify-between shrink-0 relative">
+        <div className="p-4 sm:p-5 bg-gradient-to-r from-slate-900 via-slate-800 to-indigo-950 text-white flex items-center justify-between shrink-0 relative app-modal-heading">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-2xl bg-amber-500/20 border border-amber-400/30 flex items-center justify-center text-amber-300 shadow-inner">
               <Bell className="w-6 h-6 animate-bounce" />
@@ -168,14 +169,10 @@ export const TelegramPendingApprovalModal: React.FC<TelegramPendingApprovalModal
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
             </button>
-            <button
-              type="button"
+            <CloseButton type="button"
               onClick={onClose}
               className="p-2 rounded-xl bg-white/10 hover:bg-rose-600 text-white transition cursor-pointer"
-              title="بستن (ESC)"
-            >
-              <X className="w-4 h-4" />
-            </button>
+              title="بستن (ESC)" />
           </div>
         </div>
 
@@ -353,13 +350,9 @@ export const TelegramPendingApprovalModal: React.FC<TelegramPendingApprovalModal
             <span>به محض تایید، صورت‌حساب اختصاصی مشتری فوراً در تلگرام برای وی ارسال می‌شود.</span>
           </div>
 
-          <button
-            type="button"
+          <CloseButton type="button"
             onClick={onClose}
-            className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-bold transition cursor-pointer"
-          >
-            بستن
-          </button>
+            className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-bold transition cursor-pointer" variant="outline" label="بستن" aria-label="بستن" />
         </div>
       </div>
     </div>
