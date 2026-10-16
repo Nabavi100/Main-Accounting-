@@ -30,21 +30,21 @@ jobs:
       - name: Install locked dependencies
         run: npm ci --ignore-scripts
       - name: Download and verify official Electron runtime
-        run: node node_modules/electron/install.js
+        run: node scripts/ci-node.mjs node_modules/electron/install.js
       - name: Type check
-        run: npm run lint
+        run: node scripts/ci-node.mjs node_modules/typescript/bin/tsc --noEmit
       - name: Unit tests
-        run: npm test
+        run: node scripts/ci-node.mjs --import tsx --test "tests/*.test.ts"
       - name: Build the complete production app and bundled backend
-        run: npm run desktop:prepare
+        run: node scripts/ci-node.mjs scripts/prepare-desktop.mjs
       - name: Test native app, real PDF/XLSX saves and data persistence
-        run: npm run test:desktop
+        run: node scripts/ci-node.mjs tests/desktop-browser-smoke.cjs
       - name: Create complete offline NSIS installer
-        run: npx electron-builder --config desktop/electron-builder.cjs --win nsis --x64 --publish never
+        run: node scripts/ci-node.mjs node_modules/electron-builder/cli.js --config desktop/electron-builder.cjs --win nsis --x64 --publish never
       - name: Prepare installer, checksum and Persian instructions
-        run: node scripts/finalize-desktop.mjs
+        run: node scripts/ci-node.mjs scripts/finalize-desktop.mjs
       - name: Install and launch the actual packaged executable
-        run: node tests/installed-desktop-browser-smoke.cjs
+        run: node scripts/ci-node.mjs tests/installed-desktop-browser-smoke.cjs
       - name: Upload review installer
         uses: actions/upload-artifact@v4
         with:
