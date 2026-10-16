@@ -1,12 +1,14 @@
 'use strict';
 const path = require('node:path');
+const root = path.join(__dirname, '..');
+const assets = path.join(__dirname, 'assets');
 
 module.exports = {
   appId: 'af.nabavi.accounting',
   productName: 'Nabavi Accounting',
   electronVersion: '44.8.0',
   ...(process.platform === 'win32' ? { electronDist: path.join(__dirname, '..', 'node_modules', 'electron', 'dist') } : {}),
-  directories: { app: 'out/desktop-app', output: 'out/desktop-build', buildResources: 'desktop/assets' },
+  directories: { app: path.join(root, 'out', 'desktop-app'), output: path.join(root, 'out', 'desktop-build'), buildResources: assets },
   files: ['package.json', 'dist/**/*', 'desktop/**/*', '!**/*.map'],
   asar: true,
   npmRebuild: false,
@@ -21,7 +23,7 @@ module.exports = {
   },
   win: {
     target: [{ target: 'nsis', arch: ['x64'] }],
-    icon: 'desktop/assets/icon.ico',
+    icon: path.join(assets, 'icon.ico'),
     // Cross-platform resource editing is performed with resedit in afterPack.
     signAndEditExecutable: false,
     requestedExecutionLevel: 'asInvoker',
@@ -43,10 +45,10 @@ module.exports = {
     differentialPackage: false,
     displayLanguageSelector: true,
     installerLanguages: ['fa_IR', 'en_US'],
-    installerIcon: 'desktop/assets/icon.ico',
-    uninstallerIcon: 'desktop/assets/icon.ico',
-    installerSidebar: 'desktop/assets/installer-sidebar.bmp',
-    uninstallerSidebar: 'desktop/assets/installer-sidebar.bmp',
+    installerIcon: path.join(assets, 'icon.ico'),
+    uninstallerIcon: path.join(assets, 'icon.ico'),
+    installerSidebar: path.join(assets, 'installer-sidebar.bmp'),
+    uninstallerSidebar: path.join(assets, 'installer-sidebar.bmp'),
   },
   afterPack: path.join(__dirname, 'after-pack.cjs'),
 };

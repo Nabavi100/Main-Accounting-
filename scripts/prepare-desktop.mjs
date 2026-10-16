@@ -32,6 +32,12 @@ await fs.writeFile(path.join(staging, 'package.json'), JSON.stringify({
   name: 'nabavi-accounting-desktop', version: pkg.version,
   description: 'Nabavi Accounting — Windows desktop review edition',
   author: 'شرکت تجارتی برادران نبوی', license: 'UNLICENSED',
-  main: 'desktop/main.cjs', private: true,
+  main: 'desktop/main.cjs', private: true, dependencies: {},
+}, null, 2) + '\n');
+// An explicit empty app lock identifies this isolated bundle as its own npm
+// project. All runtime modules are compiled into server.cjs and dist/ already.
+await fs.writeFile(path.join(staging, 'package-lock.json'), JSON.stringify({
+  name: 'nabavi-accounting-desktop', version: pkg.version, lockfileVersion: 3,
+  requires: true, packages: { '': { name: 'nabavi-accounting-desktop', version: pkg.version, dependencies: {} } },
 }, null, 2) + '\n');
 console.log(`Desktop prepared: ${staging}\nOnly the compiled app, bundled local service and public assets are staged; no .env, server_data, test data or source credentials.`);

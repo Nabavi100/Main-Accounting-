@@ -40,7 +40,7 @@ jobs:
       - name: Test native app, real PDF/XLSX saves and data persistence
         run: node scripts/ci-node.mjs tests/desktop-browser-smoke.cjs
       - name: Create complete offline NSIS installer
-        run: node scripts/ci-node.mjs node_modules/electron-builder/cli.js --config desktop/electron-builder.cjs --win nsis --x64 --publish never
+        run: node scripts/ci-node.mjs scripts/build-desktop.mjs
       - name: Prepare installer, checksum and Persian instructions
         run: node scripts/ci-node.mjs scripts/finalize-desktop.mjs
       - name: Install and launch the actual packaged executable

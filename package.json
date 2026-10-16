@@ -26,8 +26,8 @@
     "test:smart-documents": "node tests/smart-documents-browser-smoke.cjs",
     "desktop:prepare": "node scripts/prepare-desktop.mjs",
     "desktop:dev": "npm run desktop:prepare && electron out/desktop-app",
-    "desktop:installer": "npm run desktop:prepare && electron-builder --config desktop/electron-builder.cjs --win nsis --x64 --publish never && node scripts/finalize-desktop.mjs",
-    "desktop:pack": "npm run desktop:prepare && electron-builder --config desktop/electron-builder.cjs --win --x64 --dir --publish never",
+    "desktop:installer": "npm run desktop:prepare && node scripts/build-desktop.mjs && node scripts/finalize-desktop.mjs",
+    "desktop:pack": "npm run desktop:prepare && node scripts/build-desktop.mjs --dir",
     "test:desktop": "node tests/desktop-browser-smoke.cjs"
   },
   "dependencies": {
