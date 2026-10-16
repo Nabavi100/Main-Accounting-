@@ -43,8 +43,10 @@ module.exports = {
     deleteAppDataOnUninstall: false,
     runAfterFinish: true,
     differentialPackage: false,
-    displayLanguageSelector: true,
-    installerLanguages: ['fa_IR', 'en_US'],
+    // The pinned NSIS compiler omits Persian.nlf. Keep its supported English
+    // wizard; the complete app, shortcuts, reports and bundled guide stay Persian.
+    displayLanguageSelector: false,
+    installerLanguages: ['en_US'],
     installerIcon: path.join(assets, 'icon.ico'),
     uninstallerIcon: path.join(assets, 'icon.ico'),
     installerSidebar: path.join(assets, 'installer-sidebar.bmp'),
