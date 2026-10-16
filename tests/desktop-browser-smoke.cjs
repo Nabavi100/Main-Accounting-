@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { _electron: electron } = require('playwright');
+const { setTimeout: delay } = require('node:timers/promises');
 const ExcelJS = require('exceljs');
 const { APP_ORIGIN } = require('../desktop/runtime.cjs');
 const root = path.resolve(__dirname, '..');
@@ -19,6 +20,15 @@ async function launch() {
     args: [path.join(root, 'out', 'desktop-app'), ...(process.platform === 'linux' ? ['--no-sandbox', '--ozone-platform=headless'] : [])],
     env: { ...process.env, NABAVI_DESKTOP_TEST_PROFILE: profile, NABAVI_DESKTOP_TEST_DOWNLOAD_DIR: artifacts },
     timeout: 45000,
+  });
+  await application.evaluate(({ session, app }) => {
+    globalThis.__nabaviNativeDownloads = [];
+    session.defaultSession.on('will-download', (_event, item) => {
+      const record = { name: item.getFilename(), path: item.getSavePath(), state: 'progressing' };
+      globalThis.__nabaviNativeDownloads.push(record);
+      item.once('done', (_event, state) => { record.state = state; record.path = item.getSavePath(); });
+    });
+    if (app.isPackaged) throw new Error('Native source smoke must use the unpackaged runtime and its isolated test profile');
   });
   const context = application.context();
   await context.route('**/*', route => {
@@ -42,15 +52,25 @@ async function navigate(page, text, key) {
   await page.waitForFunction(key => document.querySelector('[data-workspace-page]')?.getAttribute('data-workspace-page') === key, key);
 }
 async function exportFile(page, kind) {
-  const pending = page.waitForEvent('download', { timeout: 60000 });
+  // Electron saves through Session's native DownloadItem; Playwright's browser
+  // download event is not emitted consistently for these owned native saves.
+  const previous = await application.evaluate(() => globalThis.__nabaviNativeDownloads.length);
   await page.locator(`[data-page-actions] .is-${kind}`).click();
-  const download = await pending;
-  assert.equal(await download.failure(), null);
-  // The native host, not the browser test, chooses this test-only save directory.
-  const name = download.suggestedFilename();
-  const location = path.join(artifacts, name);
-  assert.ok(fs.existsSync(location), `Native save handler did not save ${name}`);
-  return fs.readFileSync(location);
+  const deadline = Date.now() + 60000;
+  while (Date.now() < deadline) {
+    const records = await application.evaluate(() => globalThis.__nabaviNativeDownloads);
+    const item = records[previous];
+    if (item && item.state !== 'progressing') {
+      assert.equal(item.state, 'completed', JSON.stringify(item));
+      assert.equal(path.resolve(path.dirname(item.path)).toLowerCase(), path.resolve(artifacts).toLowerCase());
+      assert.ok(fs.existsSync(item.path), `Native save handler did not save ${item.name}`);
+      return fs.readFileSync(item.path);
+    }
+    const error = await page.locator('.page-actions-error').allTextContents();
+    if (error.some(Boolean)) throw new Error(`Native ${kind} export: ${error.join(' ')}`);
+    await delay(150);
+  }
+  throw new Error(`Native ${kind} save timed out; records: ${JSON.stringify(await application.evaluate(() => globalThis.__nabaviNativeDownloads))}`);
 }
 
 (async () => {

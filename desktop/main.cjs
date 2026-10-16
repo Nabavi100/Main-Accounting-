@@ -43,8 +43,9 @@ async function openExternal(value) {
 
 function secureWindow(window, authPopup = false) {
   const contents = window.webContents;
-  if (!authPopup) trustedContents.add(contents.id);
-  contents.once('destroyed', () => trustedContents.delete(contents.id));
+  const contentsId = contents.id;
+  if (!authPopup) trustedContents.add(contentsId);
+  contents.once('destroyed', () => trustedContents.delete(contentsId));
   contents.on('will-attach-webview', event => event.preventDefault());
   const guard = (event, value) => {
     if (isAppUrl(value)) { trustedContents.add(contents.id); return; }
